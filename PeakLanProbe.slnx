@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PeakLanProbe/PeakLanProbe.csproj" />
+  </Folder>
+</Solution>
