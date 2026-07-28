@@ -238,3 +238,5 @@ Decompiled/
 BepInEx/
 captures/
 *.pcapng
+
+server/

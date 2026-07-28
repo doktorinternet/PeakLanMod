@@ -2,6 +2,7 @@ using BepInEx;
 using BepInEx.Logging;
 using Photon.Pun;
 using Photon.Realtime;
+using ExitGames.Client.Photon;
 using HarmonyLib;
 using BepInEx.Configuration;
 using Zorro.Core;
@@ -9,6 +10,7 @@ using System;
 using UnityEngine;
 using System.Text;
 using System.Security.Cryptography;
+using System.Reflection;
 namespace PeakLanProbe;
 
 // Here are some basic resources on code style and naming conventions to help
@@ -30,6 +32,12 @@ namespace PeakLanProbe;
     PluginVersion)]
 public sealed class Plugin : BaseUnityPlugin
 {
+    internal enum PhotonConnectionMode
+    {
+        CustomCloud,
+        LocalPhotonServer
+    }
+
     public const string PluginGuid = "AntonWahlberg.PeakLanProbe";
     public const string PluginName = "PEAK LAN Probe";
     public const string PluginVersion = "0.1.0";
@@ -130,8 +138,6 @@ public sealed class Plugin : BaseUnityPlugin
     private ConfigEntry<string> _region = null!;
     private ConfigEntry<KeyboardShortcut> _hostKey = null!;
     private ConfigEntry<KeyboardShortcut> _joinKey = null!;
-    private ConfigEntry<string> _appIdRealtime = null!;
-    private ConfigEntry<string> _appIdVoice = null!;
 
     private void ConfigureDirectConnect()
     {
@@ -153,18 +159,6 @@ public sealed class Plugin : BaseUnityPlugin
             "eu",
             "Photon Cloud region.");
 
-        _appIdRealtime = Config.Bind(
-            "Photon",
-            "AppIdRealtime",
-            string.Empty,
-            "Custom Photon PUN application ID.");
-
-        _appIdVoice = Config.Bind(
-            "Photon",
-            "AppIdVoice",
-            string.Empty,
-            "Custom Photon Voice application ID.");
-
         _hostKey = Config.Bind(
             "Direct Connect",
             "HostKey",
@@ -177,6 +171,12 @@ public sealed class Plugin : BaseUnityPlugin
             new KeyboardShortcut(KeyCode.F7),
             "Start direct join.");
 
+        PhotonMode = Config.Bind(
+            "Photon",
+            "Mode",
+            PhotonConnectionMode.CustomCloud,
+            "Photon endpoint mode: CustomCloud (baseline) or LocalPhotonServer.");
+
         AppIdRealtime = Config.Bind(
             "Photon",
             "AppIdRealtime",
@@ -188,10 +188,81 @@ public sealed class Plugin : BaseUnityPlugin
             "AppIdVoice",
             string.Empty,
             "Custom Photon Voice application ID.");
+
+        LocalServerAddress = Config.Bind(
+            "Photon",
+            "LocalServerAddress",
+            "127.0.0.1",
+            "Local Photon Server hostname or IP.");
+
+        LocalServerPort = Config.Bind(
+            "Photon",
+            "LocalServerPort",
+            5055,
+            "Local Photon Server UDP/TCP port.");
+
+        LocalServerProtocol = Config.Bind(
+            "Photon",
+            "LocalServerProtocol",
+            ConnectionProtocol.Udp,
+            "Photon transport protocol for local server mode.");
+
+        ShowLocalServerStatusUi = Config.Bind(
+            "Photon",
+            "ShowLocalServerStatusUI",
+            true,
+            "Show in-game local server reachability notifications in LocalPhotonServer mode.");
+
+        StatusUiMinIntervalSeconds = Config.Bind(
+            "Photon",
+            "StatusUIMinIntervalSeconds",
+            5,
+            "Minimum seconds between local server status notifications.");
+
+        ShowStatusOverlayFallback = Config.Bind(
+            "Photon",
+            "ShowStatusOverlayFallback",
+            true,
+            "Show a simple on-screen status overlay when scene UI notifications are unavailable.");
+    }
+
+    private void OnGUI()
+    {
+        if (!IsLocalPhotonServerMode)
+        {
+            return;
+        }
+
+        if (!ShowStatusOverlayFallback.Value)
+        {
+            return;
+        }
+
+        if (PhotonNetwork.InLobby || PhotonNetwork.InRoom)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_overlayStatusMessage))
+        {
+            return;
+        }
+
+        var rect = new Rect(
+            16f,
+            16f,
+            980f,
+            32f);
+
+        GUI.Label(
+            rect,
+            _overlayStatusMessage);
     }
 
     private void StartDirectHost()
     {
+        EnsureOnlineModeForDirectConnect("StartDirectHost");
+
         if (!CanStartDirectConnection())
         {
             return;
@@ -219,6 +290,8 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void StartDirectJoin()
     {
+        EnsureOnlineModeForDirectConnect("StartDirectJoin");
+
         if (!CanStartDirectConnection())
         {
             return;
@@ -258,6 +331,16 @@ public sealed class Plugin : BaseUnityPlugin
                 $"Current state: " +
                 $"{PhotonNetwork.NetworkClientState}");
 
+            if (!PhotonNetwork.IsConnected
+                && PhotonNetwork.NetworkClientState == ClientState.Disconnected)
+            {
+                Logger.LogInfo(
+                    "Attempting Photon reconnect via NetworkingUtilities.ConnectToNetwork(). " +
+                    "Press the host/join key again after connected-to-master.");
+
+                Peak.Network.NetworkingUtilities.ConnectToNetwork();
+            }
+
             return false;
         }
 
@@ -270,6 +353,27 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         return true;
+    }
+
+    private static void EnsureOnlineModeForDirectConnect(
+        string source)
+    {
+        if (!PhotonNetwork.OfflineMode)
+        {
+            Log.LogInfo(
+                $"{source}: OfflineMode is false.");
+
+            return;
+        }
+
+        Log.LogWarning(
+            $"{source}: OfflineMode was true before direct connect. " +
+            "Forcing OfflineMode=false.");
+
+        PhotonNetwork.OfflineMode = false;
+
+        Log.LogInfo(
+            $"{source}: OfflineMode after force={PhotonNetwork.OfflineMode}.");
     }
 
     private static string NormalizeRoomName(
@@ -302,10 +406,316 @@ public sealed class Plugin : BaseUnityPlugin
                 yieldForCharacterSpawn: true));
     }
 
+    internal static ConfigEntry<PhotonConnectionMode> PhotonMode = null!;
     internal static ConfigEntry<string> AppIdRealtime = null!;
     internal static ConfigEntry<string> AppIdVoice = null!;
+    internal static ConfigEntry<string> LocalServerAddress = null!;
+    internal static ConfigEntry<int> LocalServerPort = null!;
+    internal static ConfigEntry<ConnectionProtocol> LocalServerProtocol = null!;
+    internal static ConfigEntry<bool> ShowLocalServerStatusUi = null!;
+    internal static ConfigEntry<int> StatusUiMinIntervalSeconds = null!;
+    internal static ConfigEntry<bool> ShowStatusOverlayFallback = null!;
 
-    internal static void ApplyCustomPhotonSettings()
+    private static float _lastStatusUiAt = -999f;
+    private static string _overlayStatusMessage = string.Empty;
+    private static bool _uiTypeMissingLogged;
+    private static bool _uiMethodMissingLogged;
+    private static bool _fallbackTypeMissingLogged;
+    private static bool _fallbackMethodMissingLogged;
+    private static string _lastUiUnavailableScene = string.Empty;
+    private static Type? _notificationsType;
+    private static MethodInfo? _addNotificationMethod;
+    private static Type? _playerConnectionLogType;
+    private static MethodInfo? _addConnectionLogMessageMethod;
+
+    internal static bool IsLocalPhotonServerMode =>
+        PhotonMode.Value == PhotonConnectionMode.LocalPhotonServer;
+
+    internal static void ApplyConfiguredPhotonSettings()
+    {
+        PhotonConnectionMode mode = PhotonMode.Value;
+
+        var settings = PhotonNetwork.PhotonServerSettings.AppSettings;
+
+        switch (mode)
+        {
+            case PhotonConnectionMode.CustomCloud:
+                ApplyCustomCloudSettings(settings);
+                return;
+
+            case PhotonConnectionMode.LocalPhotonServer:
+                ApplyLocalServerSettings(settings);
+                return;
+
+            default:
+                Log.LogError(
+                    $"Unknown Photon mode '{mode}'. " +
+                    "Falling back to CustomCloud.");
+                ApplyCustomCloudSettings(settings);
+                return;
+        }
+    }
+
+    internal static void NotifyLocalServerDetected()
+    {
+        if (!IsLocalPhotonServerMode)
+        {
+            return;
+        }
+
+        ShowLocalServerStatusNotification(
+            $"Local server detected at {GetConfiguredLocalEndpoint()}.");
+    }
+
+    internal static void NotifyLocalServerNotDetected(
+        string reason)
+    {
+        if (!IsLocalPhotonServerMode)
+        {
+            return;
+        }
+
+        ShowLocalServerStatusNotification(
+            $"Local server not detected at {GetConfiguredLocalEndpoint()}: {reason}");
+    }
+
+    private static string GetConfiguredLocalEndpoint()
+    {
+        string address = LocalServerAddress.Value.Trim();
+        int port = LocalServerPort.Value;
+        ConnectionProtocol protocol = LocalServerProtocol.Value;
+
+        return $"{address}:{port} ({protocol})";
+    }
+
+    private static void ShowLocalServerStatusNotification(
+        string message)
+    {
+        if (!ShowLocalServerStatusUi.Value)
+        {
+            return;
+        }
+
+        int minIntervalSeconds = Math.Max(
+            0,
+            StatusUiMinIntervalSeconds.Value);
+
+        float now = Time.realtimeSinceStartup;
+
+        if (now - _lastStatusUiAt < minIntervalSeconds)
+        {
+            return;
+        }
+
+        if (!TryResolveNotificationsUi(
+                out UnityEngine.Object? instance,
+                out MethodInfo? addNotification))
+        {
+            if (!TryResolvePlayerConnectionLogUi(
+                    out instance,
+                    out addNotification))
+            {
+                LogUiUnavailableOncePerScene();
+                ShowOverlayStatusFallback(message);
+                return;
+            }
+        }
+
+        if (instance is null || addNotification is null)
+        {
+            return;
+        }
+
+        try
+        {
+            addNotification.Invoke(instance, [message]);
+            _lastStatusUiAt = now;
+
+            Log.LogInfo(
+                $"UI notification: {message}");
+
+            ShowOverlayStatusFallback(message);
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(
+                "Failed to send UI notification. " +
+                $"Error={ex.GetType().Name}; " +
+                $"Message={ex.Message}");
+
+            ShowOverlayStatusFallback(message);
+        }
+    }
+
+    private static void ShowOverlayStatusFallback(
+        string message)
+    {
+        if (!ShowStatusOverlayFallback.Value)
+        {
+            return;
+        }
+
+        _overlayStatusMessage = $"PEAK LAN: {message}";
+    }
+
+    private static bool TryResolveNotificationsUi(
+        out UnityEngine.Object? instance,
+        out MethodInfo? addNotification)
+    {
+        const string typeName = "UI_Notifications, Assembly-CSharp";
+
+        if (_notificationsType is null)
+        {
+            _notificationsType = Type.GetType(typeName);
+
+            if (_notificationsType is null)
+            {
+                if (!_uiTypeMissingLogged)
+                {
+                    Log.LogWarning(
+                        "UI_Notifications type is not available. " +
+                        "Cannot show local server status in UI.");
+
+                    _uiTypeMissingLogged = true;
+                }
+
+                instance = null;
+                addNotification = null;
+
+                return false;
+            }
+        }
+
+        Type notificationsType = _notificationsType;
+
+        addNotification = _addNotificationMethod;
+
+        if (addNotification is null)
+        {
+            addNotification = notificationsType.GetMethod(
+                "AddNotification",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                [typeof(string)],
+                null);
+
+            if (addNotification is null)
+            {
+                if (!_uiMethodMissingLogged)
+                {
+                    Log.LogWarning(
+                        "UI_Notifications.AddNotification(string) not found. " +
+                        "Cannot show local server status in UI.");
+
+                    _uiMethodMissingLogged = true;
+                }
+
+                instance = null;
+
+                return false;
+            }
+
+            _addNotificationMethod = addNotification;
+        }
+
+        instance = UnityEngine.Object.FindFirstObjectByType(
+            notificationsType);
+
+        if (instance is null)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryResolvePlayerConnectionLogUi(
+        out UnityEngine.Object? instance,
+        out MethodInfo? addMessage)
+    {
+        const string typeName = "PlayerConnectionLog, Assembly-CSharp";
+
+        if (_playerConnectionLogType is null)
+        {
+            _playerConnectionLogType = Type.GetType(typeName);
+
+            if (_playerConnectionLogType is null)
+            {
+                if (!_fallbackTypeMissingLogged)
+                {
+                    Log.LogWarning(
+                        "PlayerConnectionLog type is not available. " +
+                        "No fallback in-game status UI sink found.");
+
+                    _fallbackTypeMissingLogged = true;
+                }
+
+                instance = null;
+                addMessage = null;
+                return false;
+            }
+        }
+
+        Type fallbackType = _playerConnectionLogType;
+        addMessage = _addConnectionLogMessageMethod;
+
+        if (addMessage is null)
+        {
+            addMessage = fallbackType.GetMethod(
+                "AddMessage",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                [typeof(string)],
+                null);
+
+            if (addMessage is null)
+            {
+                if (!_fallbackMethodMissingLogged)
+                {
+                    Log.LogWarning(
+                        "PlayerConnectionLog.AddMessage(string) not found. " +
+                        "No fallback in-game status UI sink found.");
+
+                    _fallbackMethodMissingLogged = true;
+                }
+
+                instance = null;
+                return false;
+            }
+
+            _addConnectionLogMessageMethod = addMessage;
+        }
+
+        instance = UnityEngine.Object.FindFirstObjectByType(
+            fallbackType);
+
+        return instance is not null;
+    }
+
+    private static void LogUiUnavailableOncePerScene()
+    {
+        string sceneName = UnityEngine.SceneManagement
+            .SceneManager
+            .GetActiveScene()
+            .name;
+
+        if (string.Equals(
+                _lastUiUnavailableScene,
+                sceneName,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastUiUnavailableScene = sceneName;
+
+        Log.LogInfo(
+            "No in-game status UI sink found in current scene. " +
+            $"Scene={sceneName}");
+    }
+
+    private static void ApplyCustomCloudSettings(
+        AppSettings settings)
     {
         string realtimeId = AppIdRealtime.Value.Trim();
         string voiceId = AppIdVoice.Value.Trim();
@@ -319,8 +729,10 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        var settings =
-            PhotonNetwork.PhotonServerSettings.AppSettings;
+        settings.UseNameServer = true;
+        settings.Server = string.Empty;
+        settings.Port = 0;
+        settings.FixedRegion = string.Empty;
 
         settings.AppIdRealtime = realtimeId;
 
@@ -330,12 +742,52 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         Log.LogInfo(
-            "Applied custom Photon settings: " +
+            "Applied Photon mode CustomCloud: " +
+            $"UseNameServer={settings.UseNameServer}; " +
             $"Realtime={Fingerprint(realtimeId)}; " +
             $"Voice={Fingerprint(voiceId)}");
     }
 
-    private static string Fingerprint(string value)
+    private static void ApplyLocalServerSettings(
+        AppSettings settings)
+    {
+        string serverAddress = LocalServerAddress.Value.Trim();
+
+        if (string.IsNullOrWhiteSpace(serverAddress))
+        {
+            Log.LogError(
+                "LocalServerAddress is empty. " +
+                "Cannot apply LocalPhotonServer mode.");
+
+            return;
+        }
+
+        int configuredPort = LocalServerPort.Value;
+
+        if (configuredPort is < 1 or > 65535)
+        {
+            Log.LogError(
+                $"LocalServerPort '{configuredPort}' is invalid. " +
+                "Expected range 1-65535.");
+
+            return;
+        }
+
+        settings.UseNameServer = true;
+        settings.Server = serverAddress;
+        settings.Port = (ushort)configuredPort;
+        settings.Protocol = LocalServerProtocol.Value;
+        settings.FixedRegion = string.Empty;
+
+        Log.LogInfo(
+            "Applied Photon mode LocalPhotonServer: " +
+            $"Server={serverAddress}; " +
+            $"Port={settings.Port}; " +
+            $"Protocol={settings.Protocol}; " +
+            $"UseNameServer={settings.UseNameServer}");
+    }
+
+    internal static string Fingerprint(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

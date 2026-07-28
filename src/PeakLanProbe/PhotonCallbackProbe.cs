@@ -13,21 +13,52 @@ internal sealed class PhotonCallbackProbe :
 
     public override void OnConnectedToMaster()
     {
+        AuthenticationValues? auth = PhotonNetwork.AuthValues;
+        string userId = auth?.UserId ?? string.Empty;
+
         Plugin.Log.LogInfo(
             $"[{Time}] CALLBACK OnConnectedToMaster: " +
-            $"region={PhotonNetwork.CloudRegion}");
+            $"region={PhotonNetwork.CloudRegion}; " +
+            $"offlineMode={PhotonNetwork.OfflineMode}; " +
+            $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
+            $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
+            $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
+            $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
+            $"userIdLength={userId.Length}");
+
+        if (Plugin.IsLocalPhotonServerMode)
+        {
+            if (PhotonNetwork.OfflineMode)
+            {
+                Plugin.NotifyLocalServerNotDetected(
+                    "OfflineMode fallback active");
+            }
+            else
+            {
+                Plugin.NotifyLocalServerDetected();
+            }
+        }
     }
 
     public override void OnCreatedRoom()
     {
+        AuthenticationValues? auth = PhotonNetwork.AuthValues;
+        string userId = auth?.UserId ?? string.Empty;
+
         Plugin.Log.LogInfo(
             $"[{Time}] CALLBACK OnCreatedRoom: " +
-            $"room={PhotonNetwork.CurrentRoom?.Name}");
+            $"room={PhotonNetwork.CurrentRoom?.Name}; " +
+            $"offlineMode={PhotonNetwork.OfflineMode}; " +
+            $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
+            $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
+            $"userIdFingerprint={Plugin.Fingerprint(userId)}");
     }
 
     public override void OnJoinedRoom()
     {
         PhotonPlayer localPlayer = PhotonNetwork.LocalPlayer;
+        AuthenticationValues? auth = PhotonNetwork.AuthValues;
+        string userId = auth?.UserId ?? string.Empty;
 
         Plugin.Log.LogInfo(
             $"[{Time}] CALLBACK OnJoinedRoom: " +
@@ -36,7 +67,13 @@ internal sealed class PhotonCallbackProbe :
             $"actor={localPlayer?.ActorNumber}; " +
             $"nickname={localPlayer?.NickName}; " +
             $"master={PhotonNetwork.IsMasterClient}; " +
-            $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+            $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
+            $"offlineMode={PhotonNetwork.OfflineMode}; " +
+            $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
+            $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
+            $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
+            $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
+            $"userIdLength={userId.Length}");
     }
 
     public override void OnJoinRoomFailed(
@@ -49,14 +86,48 @@ internal sealed class PhotonCallbackProbe :
             $"message={message}");
     }
 
+    public override void OnCreateRoomFailed(
+        short returnCode,
+        string message)
+    {
+        Plugin.Log.LogError(
+            $"[{Time}] CALLBACK OnCreateRoomFailed: " +
+            $"code={returnCode}; " +
+            $"message={message}; " +
+            $"state={PhotonNetwork.NetworkClientState}; " +
+            $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
+            $"localMode={Plugin.PhotonMode.Value}; " +
+            $"server={Plugin.LocalServerAddress.Value}:{Plugin.LocalServerPort.Value}; " +
+            $"protocol={Plugin.LocalServerProtocol.Value}");
+
+        if (Plugin.IsLocalPhotonServerMode)
+        {
+            Plugin.NotifyLocalServerNotDetected(
+                $"create room failed {returnCode}");
+        }
+    }
+
     public override void OnDisconnected(
         DisconnectCause cause)
     {
+        var client = PhotonNetwork.NetworkingClient;
+        var peer = client?.LoadBalancingPeer;
+
         Plugin.Log.LogError(
             $"[{Time}] CALLBACK OnDisconnected: " +
             $"cause={cause}; " +
+            $"clientState={client?.State.ToString() ?? "<null>"}; " +
+            $"peerState={peer?.PeerState.ToString() ?? "<null>"}; " +
+            $"serverAddress={peer?.ServerAddress ?? "<null>"}; " +
+            $"protocol={peer?.TransportProtocol.ToString() ?? "<null>"}; " +
             $"state={PhotonNetwork.NetworkClientState}; " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+
+        if (Plugin.IsLocalPhotonServerMode)
+        {
+            Plugin.NotifyLocalServerNotDetected(
+                $"disconnect cause {cause}");
+        }
     }
 
     public override void OnPlayerEnteredRoom(

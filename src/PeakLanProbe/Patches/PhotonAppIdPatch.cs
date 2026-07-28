@@ -16,6 +16,6 @@ internal static class PhotonAppIdPatch
             return;
         }
 
-        Plugin.ApplyCustomPhotonSettings();
+        Plugin.ApplyConfiguredPhotonSettings();
     }
 }

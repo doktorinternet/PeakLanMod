@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Photon.Pun;
+using Photon.Realtime;
 
 namespace PeakLanProbe.Patches;
 
@@ -39,8 +40,32 @@ internal static class PhotonCallTracePatches
         Plugin.Log.LogInfo(
             $"PhotonNetwork.{__originalMethod.Name}({arguments})");
 
+        if (__originalMethod.Name is nameof(PhotonNetwork.JoinRoom)
+            or nameof(PhotonNetwork.CreateRoom)
+            or nameof(PhotonNetwork.JoinOrCreateRoom))
+        {
+            LogJoinContext(__originalMethod.Name);
+        }
+
         Plugin.DumpPhotonSettings(
             $"before PhotonNetwork.{__originalMethod.Name}");
+    }
+
+    private static void LogJoinContext(string methodName)
+    {
+        AuthenticationValues? auth = PhotonNetwork.AuthValues;
+        string userId = auth?.UserId ?? string.Empty;
+
+        Plugin.Log.LogInfo(
+            $"Photon join context [{methodName}]: " +
+            $"state={PhotonNetwork.NetworkClientState}; " +
+            $"ready={PhotonNetwork.IsConnectedAndReady}; " +
+            $"offlineMode={PhotonNetwork.OfflineMode}; " +
+            $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
+            $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
+            $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
+            $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
+            $"userIdLength={userId.Length}");
     }
 
     private static string FormatArgument(object? value)
