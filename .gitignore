@@ -239,4 +239,5 @@ BepInEx/
 captures/
 *.pcapng
 
-server/
+server/*.exe
+server/config.yml
