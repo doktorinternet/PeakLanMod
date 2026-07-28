@@ -239,4 +239,4 @@ BepInEx/
 captures/
 *.pcapng
 
-server/
+server/*.exe
