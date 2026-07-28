@@ -1,6 +1,6 @@
 # PeakLanProbe
 
-Describe your project here!
+Prestudy repo to identify whether it's plausible to implement a LAN multiplayer mod for PEAK.
 
 ## Template Instructions
 
