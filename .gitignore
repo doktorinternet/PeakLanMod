@@ -229,3 +229,12 @@ Config.Build.user.props
 # /src/UnityProject/Assets/*
 # !/src/UnityProject/Assets/
 # !/src/UnityProject/Assets/_Mod/
+
+# Local PEAK/BepInEx development
+Config.Build.user.props
+GameLibs/
+Managed/
+Decompiled/
+BepInEx/
+captures/
+*.pcapng
