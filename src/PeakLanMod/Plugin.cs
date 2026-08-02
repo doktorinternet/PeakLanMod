@@ -71,6 +71,29 @@ public sealed class Plugin : BaseUnityPlugin
     private static readonly LanStatusPresenterBridge LanStatusPresenterBridge = new();
     private static readonly string LanDiscoveryServerInstanceId =
         Guid.NewGuid().ToString("N");
+    private static readonly HashSet<string> BlockedHostRoomNameTerms =
+        new(StringComparer.Ordinal)
+        {
+            // English profanity and abusive language.
+            "bitch",
+            "fag",
+            "faggot",
+            "retard",
+            "slut",
+            "whore",
+            "nigger",
+            "negro",
+
+            // Swedish profanity and abusive language.
+            "fitta",
+            "hora",
+            "kuk",
+            "mongo",
+            "neger",
+            "bög",
+            "svartskalle",
+            "svart skalle"
+        };
     private static int _lastLanDiscoverySnapshotCount = -1;
     private static bool? _lastLanDiscoveryListenerRunning;
     private static bool? _lastLanDiscoveryBroadcasterRunning;
@@ -78,6 +101,8 @@ public sealed class Plugin : BaseUnityPlugin
     private bool _lanPanelCollapsedBySettingsAutomation;
     private bool _allowLanPanelExpandedWhileSettingsVisible;
     private float _lastSettingsScreenProbeAt = -999f;
+    private Vector2 _lanServerListScroll = Vector2.zero;
+    private string _lanPreferredRoomNameInput = string.Empty;
     private float _lastLanUiRefreshAtRealtime = -999f;
     private DateTime _lastLanUiRefreshAtUtc;
     private float _lastNotReadyLogAt = -999f;
@@ -299,7 +324,6 @@ public sealed class Plugin : BaseUnityPlugin
     private ConfigEntry<KeyboardShortcut> _hostKey = null!;
     private ConfigEntry<KeyboardShortcut> _joinKey = null!;
     private ConfigEntry<bool> _enableLanUiActions = null!;
-    private ConfigEntry<int> _lanUiOverlayMaxSessions = null!;
 
     private void ConfigureDirectConnect()
     {
@@ -332,6 +356,8 @@ public sealed class Plugin : BaseUnityPlugin
             "JoinKey",
             new KeyboardShortcut(KeyCode.F7),
             "Start direct join. Testing parameter.");
+
+        _lanPreferredRoomNameInput = _roomName.Value;
 
         PhotonMode = Config.Bind(
             "Photon",
@@ -506,12 +532,6 @@ public sealed class Plugin : BaseUnityPlugin
             "EnableLanUiActions",
             false,
             "Enable M6 LAN UI actions and discovered-session overlay in LocalServer mode.");
-
-        _lanUiOverlayMaxSessions = Config.Bind(
-            "LanWorkflow",
-            "LanUiOverlayMaxSessions",
-            6,
-            "Maximum discovered sessions rendered in M6 overlay.");
     }
 
     private void SyncLanDiscoveryRuntime(
@@ -833,18 +853,31 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        _roomName.Value = selected.RoomName;
         LocalServerAddress.Value = selected.NameServerAddress;
         LocalServerPort.Value = selected.NameServerPort;
         LocalServerProtocol.Value = protocol;
 
+        if (!TryNormalizeRoomName(
+                selected.RoomName,
+                out string selectedRoomName,
+                out string normalizeFailureReason))
+        {
+            Log.LogWarning(
+                "LAN UI join-selected blocked due to invalid selected room name. " +
+                $"RawRoom={selected.RoomName}; " +
+                $"Reason={normalizeFailureReason}");
+            return;
+        }
+
         Log.LogInfo(
             "LAN UI join-selected applied discovered session settings. " +
-            $"Room={selected.RoomName}; " +
+            $"Room={selectedRoomName}; " +
             $"Endpoint={SanitizeEndpointForLog(selected.NameServerAddress)}:{selected.NameServerPort}; " +
             $"Protocol={protocol}");
 
-        StartDirectJoin();
+        StartDirectJoinWithRoomName(
+            selectedRoomName,
+            "StartDirectJoinSelected");
     }
 
     private static bool TryResolveDiscoverySessionTransport(
@@ -860,6 +893,16 @@ public sealed class Plugin : BaseUnityPlugin
     private void RenderLanUiOverlay()
     {
         EnsureLanUiSessionsRefreshed();
+
+        _lanPreferredRoomNameInput = NormalizeRoomNameInputForUi(
+            _lanPreferredRoomNameInput);
+
+        if (string.IsNullOrEmpty(_lanPreferredRoomNameInput)
+            && !string.IsNullOrWhiteSpace(_roomName.Value))
+        {
+            _lanPreferredRoomNameInput = NormalizeRoomNameInputForUi(
+                _roomName.Value);
+        }
 
         IReadOnlyList<LanSessionInfo> sessions = LanDiscoveredSessionsViewModel.Sessions;
         int selectedIndex = LanDiscoveredSessionsViewModel.SelectedIndex;
@@ -880,7 +923,6 @@ public sealed class Plugin : BaseUnityPlugin
             : $"Last refresh: {_lastLanUiRefreshAtUtc:HH:mm:ss} UTC";
 
         bool showServerRows = !_isLanServerListCollapsed;
-        int visibleRows = Math.Max(1, Math.Min(_lanUiOverlayMaxSessions.Value, sessions.Count));
         const float panelMargin = 16f;
         float panelWidth;
         float panelHeight;
@@ -889,7 +931,9 @@ public sealed class Plugin : BaseUnityPlugin
         {
             float maxPanelWidth = Math.Max(360f, Screen.width - (panelMargin * 2f));
             panelWidth = Math.Min(960f, maxPanelWidth);
-            panelHeight = Mathf.Max(170f, 110f + (visibleRows * 24f));
+            float desiredPanelHeight = 136f + (sessions.Count * 24f);
+            float maxPanelHeight = Math.Max(170f, Screen.height - (panelMargin * 2f));
+            panelHeight = Mathf.Clamp(desiredPanelHeight, 170f, maxPanelHeight);
         }
         else
         {
@@ -939,16 +983,50 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         float actionButtonY = showServerRows
-            ? panelRect.y + 50f
+            ? panelRect.y + 74f
             : panelRect.y + 34f;
+
+        bool canHostFromInput = TryGetValidatedHostRoomNameFromInput(
+            _lanPreferredRoomNameInput,
+            out string validatedHostRoomName,
+            out string hostUnavailableReason);
+
+        if (showServerRows)
+        {
+            GUI.Label(
+                new Rect(panelRect.x + 12f, panelRect.y + 50f, 86f, 20f),
+                "Room Name:");
+
+            string updatedPreferredRoomName = GUI.TextField(
+                new Rect(panelRect.x + 98f, panelRect.y + 48f, panelRect.width - 110f, 22f),
+                _lanPreferredRoomNameInput);
+
+            updatedPreferredRoomName = NormalizeRoomNameInputForUi(
+                updatedPreferredRoomName);
+
+            if (!string.Equals(
+                    updatedPreferredRoomName,
+                    _lanPreferredRoomNameInput,
+                    StringComparison.Ordinal))
+            {
+                _lanPreferredRoomNameInput = updatedPreferredRoomName;
+                _roomName.Value = _lanPreferredRoomNameInput;
+            }
+        }
+
+        bool previousHostEnabled = GUI.enabled;
+        GUI.enabled = canHostFromInput;
 
         if (GUI.Button(
             new Rect(panelRect.x + 12f, actionButtonY, 120f, 26f),
                 "Host LAN"))
         {
+            _roomName.Value = validatedHostRoomName;
             Log.LogInfo("LAN UI host button clicked.");
             RequestDirectHostStart("LanUiHostButton");
         }
+
+        GUI.enabled = previousHostEnabled;
 
         if (!showServerRows)
         {
@@ -992,7 +1070,14 @@ public sealed class Plugin : BaseUnityPlugin
             $"LAN UI refresh clicked. SessionCount={LanDiscoveredSessionsViewModel.SessionCount}; RefreshedAtUtc={_lastLanUiRefreshAtUtc:O}");
         }
 
-        float rowY = panelRect.y + 82f;
+        float rowY = panelRect.y + 106f;
+
+        if (!canHostFromInput)
+        {
+            GUI.Label(
+                new Rect(panelRect.x + 390f, panelRect.y + 74f, panelRect.width - 402f, 20f),
+            $"Cannot host: {hostUnavailableReason}");
+        }
 
         if (sessions.Count == 0)
         {
@@ -1002,7 +1087,26 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        int renderCount = Math.Min(visibleRows, sessions.Count);
+        float listViewportHeight = Math.Max(
+            24f,
+            panelRect.height - 136f);
+
+        var listViewportRect = new Rect(
+            panelRect.x + 12f,
+            rowY,
+            panelRect.width - 24f,
+            listViewportHeight);
+
+        float rowHeight = 24f;
+        float listContentHeight = Math.Max(
+            listViewportHeight,
+            sessions.Count * rowHeight);
+
+        var listContentRect = new Rect(
+            0f,
+            0f,
+            Math.Max(120f, listViewportRect.width - 18f),
+            listContentHeight);
 
         var rowStyle = new GUIStyle(GUI.skin.button)
         {
@@ -1018,19 +1122,25 @@ public sealed class Plugin : BaseUnityPlugin
         selectedRowStyle.hover.textColor = selectedRowStyle.normal.textColor;
         selectedRowStyle.active.textColor = selectedRowStyle.normal.textColor;
 
-        for (int index = 0; index < renderCount; index++)
+        _lanServerListScroll = GUI.BeginScrollView(
+            listViewportRect,
+            _lanServerListScroll,
+            listContentRect,
+            false,
+            true);
+
+        for (int index = 0; index < sessions.Count; index++)
         {
             LanSessionInfo session = sessions[index];
             bool isSelected = index == selectedIndex;
             string rowLabel = LanStatusPresenterBridge.BuildSessionRowLabel(
                 session,
-                isSelected,
                 index + 1);
 
             var rowRect = new Rect(
-                panelRect.x + 12f,
-                rowY + (index * 24f),
-                panelRect.width - 24f,
+                0f,
+                index * rowHeight,
+                listContentRect.width,
                 22f);
 
             Color previousGuiColor = GUI.color;
@@ -1061,12 +1171,7 @@ public sealed class Plugin : BaseUnityPlugin
             }
         }
 
-        if (sessions.Count > renderCount)
-        {
-            GUI.Label(
-                new Rect(panelRect.x + 12f, rowY + (renderCount * 24f), panelRect.width - 24f, 20f),
-                $"Showing first {renderCount} of {sessions.Count} sessions. Increase LanUiOverlayMaxSessions to show more.");
-        }
+        GUI.EndScrollView();
 
         if (!canJoinSelected)
         {
@@ -1166,8 +1271,10 @@ public sealed class Plugin : BaseUnityPlugin
             return false;
         }
 
-        string roomName = NormalizeRoomName(
-            _roomName.Value);
+        if (!TryGetValidatedConfiguredHostRoomName(out string roomName))
+        {
+            return false;
+        }
 
         var connectionService =
             GameHandler.GetService<ConnectionService>();
@@ -1363,14 +1470,28 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void StartDirectJoin()
     {
+        if (!TryGetNormalizedConfiguredRoomName(out string roomName))
+        {
+            return;
+        }
+
+        StartDirectJoinWithRoomName(
+            roomName,
+            "StartDirectJoin");
+    }
+
+    private void StartDirectJoinWithRoomName(
+        string roomName,
+        string source)
+    {
         if (!EnsureLocalServerReadinessBeforeConnect(
-                source: "StartDirectJoin",
+                source,
                 queuedHostFlow: false))
         {
             return;
         }
 
-        EnsureOnlineModeForDirectConnect("StartDirectJoin");
+        EnsureOnlineModeForDirectConnect(source);
 
         bool joinConnectRequested = false;
 
@@ -1378,9 +1499,6 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return;
         }
-
-        string roomName = NormalizeRoomName(
-            _roomName.Value);
 
         string region =
             _region.Value.Trim().ToLowerInvariant();
@@ -1651,6 +1769,166 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         return normalized;
+    }
+
+    private static bool TryNormalizeRoomName(
+        string roomName,
+        out string normalizedRoomName,
+        out string failureReason)
+    {
+        try
+        {
+            normalizedRoomName = NormalizeRoomName(roomName);
+            failureReason = string.Empty;
+            return true;
+        }
+        catch (InvalidOperationException exception)
+        {
+            normalizedRoomName = string.Empty;
+            failureReason = exception.Message;
+            return false;
+        }
+    }
+
+    private static string NormalizeRoomNameInputForUi(
+        string roomName)
+    {
+        if (string.IsNullOrEmpty(roomName))
+        {
+            return string.Empty;
+        }
+
+        string normalized = roomName
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty);
+
+        const int maxRoomNameLength = 64;
+
+        if (normalized.Length > maxRoomNameLength)
+        {
+            normalized = normalized[..maxRoomNameLength];
+        }
+
+        return normalized;
+    }
+
+    private static bool TryContainsBlockedHostRoomNameTerm(
+        string normalizedRoomName,
+        out string blockedTerm)
+    {
+        blockedTerm = string.Empty;
+
+        string[] tokens = Regex.Split(
+            normalizedRoomName,
+            @"[^a-z0-9]+");
+
+        for (int index = 0; index < tokens.Length; index++)
+        {
+            string token = tokens[index];
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                continue;
+            }
+
+            foreach (string candidate in BlockedHostRoomNameTerms)
+            {
+                if (token.IndexOf(
+                        candidate,
+                        StringComparison.Ordinal) >= 0)
+                {
+                    blockedTerm = candidate;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetValidatedHostRoomName(
+        string roomName,
+        out string normalizedRoomName,
+        out string failureReason)
+    {
+        if (!TryNormalizeRoomName(
+                roomName,
+                out normalizedRoomName,
+                out failureReason))
+        {
+            return false;
+        }
+
+        if (TryContainsBlockedHostRoomNameTerm(
+                normalizedRoomName,
+                out string blockedTerm))
+        {
+            failureReason = $"room name contains a blocked term. Don't be a jerk.";
+            return false;
+        }
+
+        failureReason = string.Empty;
+        return true;
+    }
+
+    private bool TryGetValidatedHostRoomNameFromInput(
+        string roomName,
+        out string normalizedRoomName,
+        out string failureReason)
+    {
+        if (TryGetValidatedHostRoomName(
+                roomName,
+                out normalizedRoomName,
+                out failureReason))
+        {
+            return true;
+        }
+
+        if (string.Equals(
+                failureReason,
+                "The configured room name is empty.",
+                StringComparison.Ordinal))
+        {
+            failureReason = "room name is required.";
+        }
+
+        return false;
+    }
+
+    private bool TryGetValidatedConfiguredHostRoomName(
+        out string roomName)
+    {
+        if (TryGetValidatedHostRoomName(
+                _roomName.Value,
+                out roomName,
+                out string failureReason))
+        {
+            return true;
+        }
+
+        Log.LogError(
+            "Direct host requires a valid room name. " +
+            $"Reason={failureReason}");
+
+        return false;
+    }
+
+    private bool TryGetNormalizedConfiguredRoomName(
+        out string roomName)
+    {
+        if (TryNormalizeRoomName(
+                _roomName.Value,
+                out roomName,
+                out string failureReason))
+        {
+            return true;
+        }
+
+        Log.LogError(
+            "Direct connect requires a non-empty room name. " +
+            $"Reason={failureReason}");
+
+        return false;
     }
 
     private static string SanitizeEndpointForLog(

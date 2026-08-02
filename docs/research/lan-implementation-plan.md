@@ -464,8 +464,8 @@ M6 implementation notes (2026-08-02):
 - Wired M6 behavior behind config guard `LanWorkflow.EnableLanUiActions` (default `false`) to preserve pre-M6 host/join and overlay behavior by default.
 - Added M6 UI panel settings:
   - `LanWorkflow.EnableLanUiActions`
-  - `LanWorkflow.LanUiOverlayMaxSessions`
 - Updated first-release M6 controls to clickable overlay buttons (`Host LAN`, `Join Selected`, `Refresh`) and clickable session rows.
+- Updated M6 list rendering to a scrollable session view with no fixed item-count cap.
 - Updated M6 panel visibility so server list renders only when main menu scene is loaded.
 - Added M6 UX Part 2 usability behaviors:
   - `Join Selected` is disabled until a compatible session is selected.

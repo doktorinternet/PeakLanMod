@@ -179,8 +179,3 @@ RequireVersionMatch = true
 # Setting type: Boolean
 # Default value: false
 EnableLanUiActions = false
-
-## Maximum discovered sessions rendered in M6 overlay.
-# Setting type: Int32
-# Default value: 6
-LanUiOverlayMaxSessions = 6

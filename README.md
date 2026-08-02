@@ -154,7 +154,6 @@ Rollback path:
 Milestone 6 adds optional UI intent controls and discovered-session rendering for `LocalServer` mode.
 
 - `LanWorkflow.EnableLanUiActions = true` enables M6 behavior (disabled by default to preserve previous flow).
-- `LanWorkflow.LanUiOverlayMaxSessions` controls how many discovered sessions are rendered in the overlay.
 
 Current M6 scope:
 
@@ -164,6 +163,7 @@ Current M6 scope:
 - Overlay rows are clickable session selectors and show compatibility status per session.
 - `Join Selected` is disabled until a compatible session is selected, with inline reason text when unavailable.
 - Overlay shows a `Last refresh` timestamp and updates session snapshots periodically, while keeping manual `Refresh` available.
+- Session list is scrollable and no longer capped by a fixed item-count limit.
 - Overlay renders connection phase snapshot plus discovered-session compatibility status.
 - Join-selected applies session room/endpoint/protocol before invoking the existing direct join path.
 

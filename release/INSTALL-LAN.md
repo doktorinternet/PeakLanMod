@@ -60,7 +60,6 @@ This guide installs a full LAN package without Thunderstore.
        - `LanWorkflow.RequireVersionMatch = true`
      - Optional LAN UI actions and session/status overlay (M6):
        - `LanWorkflow.EnableLanUiActions = true`
-       - `LanWorkflow.LanUiOverlayMaxSessions = 6`
 5. Install any other packaged dependency mods from `dependencies/`.
 6. Start PEAK and verify overlay status indicates that the mod is loaded.
 
