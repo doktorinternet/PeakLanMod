@@ -48,6 +48,19 @@ The package staging layout is:
 
 See `release/INSTALL-LAN.md` for host/client setup instructions.
 
+## LAN host IPv4 auto-detection (M1)
+
+Milestone 1 adds optional host-side LAN IPv4 selection for `LocalPhotonServer` mode.
+
+- `LanWorkflow.AutoDetectHostIPv4 = true` enables host-side endpoint selection when pressing `HostKey`.
+- `LanWorkflow.PreferredHostIPv4` manually overrides auto-detection when you need a specific adapter.
+- `LanWorkflow.AllowedHostInterfaces` narrows candidate interfaces using CSV contains-matching on interface name/description/id.
+- Selected endpoint logging is sanitized (masked IPv4 + fingerprint), so diagnostics stay useful without exposing full identifiers in shared logs.
+
+Rollback path:
+
+- Set `LanWorkflow.AutoDetectHostIPv4 = false` to keep using the configured `Photon.LocalServerAddress` directly.
+
 ## Release branch guidance
 
 Using a dedicated `release` branch is optional and depends on your team workflow.

@@ -4,6 +4,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-02
 
+- Implemented Milestone 1 host LAN IPv4 selection: optional host-side auto-detection with interface filtering, manual override, and sanitized endpoint diagnostics.
 - Added `LanRelease` MSBuild target for offline LAN distribution staging, checksums, and zip packaging.
 - Added configurable `LanReleaseOutputDir` build property for finished package output location.
 - Added release assets for packaging: mod config template and LAN installation guide.

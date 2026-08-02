@@ -1,0 +1,95 @@
+## PEAK LAN Mod config template for LAN package releases
+## Copy this file into BepInEx/config/BadHorse.PeakLanMod.cfg
+
+[Direct Connect]
+
+## Enable the experimental direct-connect flow.
+# Setting type: Boolean
+# Default value: true
+Enabled = true
+
+## Photon room name.
+# Setting type: String
+# Default value: antonwahlberg-test-room
+RoomName = awg-lan-room-1
+
+## Photon Cloud region.
+# Setting type: String
+# Default value: eu
+Region =
+
+## Start direct host.
+# Setting type: KeyboardShortcut
+# Default value: F6
+HostKey = F6
+
+## Start direct join.
+# Setting type: KeyboardShortcut
+# Default value: F7
+JoinKey = F7
+
+[Photon]
+
+## Photon endpoint mode: CustomCloud (baseline) or LocalPhotonServer.
+# Setting type: PhotonConnectionMode
+# Default value: CustomCloud
+# Acceptable values: CustomCloud, LocalPhotonServer
+Mode = LocalPhotonServer
+
+## Custom Photon PUN application ID.
+# Setting type: String
+# Default value:
+AppIdRealtime =
+
+## Custom Photon Voice application ID.
+# Setting type: String
+# Default value:
+AppIdVoice =
+
+## Local Photon Server hostname or IP.
+# Setting type: String
+# Default value: 127.0.0.1
+LocalServerAddress = 127.0.0.1
+
+## Local Photon Server UDP/TCP port.
+# Setting type: Int32
+# Default value: 5055
+LocalServerPort = 5058
+
+## Photon transport protocol for local server mode.
+# Setting type: ConnectionProtocol
+# Default value: Udp
+# Acceptable values: Udp, Tcp, WebSocket, WebSocketSecure
+LocalServerProtocol = Udp
+
+## Show in-game local server reachability notifications in LocalPhotonServer mode.
+# Setting type: Boolean
+# Default value: true
+ShowLocalServerStatusUI = true
+
+## Minimum seconds between local server status notifications.
+# Setting type: Int32
+# Default value: 5
+StatusUIMinIntervalSeconds = 5
+
+## Show a simple on-screen status overlay when scene UI notifications are unavailable.
+# Setting type: Boolean
+# Default value: true
+ShowStatusOverlayFallback = true
+
+[LanWorkflow]
+
+## Auto-detect host LAN IPv4 during direct host in LocalPhotonServer mode.
+# Setting type: Boolean
+# Default value: false
+AutoDetectHostIPv4 = false
+
+## Optional manual host LAN IPv4 override. When set, this value is used instead of interface auto-detection.
+# Setting type: String
+# Default value:
+PreferredHostIPv4 =
+
+## Optional CSV interface filters (name/description/id contains match) for host LAN IPv4 auto-detection.
+# Setting type: String
+# Default value:
+AllowedHostInterfaces =

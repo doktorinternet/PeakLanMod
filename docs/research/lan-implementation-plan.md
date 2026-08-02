@@ -324,7 +324,7 @@ Status enum:
 
 | Milestone | Title | Depends On | Status | Acceptance Status | Rollback Path Verified | Owner | Target PR | Last Updated |
 |---|---|---|---|---|---|---|---|---|
-| M1 | Automatic LAN IPv4 detection on host | None | Planned | Not started | Not started | TBD | PR-01 | 2026-08-02 |
+| M1 | Automatic LAN IPv4 detection on host | None | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-01 | 2026-08-02 |
 | M2 | Automatic Luxon config including all external_address values | M1 | Planned | Not started | Not started | TBD | PR-02 | 2026-08-02 |
 | M3 | Controlled Luxon startup/shutdown | M2 | Planned | Not started | Not started | TBD | PR-03 | 2026-08-02 |
 | M4 | Server-readiness check before PEAK connects | M3 | Planned | Not started | Not started | TBD | PR-04 | 2026-08-02 |
@@ -341,6 +341,14 @@ Status enum:
 - Selected endpoint is logged safely for diagnostics.
 - Manual override remains possible.
 - Works with multiple adapters (priority and filtering rules documented).
+
+M1 implementation notes (2026-08-02):
+
+- Added `LanEndpointResolver` with host selection rules: preferred IPv4 override first, then non-loopback IPv4 auto-detection on active interfaces.
+- Added optional adapter filtering via CSV (`AllowedHostInterfaces`) using interface name/description/id contains matching.
+- Added host-only config guard (`AutoDetectHostIPv4`) so manual mode remains unchanged by default.
+- Added masked/sanitized endpoint diagnostics and endpoint fingerprint logging.
+- Rollback path confirmed in config: disable `AutoDetectHostIPv4` and continue with manual `Photon.LocalServerAddress`.
 
 ### M2: Automatic Luxon configuration
 
@@ -416,6 +424,11 @@ Status enum:
 | 2026-08-02 | Use typed connection phases and structured LAN errors | Accepted | Enables deterministic UI and diagnostics. |
 | 2026-08-02 | Use UDP broadcast with versioned schema for discovery | Accepted | No central service required. |
 | 2026-08-02 | Allow class renaming for patch classes as responsibilities evolve | Accepted | Rename only when function changes justify it. |
+| 2026-08-02 | M1 host endpoint selection policy: `PreferredHostIPv4` override, otherwise active non-loopback IPv4 with optional interface filters | Accepted | Implemented with config guard and sanitized diagnostics; manual LocalServerAddress remains rollback path. |
+
+## Deviation record
+
+- 2026-08-02: No deviation from M1 scope. Only host-side endpoint detection and documentation updates were implemented. M2+ behavior remains unchanged.
 
 ## Recommended small PR sequence
 

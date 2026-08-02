@@ -11,6 +11,9 @@ using UnityEngine;
 using System.Text;
 using System.Security.Cryptography;
 using System.Reflection;
+using System.Net;
+using System.Net.Sockets;
+using PeakLanMod.Lan.Services;
 namespace PeakLanMod;
 
 // Here are some basic resources on code style and naming conventions to help
@@ -224,6 +227,24 @@ public sealed class Plugin : BaseUnityPlugin
             "ShowStatusOverlayFallback",
             true,
             "Show a simple on-screen status overlay when scene UI notifications are unavailable.");
+
+        AutoDetectHostLanIpv4 = Config.Bind(
+            "LanWorkflow",
+            "AutoDetectHostIPv4",
+            false,
+            "Auto-detect host LAN IPv4 during direct host in LocalPhotonServer mode.");
+
+        PreferredHostIpv4 = Config.Bind(
+            "LanWorkflow",
+            "PreferredHostIPv4",
+            string.Empty,
+            "Optional manual host LAN IPv4 override. When set, this value is used instead of interface auto-detection.");
+
+        AllowedHostInterfaces = Config.Bind(
+            "LanWorkflow",
+            "AllowedHostInterfaces",
+            string.Empty,
+            "Optional CSV interface filters (name/description/id contains match) for host LAN IPv4 auto-detection.");
     }
 
     private void OnGUI()
@@ -261,6 +282,8 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void StartDirectHost()
     {
+        ApplyHostLanIpv4Selection();
+
         EnsureOnlineModeForDirectConnect("StartDirectHost");
 
         if (!CanStartDirectConnection())
@@ -286,6 +309,61 @@ public sealed class Plugin : BaseUnityPlugin
             $"region={PhotonNetwork.CloudRegion}");
 
         LoadAirport();
+    }
+
+    private static void ApplyHostLanIpv4Selection()
+    {
+        if (!IsLocalPhotonServerMode)
+        {
+            return;
+        }
+
+        if (!AutoDetectHostLanIpv4.Value)
+        {
+            return;
+        }
+
+        string preferredHostIpv4 =
+            PreferredHostIpv4.Value.Trim();
+
+        if (!LanEndpointResolver.TryResolveHostLanIpv4(
+                preferredHostIpv4,
+                AllowedHostInterfaces.Value,
+                out string selectedIpv4,
+                out string reason))
+        {
+            Log.LogWarning(
+                "Host LAN IPv4 selection failed. " +
+                $"Reason={reason}; " +
+                $"KeepingLocalServerAddress={SanitizeEndpointForLog(LocalServerAddress.Value)}");
+
+            return;
+        }
+
+        string previousAddress =
+            LocalServerAddress.Value.Trim();
+
+        if (string.Equals(
+                previousAddress,
+                selectedIpv4,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Log.LogInfo(
+                "Host LAN IPv4 selection kept existing LocalServerAddress. " +
+                $"Selected={SanitizeEndpointForLog(selectedIpv4)}; " +
+                $"SelectionReason={reason}");
+
+            return;
+        }
+
+        LocalServerAddress.Value = selectedIpv4;
+
+        Log.LogInfo(
+            "Host LAN IPv4 selection updated LocalServerAddress. " +
+            $"Previous={SanitizeEndpointForLog(previousAddress)}; " +
+            $"Selected={SanitizeEndpointForLog(selectedIpv4)}; " +
+            $"SelectedFingerprint={Fingerprint(selectedIpv4)}; " +
+            $"SelectionReason={reason}");
     }
 
     private void StartDirectJoin()
@@ -391,6 +469,31 @@ public sealed class Plugin : BaseUnityPlugin
         return normalized;
     }
 
+    private static string SanitizeEndpointForLog(
+        string endpoint)
+    {
+        string trimmed = endpoint.Trim();
+
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return "<empty>";
+        }
+
+        if (!IPAddress.TryParse(trimmed, out IPAddress address))
+        {
+            return $"<fingerprint:{Fingerprint(trimmed)}>";
+        }
+
+        if (address.AddressFamily != AddressFamily.InterNetwork)
+        {
+            return "<non-ipv4>";
+        }
+
+        byte[] bytes = address.GetAddressBytes();
+
+        return $"{bytes[0]}.{bytes[1]}.{bytes[2]}.x";
+    }
+
     private static void LoadAirport()
     {
         LoadingScreenHandler loadingScreen =
@@ -415,6 +518,9 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<bool> ShowLocalServerStatusUi = null!;
     internal static ConfigEntry<int> StatusUiMinIntervalSeconds = null!;
     internal static ConfigEntry<bool> ShowStatusOverlayFallback = null!;
+    internal static ConfigEntry<bool> AutoDetectHostLanIpv4 = null!;
+    internal static ConfigEntry<string> PreferredHostIpv4 = null!;
+    internal static ConfigEntry<string> AllowedHostInterfaces = null!;
 
     private static float _lastStatusUiAt = -999f;
     private static string _overlayStatusMessage = string.Empty;
