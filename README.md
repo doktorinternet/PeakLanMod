@@ -125,6 +125,30 @@ Rollback path:
 
 - Set `LanWorkflow.EnableLocalServerReadinessCheck = false` to restore pre-M4 behavior.
 
+## UDP LAN discovery transport and session store (M5)
+
+Milestone 5 adds optional UDP LAN discovery for local-server mode.
+
+- `LanWorkflow.DiscoveryEnabled = true` enables discovery listener and host announcements.
+- `LanWorkflow.DiscoveryUdpPort` sets the UDP port used for discovery broadcast/listen.
+- `LanWorkflow.DiscoveryBroadcastIntervalMs` sets host announcement cadence.
+- `LanWorkflow.DiscoveryEntryTtlMs` sets stale-session eviction window.
+- `LanWorkflow.ProtocolVersion` sets the advertised/required discovery protocol version.
+- `LanWorkflow.RequireVersionMatch` controls whether discovered sessions require exact game/mod version match.
+
+Current M5 scope:
+
+- Host announcements start when host enters a room as master and stop on disconnect.
+- Client-side listener deduplicates by `server_instance_id + room_name` and evicts stale sessions by TTL.
+- Incompatible sessions are retained in the state store with explicit reasons:
+  - `IncompatibleProtocolVersion`
+  - `IncompatibleGameVersion`
+  - `IncompatibleModVersion`
+
+Rollback path:
+
+- Set `LanWorkflow.DiscoveryEnabled = false` to disable discovery and return to pre-M5 behavior.
+
 ## Release branch guidance
 
 Using a dedicated `release` branch is optional and depends on your team workflow.

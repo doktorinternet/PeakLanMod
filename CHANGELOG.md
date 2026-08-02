@@ -4,6 +4,9 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-02
 
+- Further reduced M5 discovery diagnostics noise: snapshot status now logs on change only, and incompatible-session updates log only when payload compatibility state changes.
+- Reduced M5 discovery log noise: equivalent repeated announcements now refresh TTL without emitting repeated incompatible-session update lines.
+- Implemented Milestone 5 UDP LAN discovery transport: config-gated host announcements, client listener, TTL/dedupe session store, and compatibility tagging (`IncompatibleProtocolVersion`, `IncompatibleGameVersion`, `IncompatibleModVersion`).
 - Confirmed Milestone 4 runtime validation: physically offline LAN test passed on two separate machines with separate Steam accounts.
 - Further reduced host-connect log noise: removed per-frame no-op `OfflineMode is false` entries and added short reconnect-attempt cooldown plus periodic not-ready warning cadence.
 - Reduced queued-host log spam while waiting for Photon readiness: host preflight now runs once per queued host request and repeated not-ready state logs are throttled.

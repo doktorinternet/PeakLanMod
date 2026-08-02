@@ -15,6 +15,8 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
+using PeakLanMod.Lan.Discovery;
+using PeakLanMod.Lan.State;
 using PeakLanMod.Lan.Services;
 namespace PeakLanMod;
 
@@ -59,6 +61,15 @@ public sealed class Plugin : BaseUnityPlugin
     private bool _queuedHostPreflightCompleted;
     private DateTime _queuedHostReadinessStartedAtUtc;
     private int _queuedHostReadinessAttempts;
+    private static readonly LanConnectionStateStore LanDiscoveryStateStore = new();
+    private static readonly UdpLanDiscoveryListener LanDiscoveryListener =
+        new(LanDiscoveryStateStore);
+    private static readonly UdpLanDiscoveryBroadcaster LanDiscoveryBroadcaster = new();
+    private static readonly string LanDiscoveryServerInstanceId =
+        Guid.NewGuid().ToString("N");
+    private static int _lastLanDiscoverySnapshotCount = -1;
+    private static bool? _lastLanDiscoveryListenerRunning;
+    private static bool? _lastLanDiscoveryBroadcasterRunning;
     private float _lastNotReadyLogAt = -999f;
     private float _lastReconnectAttemptAt = -999f;
 
@@ -69,6 +80,7 @@ public sealed class Plugin : BaseUnityPlugin
         MigrateLegacyPhotonModeNameInConfig();
 
         ConfigureDirectConnect();
+        SyncLanDiscoveryRuntime("Awake");
 
         gameObject.AddComponent<PhotonCallbackProbe>();
 
@@ -81,6 +93,7 @@ public sealed class Plugin : BaseUnityPlugin
     private void Update()
     {
         LogPhotonStateChanges();
+        SyncLanDiscoveryRuntime("Update");
 
         if (!DirectConnectEnabled.Value)
         {
@@ -141,6 +154,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void OnDestroy()
     {
+        ShutdownLanDiscoveryRuntime("Plugin.OnDestroy");
         StopOwnedLocalServerProcessOnExit("Plugin.OnDestroy");
         _harmony?.UnpatchSelf();
     }
@@ -352,6 +366,233 @@ public sealed class Plugin : BaseUnityPlugin
             "ReadinessPollIntervalMs",
             250,
             "Milliseconds between local NameServer readiness probe attempts.");
+
+        LanDiscoveryEnabled = Config.Bind(
+            "LanWorkflow",
+            "DiscoveryEnabled",
+            false,
+            "Enable UDP LAN session discovery listener and host announcement broadcast in LocalServer mode.");
+
+        LanDiscoveryUdpPort = Config.Bind(
+            "LanWorkflow",
+            "DiscoveryUdpPort",
+            47777,
+            "UDP port used for LAN discovery announcements.");
+
+        LanDiscoveryBroadcastIntervalMs = Config.Bind(
+            "LanWorkflow",
+            "DiscoveryBroadcastIntervalMs",
+            1000,
+            "Interval in milliseconds for host discovery announcements.");
+
+        LanDiscoveryEntryTtlMs = Config.Bind(
+            "LanWorkflow",
+            "DiscoveryEntryTtlMs",
+            5000,
+            "Milliseconds before an unrefreshed discovered session is evicted.");
+
+        LanDiscoveryProtocolVersion = Config.Bind(
+            "LanWorkflow",
+            "ProtocolVersion",
+            "1",
+            "Discovery protocol version string advertised and required for session compatibility.");
+
+        LanDiscoveryRequireVersionMatch = Config.Bind(
+            "LanWorkflow",
+            "RequireVersionMatch",
+            true,
+            "Require exact game/mod version match for discovery session compatibility.");
+    }
+
+    private void SyncLanDiscoveryRuntime(
+        string source)
+    {
+        if (!IsLocalServerMode || !LanDiscoveryEnabled.Value)
+        {
+            if (LanDiscoveryBroadcaster.IsRunning)
+            {
+                LanDiscoveryBroadcaster.Stop($"{source}: mode/config disabled");
+            }
+
+            if (LanDiscoveryListener.IsRunning)
+            {
+                LanDiscoveryListener.Stop($"{source}: mode/config disabled");
+            }
+
+            return;
+        }
+
+        if (!LanDiscoveryListener.IsRunning)
+        {
+            if (!LanDiscoveryListener.TryStart(
+                    LanDiscoveryUdpPort.Value,
+                    LanDiscoveryEntryTtlMs.Value,
+                    EvaluateLanSessionCompatibility,
+                    out string listenerMessage))
+            {
+                Log.LogError(
+                    $"{source}: failed to start LAN discovery listener. " +
+                    $"Reason={listenerMessage}");
+            }
+            else
+            {
+                Log.LogInfo(
+                    $"{source}: LAN discovery listener active. " +
+                    $"Port={LanDiscoveryUdpPort.Value}; " +
+                    $"TtlMs={LanDiscoveryEntryTtlMs.Value}; " +
+                    $"Message={listenerMessage}");
+            }
+        }
+
+        int sessionCount = LanDiscoveryListener.GetSnapshot().Length;
+        bool listenerRunning = LanDiscoveryListener.IsRunning;
+        bool broadcasterRunning = LanDiscoveryBroadcaster.IsRunning;
+
+        bool changed = sessionCount != _lastLanDiscoverySnapshotCount
+            || listenerRunning != _lastLanDiscoveryListenerRunning
+            || broadcasterRunning != _lastLanDiscoveryBroadcasterRunning;
+
+        if (changed)
+        {
+            _lastLanDiscoverySnapshotCount = sessionCount;
+            _lastLanDiscoveryListenerRunning = listenerRunning;
+            _lastLanDiscoveryBroadcasterRunning = broadcasterRunning;
+
+            Log.LogInfo(
+                $"{source}: LAN discovery snapshot count={sessionCount}; " +
+                $"ListenerRunning={listenerRunning}; " +
+                $"BroadcasterRunning={broadcasterRunning}");
+        }
+    }
+
+    internal static void RefreshLanDiscoveryBroadcast(
+        string source)
+    {
+        if (!IsLocalServerMode || !LanDiscoveryEnabled.Value)
+        {
+            return;
+        }
+
+        if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient)
+        {
+            if (LanDiscoveryBroadcaster.IsRunning)
+            {
+                LanDiscoveryBroadcaster.Stop($"{source}: not in master room");
+            }
+
+            return;
+        }
+
+        if (!LanDiscoveryBroadcaster.TryStart(
+                LanDiscoveryUdpPort.Value,
+                LanDiscoveryBroadcastIntervalMs.Value,
+                BuildLanDiscoveryAnnouncement,
+                out string startMessage))
+        {
+            Log.LogError(
+                $"{source}: failed to start LAN discovery broadcaster. " +
+                $"Reason={startMessage}");
+
+            return;
+        }
+
+        Log.LogInfo(
+            $"{source}: LAN discovery broadcaster active. " +
+            $"Port={LanDiscoveryUdpPort.Value}; " +
+            $"IntervalMs={LanDiscoveryBroadcastIntervalMs.Value}; " +
+            $"Message={startMessage}; " +
+            $"Room={PhotonNetwork.CurrentRoom?.Name ?? "<none>"}");
+    }
+
+    internal static void StopLanDiscoveryBroadcast(
+        string source)
+    {
+        if (LanDiscoveryBroadcaster.IsRunning)
+        {
+            LanDiscoveryBroadcaster.Stop(source);
+        }
+    }
+
+    private static void ShutdownLanDiscoveryRuntime(
+        string source)
+    {
+        StopLanDiscoveryBroadcast($"{source}: shutdown");
+
+        if (LanDiscoveryListener.IsRunning)
+        {
+            LanDiscoveryListener.Stop($"{source}: shutdown");
+        }
+    }
+
+    private static LanSessionCompatibility EvaluateLanSessionCompatibility(
+        LanDiscoveryAnnouncement announcement)
+    {
+        string expectedProtocol =
+            LanDiscoveryProtocolVersion.Value.Trim();
+
+        if (!string.Equals(
+                announcement.ProtocolVersion,
+                expectedProtocol,
+                StringComparison.Ordinal))
+        {
+            return new LanSessionCompatibility(
+                isCompatible: false,
+                reason: "IncompatibleProtocolVersion");
+        }
+
+        if (!LanDiscoveryRequireVersionMatch.Value)
+        {
+            return LanSessionCompatibility.Compatible;
+        }
+
+        string gameVersion = Application.version ?? string.Empty;
+
+        if (!string.Equals(
+                announcement.GameVersion,
+                gameVersion,
+                StringComparison.Ordinal))
+        {
+            return new LanSessionCompatibility(
+                isCompatible: false,
+                reason: "IncompatibleGameVersion");
+        }
+
+        if (!string.Equals(
+                announcement.ModVersion,
+                PluginVersion,
+                StringComparison.Ordinal))
+        {
+            return new LanSessionCompatibility(
+                isCompatible: false,
+                reason: "IncompatibleModVersion");
+        }
+
+        return LanSessionCompatibility.Compatible;
+    }
+
+    private static LanDiscoveryAnnouncement BuildLanDiscoveryAnnouncement()
+    {
+        string roomName = PhotonNetwork.CurrentRoom?.Name
+            ?? string.Empty;
+
+        string scene = UnityEngine.SceneManagement.SceneManager
+            .GetActiveScene()
+            .name;
+
+        return new LanDiscoveryAnnouncement(
+            type: LanDiscoveryMessageCodec.AnnouncementType,
+            schemaVersion: LanDiscoveryMessageCodec.SchemaVersionV1,
+            protocolVersion: LanDiscoveryProtocolVersion.Value.Trim(),
+            gameVersion: Application.version ?? string.Empty,
+            modVersion: PluginVersion,
+            roomName: roomName,
+            hostDisplayName: PhotonNetwork.NickName ?? string.Empty,
+            nameServerAddress: LocalServerAddress.Value.Trim(),
+            nameServerPort: LocalServerPort.Value,
+            transport: LocalServerProtocol.Value.ToString(),
+            scene: scene,
+            serverInstanceId: LanDiscoveryServerInstanceId,
+            sentAtUtc: DateTime.UtcNow);
     }
 
     private void OnGUI()
@@ -1029,6 +1270,12 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<bool> EnableLocalServerReadinessCheck = null!;
     internal static ConfigEntry<int> LocalServerReadinessTimeoutMs = null!;
     internal static ConfigEntry<int> LocalServerReadinessPollIntervalMs = null!;
+    internal static ConfigEntry<bool> LanDiscoveryEnabled = null!;
+    internal static ConfigEntry<int> LanDiscoveryUdpPort = null!;
+    internal static ConfigEntry<int> LanDiscoveryBroadcastIntervalMs = null!;
+    internal static ConfigEntry<int> LanDiscoveryEntryTtlMs = null!;
+    internal static ConfigEntry<string> LanDiscoveryProtocolVersion = null!;
+    internal static ConfigEntry<bool> LanDiscoveryRequireVersionMatch = null!;
 
     private static float _lastStatusUiAt = -999f;
     private static string _overlayStatusMessage = string.Empty;

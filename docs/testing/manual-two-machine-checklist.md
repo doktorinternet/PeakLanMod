@@ -19,6 +19,17 @@
 - [ ] Host reaches the expected master/local server state.
 - [ ] Client reaches the expected master/local server state.
 
+## M5 discovery checks (when `LanWorkflow.DiscoveryEnabled = true`)
+
+- [ ] Host and client use the same `LanWorkflow.DiscoveryUdpPort`.
+- [ ] Host reaches room-master state and continues broadcasting session announcements.
+- [ ] Client receives at least one valid discovery announcement.
+- [ ] Duplicate announcements update one session entry (no duplicate rows per `server_instance_id + room_name`).
+- [ ] Session expires from client store after `LanWorkflow.DiscoveryEntryTtlMs` when host stops broadcasting.
+- [ ] Incompatible protocol version is classified as `IncompatibleProtocolVersion`.
+- [ ] Incompatible game version is classified as `IncompatibleGameVersion` when `LanWorkflow.RequireVersionMatch = true`.
+- [ ] Incompatible mod version is classified as `IncompatibleModVersion` when `LanWorkflow.RequireVersionMatch = true`.
+
 ## Host
 
 - [ ] Trigger host once.

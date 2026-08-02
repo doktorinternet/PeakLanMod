@@ -52,6 +52,8 @@ internal sealed class PhotonCallbackProbe :
             $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
             $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
             $"userIdFingerprint={Plugin.Fingerprint(userId)}");
+
+            Plugin.RefreshLanDiscoveryBroadcast("OnCreatedRoom");
     }
 
     public override void OnJoinedRoom()
@@ -74,6 +76,8 @@ internal sealed class PhotonCallbackProbe :
             $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
             $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
+
+            Plugin.RefreshLanDiscoveryBroadcast("OnJoinedRoom");
     }
 
     public override void OnJoinRoomFailed(
@@ -122,6 +126,8 @@ internal sealed class PhotonCallbackProbe :
             $"protocol={peer?.TransportProtocol.ToString() ?? "<null>"}; " +
             $"state={PhotonNetwork.NetworkClientState}; " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+
+        Plugin.StopLanDiscoveryBroadcast("OnDisconnected");
 
         if (Plugin.IsLocalServerMode)
         {

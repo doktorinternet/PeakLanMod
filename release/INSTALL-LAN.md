@@ -51,6 +51,13 @@ This guide installs a full LAN package without Thunderstore.
        - `LanWorkflow.EnableLocalServerReadinessCheck = true`
        - `LanWorkflow.ReadinessTimeoutMs = 5000`
        - `LanWorkflow.ReadinessPollIntervalMs = 250`
+     - Optional LAN discovery transport/session store (M5):
+       - `LanWorkflow.DiscoveryEnabled = true`
+       - `LanWorkflow.DiscoveryUdpPort = 47777`
+       - `LanWorkflow.DiscoveryBroadcastIntervalMs = 1000`
+       - `LanWorkflow.DiscoveryEntryTtlMs = 5000`
+       - `LanWorkflow.ProtocolVersion = 1`
+       - `LanWorkflow.RequireVersionMatch = true`
 5. Install any other packaged dependency mods from `dependencies/`.
 6. Start PEAK and verify overlay status indicates that the mod is loaded.
 
@@ -83,5 +90,9 @@ This guide installs a full LAN package without Thunderstore.
   verify `LanWorkflow.AutoStartLocalServerOnHost = true`, confirm `LanWorkflow.LocalServerExecutablePath` points to the deployed executable, and either leave `LanWorkflow.LocalServerWorkingDirectory` empty or set it to a valid absolute folder.
 - Host/join waits and then reports local server readiness timeout:
   verify `LanWorkflow.EnableLocalServerReadinessCheck = true`, confirm `Photon.LocalServerAddress`, `Photon.LocalServerPort`, and `Photon.LocalServerProtocol` match the active server, and check firewall rules for the selected protocol/port.
+- No LAN sessions discovered while host is in-room:
+  verify `LanWorkflow.DiscoveryEnabled = true` on both machines, ensure both use the same `LanWorkflow.DiscoveryUdpPort`, allow inbound/outbound UDP on that port in host/client firewalls, and confirm the host reached room-master state (`OnJoinedRoom` as master).
+- Sessions appear but are marked incompatible:
+  compare host/client `LanWorkflow.ProtocolVersion` and, when `LanWorkflow.RequireVersionMatch = true`, verify PEAK game version and mod version match exactly.
 - Airport loaded but not in room:
   room creation/join did not complete. Check host/client callbacks and disconnect logs.
