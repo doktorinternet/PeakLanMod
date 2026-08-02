@@ -54,6 +54,8 @@ public sealed class Plugin : BaseUnityPlugin
 
     private Harmony? _harmony;
     private ClientState? _previousState;
+    private bool _pendingDirectHostStart;
+    private bool _pendingDirectHostConnectRequested;
 
     private void Awake()
     {
@@ -83,13 +85,27 @@ public sealed class Plugin : BaseUnityPlugin
         if (_hostKey.Value.IsDown())
         {
             Logger.LogInfo("Host key pressed.");
-            StartDirectHost();
+
+            if (!AutoRetryDirectHostUntilReady.Value)
+            {
+                StartDirectHostOnce();
+            }
+            else
+            {
+                QueueDirectHostStart();
+                TryProcessQueuedDirectHostStart("HostKey");
+            }
         }
 
         if (_joinKey.Value.IsDown())
         {
             Logger.LogInfo("Join key pressed.");
             StartDirectJoin();
+        }
+
+        if (AutoRetryDirectHostUntilReady.Value)
+        {
+            TryProcessQueuedDirectHostStart("Update");
         }
     }
 
@@ -120,6 +136,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void OnDestroy()
     {
+        StopOwnedLocalServerProcessOnExit("Plugin.OnDestroy");
         _harmony?.UnpatchSelf();
     }
 
@@ -264,6 +281,54 @@ public sealed class Plugin : BaseUnityPlugin
             "LuxonConfigPath",
             "server/config.yml",
             "Relative or absolute path to Luxon config.yml used by host-side external_address automation.");
+
+        AutoStartLocalServerOnHost = Config.Bind(
+            "LanWorkflow",
+            "AutoStartLocalServerOnHost",
+            true,
+            "Start local server executable during direct host when no matching process is already running.");
+
+        LocalServerExecutablePath = Config.Bind(
+            "LanWorkflow",
+            "LocalServerExecutablePath",
+            "server/luxon_server.msvc.release.exe",
+            "Relative or absolute path to the local server executable for optional host auto-start.");
+
+        LocalServerWorkingDirectory = Config.Bind(
+            "LanWorkflow",
+            "LocalServerWorkingDirectory",
+            string.Empty,
+            "Working directory used when launching the local server executable. Leave empty to use executable directory.");
+
+        LocalServerStartArguments = Config.Bind(
+            "LanWorkflow",
+            "LocalServerStartArguments",
+            "config.yml",
+            "Arguments passed to the local server executable when host auto-start is enabled.");
+
+        AutoStopOwnedLocalServerOnExit = Config.Bind(
+            "LanWorkflow",
+            "AutoStopOwnedLocalServerOnExit",
+            true,
+            "Stop only plugin-owned local server process on plugin unload/game exit.");
+
+        ForceKillOwnedLocalServerOnExit = Config.Bind(
+            "LanWorkflow",
+            "ForceKillOwnedLocalServerOnExit",
+            true,
+            "Force-kill plugin-owned local server process on exit when graceful stop times out.");
+
+        OwnedLocalServerStopTimeoutMs = Config.Bind(
+            "LanWorkflow",
+            "OwnedLocalServerStopTimeoutMs",
+            2000,
+            "Timeout in milliseconds for graceful stop of plugin-owned local server process.");
+
+        AutoRetryDirectHostUntilReady = Config.Bind(
+            "LanWorkflow",
+            "AutoRetryDirectHostUntilReady",
+            true,
+            "Queue host intent on HostKey and auto-complete when Photon becomes connected and ready.");
     }
 
     private void OnGUI()
@@ -299,16 +364,62 @@ public sealed class Plugin : BaseUnityPlugin
             _overlayStatusMessage);
     }
 
-    private void StartDirectHost()
+    private void QueueDirectHostStart()
+    {
+        _pendingDirectHostStart = true;
+        _pendingDirectHostConnectRequested = false;
+
+        Log.LogInfo(
+            "Queued direct host start request. " +
+            "Waiting for local server process and Photon ready state.");
+    }
+
+    private void TryProcessQueuedDirectHostStart(
+        string source)
+    {
+        if (!_pendingDirectHostStart)
+        {
+            return;
+        }
+
+        if (PhotonNetwork.InRoom)
+        {
+            _pendingDirectHostStart = false;
+
+            Log.LogInfo(
+                $"{source}: queued host request cleared because client is already in a room.");
+
+            return;
+        }
+
+        if (!StartDirectHostOnce())
+        {
+            return;
+        }
+
+        _pendingDirectHostStart = false;
+        _pendingDirectHostConnectRequested = false;
+
+        Log.LogInfo(
+            $"{source}: queued direct host request completed.");
+    }
+
+    private bool StartDirectHostOnce()
     {
         ApplyHostLanIpv4Selection();
         ApplyHostLuxonConfigAutomation();
 
+        if (!EnsureHostLocalServerProcess())
+        {
+            _pendingDirectHostStart = false;
+            return false;
+        }
+
         EnsureOnlineModeForDirectConnect("StartDirectHost");
 
-        if (!CanStartDirectConnection())
+        if (!CanStartDirectConnection(ref _pendingDirectHostConnectRequested))
         {
-            return;
+            return false;
         }
 
         string roomName = NormalizeRoomName(
@@ -329,6 +440,88 @@ public sealed class Plugin : BaseUnityPlugin
             $"region={PhotonNetwork.CloudRegion}");
 
         LoadAirport();
+        return true;
+    }
+
+    private static bool EnsureHostLocalServerProcess()
+    {
+        if (!IsLocalServerMode)
+        {
+            return true;
+        }
+
+        if (!AutoStartLocalServerOnHost.Value)
+        {
+            return true;
+        }
+
+        string executablePath = LocalServerExecutablePath.Value.Trim();
+        string workingDirectory = LocalServerWorkingDirectory.Value.Trim();
+        string startArguments = LocalServerStartArguments.Value;
+
+        if (!LuxonProcessController.TryEnsureRunning(
+                executablePath,
+            Paths.ConfigPath,
+                workingDirectory,
+                startArguments,
+                out LuxonProcessEnsureResult result))
+        {
+            Log.LogError(
+                "Local server host auto-start failed. " +
+                $"Executable={result.ExecutablePathForLog}; " +
+                $"WorkingDirectory={result.WorkingDirectoryForLog}; " +
+                $"Reason={result.Message}");
+
+            NotifyLocalServerNotDetected("auto-start failed");
+            return false;
+        }
+
+        Log.LogInfo(
+            "Local server host process check succeeded. " +
+            $"Ownership={LuxonProcessController.OwnershipState}; " +
+            $"StartedByPlugin={result.StartedByPlugin}; " +
+            $"ExternalProcessDetected={result.ExternalProcessDetected}; " +
+            $"Pid={result.ProcessId}; " +
+            $"Executable={result.ExecutablePathForLog}; " +
+            $"WorkingDirectory={result.WorkingDirectoryForLog}; " +
+            $"Message={result.Message}");
+
+        return true;
+    }
+
+    private static void StopOwnedLocalServerProcessOnExit(
+        string source)
+    {
+        if (!IsLocalServerMode)
+        {
+            return;
+        }
+
+        if (!AutoStopOwnedLocalServerOnExit.Value)
+        {
+            Log.LogInfo(
+                $"{source}: owned local server stop on exit is disabled.");
+            return;
+        }
+
+        int timeoutMs = Math.Max(0, OwnedLocalServerStopTimeoutMs.Value);
+        bool forceKill = ForceKillOwnedLocalServerOnExit.Value;
+
+        if (LuxonProcessController.TryStopOwnedProcess(
+                timeoutMs,
+                forceKill,
+                out string resultMessage))
+        {
+            Log.LogInfo(
+                $"{source}: local server process stop succeeded. " +
+                $"{resultMessage}");
+            return;
+        }
+
+        Log.LogInfo(
+            $"{source}: local server process stop skipped or incomplete. " +
+            $"{resultMessage}; " +
+            $"Ownership={LuxonProcessController.OwnershipState}");
     }
 
     private static void ApplyHostLanIpv4Selection()
@@ -428,7 +621,9 @@ public sealed class Plugin : BaseUnityPlugin
     {
         EnsureOnlineModeForDirectConnect("StartDirectJoin");
 
-        if (!CanStartDirectConnection())
+        bool joinConnectRequested = false;
+
+        if (!CanStartDirectConnection(ref joinConnectRequested))
         {
             return;
         }
@@ -458,7 +653,8 @@ public sealed class Plugin : BaseUnityPlugin
         LoadAirport();
     }
 
-    private bool CanStartDirectConnection()
+    private bool CanStartDirectConnection(
+        ref bool connectRequested)
     {
         if (!PhotonNetwork.IsConnectedAndReady)
         {
@@ -470,15 +666,25 @@ public sealed class Plugin : BaseUnityPlugin
             if (!PhotonNetwork.IsConnected
                 && PhotonNetwork.NetworkClientState == ClientState.Disconnected)
             {
-                Logger.LogInfo(
-                    "Attempting Photon reconnect via NetworkingUtilities.ConnectToNetwork(). " +
-                    "Press the host/join key again after connected-to-master.");
+                if (!connectRequested)
+                {
+                    Logger.LogInfo(
+                        "Attempting Photon reconnect via NetworkingUtilities.ConnectToNetwork(). " +
+                        "Press the host/join key again unless queued host auto-retry is enabled.");
 
-                Peak.Network.NetworkingUtilities.ConnectToNetwork();
+                    Peak.Network.NetworkingUtilities.ConnectToNetwork();
+                    connectRequested = true;
+                }
+            }
+            else
+            {
+                connectRequested = false;
             }
 
             return false;
         }
+
+        connectRequested = false;
 
         if (PhotonNetwork.InRoom)
         {
@@ -581,6 +787,14 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<string> AllowedHostInterfaces = null!;
     internal static ConfigEntry<bool> AutoUpdateLuxonConfigOnHost = null!;
     internal static ConfigEntry<string> LuxonConfigPath = null!;
+    internal static ConfigEntry<bool> AutoStartLocalServerOnHost = null!;
+    internal static ConfigEntry<string> LocalServerExecutablePath = null!;
+    internal static ConfigEntry<string> LocalServerWorkingDirectory = null!;
+    internal static ConfigEntry<string> LocalServerStartArguments = null!;
+    internal static ConfigEntry<bool> AutoStopOwnedLocalServerOnExit = null!;
+    internal static ConfigEntry<bool> ForceKillOwnedLocalServerOnExit = null!;
+    internal static ConfigEntry<int> OwnedLocalServerStopTimeoutMs = null!;
+    internal static ConfigEntry<bool> AutoRetryDirectHostUntilReady = null!;
 
     private static float _lastStatusUiAt = -999f;
     private static string _overlayStatusMessage = string.Empty;
