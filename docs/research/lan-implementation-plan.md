@@ -326,8 +326,8 @@ Status enum:
 |---|---|---|---|---|---|---|---|---|
 | M1 | Automatic LAN IPv4 detection on host | None | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-01 | 2026-08-02 |
 | M2 | Automatic Luxon config including all external_address values | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-02 | 2026-08-02 |
-| M3 | Controlled Luxon startup/shutdown | M2 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-03 | 2026-08-02 |
-| M4 | Server-readiness check before PEAK connects | M3 | Planned | Not started | Not started | TBD | PR-04 | 2026-08-02 |
+| M3 | Controlled Luxon startup/shutdown | M2 | VerifiedTwoMachine | Manual two-machine validation passed; PR-03 merged and accepted; offline validation pending | Yes (config rollback) | TBD | PR-03 | 2026-08-02 |
+| M4 | Server-readiness check before PEAK connects | M3 | VerifiedOffline | Physically offline two-machine runtime validation passed (host and client on separate machines/accounts); rollback path retained | Yes (config rollback) | TBD | PR-04 | 2026-08-02 |
 | M5 | UDP LAN session discovery | M1 | Planned | Not started | Not started | TBD | PR-05 | 2026-08-02 |
 | M6 | UI actions for host/join/sessions/status | M4, M5 | Planned | Not started | Not started | TBD | PR-06 | 2026-08-02 |
 | M7 | Structured connection errors and mapping | M6 | Planned | Not started | Not started | TBD | PR-07 | 2026-08-02 |
@@ -384,11 +384,36 @@ M3 implementation notes (2026-08-02):
 - Added ownership-focused diagnostics (started-by-plugin vs already-running external process, with process ID and sanitized executable path fingerprinting).
 - Rollback path confirmed in config: disable `AutoStartLocalServerOnHost` and keep fully manual local server lifecycle.
 
+M3 validation update (2026-08-02):
+
+- Validation type: manual two-machine runtime.
+- Outcome: passed.
+- Release status: PR-03 merged and accepted.
+- Remaining validation: physically offline LAN verification still pending.
+
 ### M4: Readiness check before PEAK connect
 
 - Host/join flow waits for NameServer readiness before connecting.
 - Timeout results in explicit structured error.
 - Retry path exists and does not require restart.
+
+M4 implementation notes (2026-08-02):
+
+- Added `LuxonReadinessProbe` with protocol-aware NameServer probes and bounded wait loop (`TryProbeNameServer`, `TryWaitForNameServerReady`).
+- Added config guard `LanWorkflow.EnableLocalServerReadinessCheck` (default `false`) so pre-M4 behavior remains available by default.
+- Added readiness timing config: `LanWorkflow.ReadinessTimeoutMs` and `LanWorkflow.ReadinessPollIntervalMs`.
+- Wired readiness gating into both direct host and direct join flows before Photon connect attempts.
+- Integrated queued-host compatibility with `AutoRetryDirectHostUntilReady`: host intent remains queued until readiness succeeds or timeout is reached.
+- Added focused diagnostics for readiness success/failure with sanitized endpoint, protocol, elapsed milliseconds, attempt count, and last probe failure reason.
+- Rollback path confirmed in config: disable `EnableLocalServerReadinessCheck` to return to pre-M4 connect behavior.
+
+M4 validation update (2026-08-02):
+
+- Validation type: physically offline LAN, two-machine runtime.
+- Environment: host and client on separate machines using separate Steam accounts.
+- Network condition: internet path removed; local LAN path only.
+- Outcome: passed.
+- Remaining scope outside M4: M5+ milestones unchanged.
 
 ### M5: UDP LAN session discovery
 
@@ -447,12 +472,17 @@ M3 implementation notes (2026-08-02):
 | 2026-08-02 | Local server mode is the only supported runtime baseline | Accepted | No Photon Cloud connection path is required for this mod going forward. |
 | 2026-08-02 | Replace Luxon/Photon-specific mode naming with generic LocalServer naming in planning artifacts | Accepted | Apply as incremental renames in implementation milestones where behavior ownership changes. |
 | 2026-08-02 | M3 ownership detection uses executable-path match before launch and treats pre-existing process as unowned | Accepted | Prevents plugin from taking ownership of externally managed local server process. |
+| 2026-08-02 | M3 manual two-machine validation passed and PR-03 is merged/accepted | Accepted | M4 may proceed; offline verification remains a separate gate. |
+| 2026-08-02 | M4 readiness gate uses protocol-aware endpoint probes with queue-safe host retry handling and bounded timeout | Accepted | Implemented as config-gated (`EnableLocalServerReadinessCheck`) to preserve rollback and existing baseline behavior. |
+| 2026-08-02 | M4 physically offline two-machine validation passed | Accepted | Host and client succeeded on separate machines/accounts with internet path removed; milestone status advanced to `VerifiedOffline`. |
 
 ## Deviation record
 
 - 2026-08-02: No deviation from M2 scope. Implemented host-side Luxon config automation only; M3+ behavior remains unchanged.
 - 2026-08-02: Prior temporary diagnostic fallback note about preserving CustomCloud is superseded by the approved LAN-only baseline decision.
-- 2026-08-02: M3 runtime acceptance still pending two-machine validation; implementation is static-complete with guarded rollback path.
+- 2026-08-02: M3 manual two-machine validation passed and PR-03 merged/accepted; physically offline validation remains pending.
+- 2026-08-02: No deviation from M4 scope. Implemented readiness gating only; M5+ discovery/UI/error-mapping milestones remain unchanged.
+- 2026-08-02: No deviation from M4 validation scope. Validation executed as physically offline LAN two-machine runtime with separate accounts.
 
 ## Recommended small PR sequence
 

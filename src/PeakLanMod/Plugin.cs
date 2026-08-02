@@ -56,6 +56,11 @@ public sealed class Plugin : BaseUnityPlugin
     private ClientState? _previousState;
     private bool _pendingDirectHostStart;
     private bool _pendingDirectHostConnectRequested;
+    private bool _queuedHostPreflightCompleted;
+    private DateTime _queuedHostReadinessStartedAtUtc;
+    private int _queuedHostReadinessAttempts;
+    private float _lastNotReadyLogAt = -999f;
+    private float _lastReconnectAttemptAt = -999f;
 
     private void Awake()
     {
@@ -329,6 +334,24 @@ public sealed class Plugin : BaseUnityPlugin
             "AutoRetryDirectHostUntilReady",
             true,
             "Queue host intent on HostKey and auto-complete when Photon becomes connected and ready.");
+
+        EnableLocalServerReadinessCheck = Config.Bind(
+            "LanWorkflow",
+            "EnableLocalServerReadinessCheck",
+            true,
+            "Wait for local NameServer readiness before direct host/join connect attempts in LocalServer mode.");
+
+        LocalServerReadinessTimeoutMs = Config.Bind(
+            "LanWorkflow",
+            "ReadinessTimeoutMs",
+            5000,
+            "Maximum milliseconds to wait for local NameServer readiness before connect attempts.");
+
+        LocalServerReadinessPollIntervalMs = Config.Bind(
+            "LanWorkflow",
+            "ReadinessPollIntervalMs",
+            250,
+            "Milliseconds between local NameServer readiness probe attempts.");
     }
 
     private void OnGUI()
@@ -368,6 +391,8 @@ public sealed class Plugin : BaseUnityPlugin
     {
         _pendingDirectHostStart = true;
         _pendingDirectHostConnectRequested = false;
+        _queuedHostPreflightCompleted = false;
+        ResetQueuedHostReadinessWindow();
 
         Log.LogInfo(
             "Queued direct host start request. " +
@@ -385,6 +410,8 @@ public sealed class Plugin : BaseUnityPlugin
         if (PhotonNetwork.InRoom)
         {
             _pendingDirectHostStart = false;
+            _queuedHostPreflightCompleted = false;
+            ResetQueuedHostReadinessWindow();
 
             Log.LogInfo(
                 $"{source}: queued host request cleared because client is already in a room.");
@@ -399,6 +426,8 @@ public sealed class Plugin : BaseUnityPlugin
 
         _pendingDirectHostStart = false;
         _pendingDirectHostConnectRequested = false;
+        _queuedHostPreflightCompleted = false;
+        ResetQueuedHostReadinessWindow();
 
         Log.LogInfo(
             $"{source}: queued direct host request completed.");
@@ -406,13 +435,39 @@ public sealed class Plugin : BaseUnityPlugin
 
     private bool StartDirectHostOnce()
     {
-        ApplyHostLanIpv4Selection();
-        ApplyHostLuxonConfigAutomation();
+        bool queuedHostFlow =
+            _pendingDirectHostStart
+            && AutoRetryDirectHostUntilReady.Value;
 
-        if (!EnsureHostLocalServerProcess())
+        if (!queuedHostFlow || !_queuedHostPreflightCompleted)
         {
-            _pendingDirectHostStart = false;
-            return false;
+            ApplyHostLanIpv4Selection();
+            ApplyHostLuxonConfigAutomation();
+
+            if (!EnsureHostLocalServerProcess())
+            {
+                _pendingDirectHostStart = false;
+                _queuedHostPreflightCompleted = false;
+                ResetQueuedHostReadinessWindow();
+                return false;
+            }
+
+            if (!EnsureLocalServerReadinessBeforeConnect(
+                    source: "StartDirectHost",
+                    queuedHostFlow))
+            {
+                _pendingDirectHostConnectRequested = false;
+                return false;
+            }
+
+            if (queuedHostFlow)
+            {
+                _queuedHostPreflightCompleted = true;
+
+                Log.LogInfo(
+                    "StartDirectHost: queued host preflight completed. " +
+                    "Waiting for Photon connected+ready before entering room flow.");
+            }
         }
 
         EnsureOnlineModeForDirectConnect("StartDirectHost");
@@ -619,6 +674,13 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void StartDirectJoin()
     {
+        if (!EnsureLocalServerReadinessBeforeConnect(
+                source: "StartDirectJoin",
+                queuedHostFlow: false))
+        {
+            return;
+        }
+
         EnsureOnlineModeForDirectConnect("StartDirectJoin");
 
         bool joinConnectRequested = false;
@@ -653,27 +715,199 @@ public sealed class Plugin : BaseUnityPlugin
         LoadAirport();
     }
 
+    private bool EnsureLocalServerReadinessBeforeConnect(
+        string source,
+        bool queuedHostFlow)
+    {
+        if (!IsLocalServerMode)
+        {
+            return true;
+        }
+
+        if (!EnableLocalServerReadinessCheck.Value)
+        {
+            return true;
+        }
+
+        int timeoutMs = Math.Max(0, LocalServerReadinessTimeoutMs.Value);
+        int pollIntervalMs = Math.Max(50, LocalServerReadinessPollIntervalMs.Value);
+
+        string host = LocalServerAddress.Value.Trim();
+        int port = LocalServerPort.Value;
+        ConnectionProtocol protocol = LocalServerProtocol.Value;
+
+        if (queuedHostFlow)
+        {
+            return EnsureQueuedHostReadinessBeforeConnect(
+                source,
+                host,
+                port,
+                protocol,
+                timeoutMs,
+                pollIntervalMs);
+        }
+
+        if (!LuxonReadinessProbe.TryWaitForNameServerReady(
+                host,
+                port,
+                protocol,
+                timeoutMs,
+                pollIntervalMs,
+                out LocalServerReadinessResult result))
+        {
+            Log.LogError(
+                $"{source}: local NameServer readiness timed out. " +
+                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
+                $"Protocol={protocol}; " +
+                $"ElapsedMs={result.ElapsedMilliseconds}; " +
+                $"Attempts={result.AttemptCount}; " +
+                $"LastFailure={result.LastFailureMessage}");
+
+            NotifyLocalServerNotDetected("readiness timeout");
+            return false;
+        }
+
+        Log.LogInfo(
+            $"{source}: local NameServer readiness confirmed. " +
+            $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
+            $"Protocol={protocol}; " +
+            $"ElapsedMs={result.ElapsedMilliseconds}; " +
+            $"Attempts={result.AttemptCount}; " +
+            $"Message={result.SuccessMessage}");
+
+        return true;
+    }
+
+    private bool EnsureQueuedHostReadinessBeforeConnect(
+        string source,
+        string host,
+        int port,
+        ConnectionProtocol protocol,
+        int timeoutMs,
+        int pollIntervalMs)
+    {
+        DateTime now = DateTime.UtcNow;
+
+        if (_queuedHostReadinessStartedAtUtc == default)
+        {
+            _queuedHostReadinessStartedAtUtc = now;
+            _queuedHostReadinessAttempts = 0;
+
+            Log.LogInfo(
+                $"{source}: queued host readiness wait started. " +
+                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
+                $"Protocol={protocol}; " +
+                $"TimeoutMs={timeoutMs}; " +
+                $"PollIntervalMs={pollIntervalMs}");
+        }
+
+        _queuedHostReadinessAttempts++;
+
+        int perAttemptTimeoutMs = Math.Max(
+            100,
+            Math.Min(pollIntervalMs, 1000));
+
+        if (LuxonReadinessProbe.TryProbeNameServer(
+                host,
+                port,
+                protocol,
+                perAttemptTimeoutMs,
+                out string probeMessage))
+        {
+            int elapsedMs = (int)Math.Max(
+                0,
+                (now - _queuedHostReadinessStartedAtUtc).TotalMilliseconds);
+
+            Log.LogInfo(
+                $"{source}: queued host readiness confirmed. " +
+                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
+                $"Protocol={protocol}; " +
+                $"ElapsedMs={elapsedMs}; " +
+                $"Attempts={_queuedHostReadinessAttempts}; " +
+                $"Message={probeMessage}");
+
+            ResetQueuedHostReadinessWindow();
+            return true;
+        }
+
+        int elapsedSinceStartMs = (int)Math.Max(
+            0,
+            (now - _queuedHostReadinessStartedAtUtc).TotalMilliseconds);
+
+        if (_queuedHostReadinessAttempts == 1
+            || _queuedHostReadinessAttempts % 5 == 0)
+        {
+            Log.LogInfo(
+                $"{source}: queued host readiness pending. " +
+                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
+                $"Protocol={protocol}; " +
+                $"ElapsedMs={elapsedSinceStartMs}; " +
+                $"Attempts={_queuedHostReadinessAttempts}; " +
+                $"LastFailure={probeMessage}");
+        }
+
+        if (elapsedSinceStartMs < timeoutMs)
+        {
+            return false;
+        }
+
+        Log.LogError(
+            $"{source}: queued host readiness timed out. " +
+            $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
+            $"Protocol={protocol}; " +
+            $"ElapsedMs={elapsedSinceStartMs}; " +
+            $"Attempts={_queuedHostReadinessAttempts}; " +
+            $"LastFailure={probeMessage}");
+
+        NotifyLocalServerNotDetected("readiness timeout");
+
+        _pendingDirectHostStart = false;
+        ResetQueuedHostReadinessWindow();
+
+        return false;
+    }
+
+    private void ResetQueuedHostReadinessWindow()
+    {
+        _queuedHostReadinessStartedAtUtc = default;
+        _queuedHostReadinessAttempts = 0;
+    }
+
     private bool CanStartDirectConnection(
         ref bool connectRequested)
     {
         if (!PhotonNetwork.IsConnectedAndReady)
         {
-            Logger.LogError(
-                "Photon is not connected and ready. " +
-                $"Current state: " +
-                $"{PhotonNetwork.NetworkClientState}");
+            ClientState currentState = PhotonNetwork.NetworkClientState;
+            float now = Time.realtimeSinceStartup;
+            bool shouldLogNotReady = now - _lastNotReadyLogAt >= 2f;
+
+            if (shouldLogNotReady)
+            {
+                Logger.LogWarning(
+                    "Photon is not connected and ready. " +
+                    $"Current state: {currentState}");
+
+                _lastNotReadyLogAt = now;
+            }
 
             if (!PhotonNetwork.IsConnected
-                && PhotonNetwork.NetworkClientState == ClientState.Disconnected)
+                && currentState == ClientState.Disconnected)
             {
                 if (!connectRequested)
                 {
+                    if (now - _lastReconnectAttemptAt < 1.5f)
+                    {
+                        return false;
+                    }
+
                     Logger.LogInfo(
                         "Attempting Photon reconnect via NetworkingUtilities.ConnectToNetwork(). " +
                         "Press the host/join key again unless queued host auto-retry is enabled.");
 
                     Peak.Network.NetworkingUtilities.ConnectToNetwork();
                     connectRequested = true;
+                    _lastReconnectAttemptAt = now;
                 }
             }
             else
@@ -702,9 +936,6 @@ public sealed class Plugin : BaseUnityPlugin
     {
         if (!PhotonNetwork.OfflineMode)
         {
-            Log.LogInfo(
-                $"{source}: OfflineMode is false.");
-
             return;
         }
 
@@ -795,6 +1026,9 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<bool> ForceKillOwnedLocalServerOnExit = null!;
     internal static ConfigEntry<int> OwnedLocalServerStopTimeoutMs = null!;
     internal static ConfigEntry<bool> AutoRetryDirectHostUntilReady = null!;
+    internal static ConfigEntry<bool> EnableLocalServerReadinessCheck = null!;
+    internal static ConfigEntry<int> LocalServerReadinessTimeoutMs = null!;
+    internal static ConfigEntry<int> LocalServerReadinessPollIntervalMs = null!;
 
     private static float _lastStatusUiAt = -999f;
     private static string _overlayStatusMessage = string.Empty;

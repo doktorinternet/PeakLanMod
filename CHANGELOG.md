@@ -4,6 +4,10 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-02
 
+- Confirmed Milestone 4 runtime validation: physically offline LAN test passed on two separate machines with separate Steam accounts.
+- Further reduced host-connect log noise: removed per-frame no-op `OfflineMode is false` entries and added short reconnect-attempt cooldown plus periodic not-ready warning cadence.
+- Reduced queued-host log spam while waiting for Photon readiness: host preflight now runs once per queued host request and repeated not-ready state logs are throttled.
+- Implemented Milestone 4 local NameServer readiness gating: optional pre-connect probe/wait for direct host/join with timeout, polling controls, queued-host compatibility, and focused readiness diagnostics.
 - Implemented Milestone 3 Luxon process lifecycle control: optional host auto-start with owned/unowned process detection, plus stop-only-owned behavior on plugin unload.
 - Fixed M3 host auto-start path handling: `LocalServerWorkingDirectory` now defaults to empty (use executable directory), with fallback and explicit working-directory diagnostics when relative paths are invalid.
 - Improved M3 executable path resolution for profile-based installs: relative `LocalServerExecutablePath` now searches from current directory plus `BepInEx/config` ancestry before requiring absolute paths.
