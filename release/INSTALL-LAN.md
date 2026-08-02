@@ -28,7 +28,7 @@ This guide installs a full LAN package without Thunderstore.
 2. Copy package `mod/bepinex/plugins/*` into your PEAK `BepInEx/plugins/`.
 3. Copy package `mod/bepinex/config/*` into your PEAK `BepInEx/config/`.
 4. In the config file, set:
-   - `Mode = LocalPhotonServer`
+  - `Mode = LocalServer`
    - `LocalServerAddress` to host LAN IP (or `127.0.0.1` if server and host game are same machine).
    - `LocalServerPort` and `LocalServerProtocol` to match server config.
    - Optional M1 host automation:

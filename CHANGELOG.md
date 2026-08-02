@@ -4,6 +4,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-02
 
+- Renamed mode value `LocalPhotonServer` to `LocalServer` and added startup config migration to rewrite legacy `Mode = LocalPhotonServer` entries.
 - Implemented Milestone 2 Luxon config automation: optional host-side rewrite of `external_address` entries for NameServer/MasterServer/GameServer with deterministic port-preserving updates and rollback config guard.
 - Implemented Milestone 1 host LAN IPv4 selection: optional host-side auto-detection with interface filtering, manual override, and sanitized endpoint diagnostics.
 - Added `LanRelease` MSBuild target for offline LAN distribution staging, checksums, and zip packaging.

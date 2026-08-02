@@ -11,8 +11,10 @@ using UnityEngine;
 using System.Text;
 using System.Security.Cryptography;
 using System.Reflection;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using PeakLanMod.Lan.Services;
 namespace PeakLanMod;
 
@@ -38,7 +40,10 @@ public sealed class Plugin : BaseUnityPlugin
     internal enum PhotonConnectionMode
     {
         CustomCloud,
-        LocalPhotonServer
+        LocalServer,
+
+        [Obsolete("Use LocalServer.")]
+        LocalPhotonServer = LocalServer
     }
 
     public const string PluginGuid = "BadHorse.PeakLanMod";
@@ -53,6 +58,8 @@ public sealed class Plugin : BaseUnityPlugin
     private void Awake()
     {
         Log = Logger;
+
+        MigrateLegacyPhotonModeNameInConfig();
 
         ConfigureDirectConnect();
 
@@ -177,8 +184,8 @@ public sealed class Plugin : BaseUnityPlugin
         PhotonMode = Config.Bind(
             "Photon",
             "Mode",
-            PhotonConnectionMode.LocalPhotonServer,
-            "Photon endpoint mode: CustomCloud or LocalPhotonServer (default).");
+            PhotonConnectionMode.LocalServer,
+            "Photon endpoint mode: CustomCloud or LocalServer (default). Legacy LocalPhotonServer is auto-migrated.");
 
         AppIdRealtime = Config.Bind(
             "Photon",
@@ -214,7 +221,7 @@ public sealed class Plugin : BaseUnityPlugin
             "Photon",
             "ShowLocalServerStatusUI",
             true,
-            "Show in-game local server reachability notifications in LocalPhotonServer mode.");
+            "Show in-game local server reachability notifications in LocalServer mode.");
 
         StatusUiMinIntervalSeconds = Config.Bind(
             "Photon",
@@ -232,7 +239,7 @@ public sealed class Plugin : BaseUnityPlugin
             "LanWorkflow",
             "AutoDetectHostIPv4",
             false,
-            "Auto-detect host LAN IPv4 during direct host in LocalPhotonServer mode.");
+            "Auto-detect host LAN IPv4 during direct host in LocalServer mode.");
 
         PreferredHostIpv4 = Config.Bind(
             "LanWorkflow",
@@ -250,7 +257,7 @@ public sealed class Plugin : BaseUnityPlugin
             "LanWorkflow",
             "AutoUpdateLuxonConfigOnHost",
             false,
-            "Automatically rewrite Luxon external_address values during direct host in LocalPhotonServer mode.");
+            "Automatically rewrite Luxon external_address values during direct host in LocalServer mode.");
 
         LuxonConfigPath = Config.Bind(
             "LanWorkflow",
@@ -261,7 +268,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void OnGUI()
     {
-        if (!IsLocalPhotonServerMode)
+        if (!IsLocalServerMode)
         {
             return;
         }
@@ -326,7 +333,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static void ApplyHostLanIpv4Selection()
     {
-        if (!IsLocalPhotonServerMode)
+        if (!IsLocalServerMode)
         {
             return;
         }
@@ -381,7 +388,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static void ApplyHostLuxonConfigAutomation()
     {
-        if (!IsLocalPhotonServerMode)
+        if (!IsLocalServerMode)
         {
             return;
         }
@@ -587,8 +594,8 @@ public sealed class Plugin : BaseUnityPlugin
     private static Type? _playerConnectionLogType;
     private static MethodInfo? _addConnectionLogMessageMethod;
 
-    internal static bool IsLocalPhotonServerMode =>
-        PhotonMode.Value == PhotonConnectionMode.LocalPhotonServer;
+    internal static bool IsLocalServerMode =>
+        PhotonMode.Value == PhotonConnectionMode.LocalServer;
 
     internal static void ApplyConfiguredPhotonSettings()
     {
@@ -602,7 +609,7 @@ public sealed class Plugin : BaseUnityPlugin
                 ApplyCustomCloudSettings(settings);
                 return;
 
-            case PhotonConnectionMode.LocalPhotonServer:
+            case PhotonConnectionMode.LocalServer:
                 ApplyLocalServerSettings(settings);
                 return;
 
@@ -617,7 +624,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     internal static void NotifyLocalServerDetected()
     {
-        if (!IsLocalPhotonServerMode)
+        if (!IsLocalServerMode)
         {
             return;
         }
@@ -629,7 +636,7 @@ public sealed class Plugin : BaseUnityPlugin
     internal static void NotifyLocalServerNotDetected(
         string reason)
     {
-        if (!IsLocalPhotonServerMode)
+        if (!IsLocalServerMode)
         {
             return;
         }
@@ -916,7 +923,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             Log.LogError(
                 "LocalServerAddress is empty. " +
-                "Cannot apply LocalPhotonServer mode.");
+                "Cannot apply LocalServer mode.");
 
             return;
         }
@@ -939,11 +946,58 @@ public sealed class Plugin : BaseUnityPlugin
         settings.FixedRegion = string.Empty;
 
         Log.LogInfo(
-            "Applied Photon mode LocalPhotonServer: " +
+            "Applied Photon mode LocalServer: " +
             $"Server={serverAddress}; " +
             $"Port={settings.Port}; " +
             $"Protocol={settings.Protocol}; " +
             $"UseNameServer={settings.UseNameServer}");
+    }
+
+    private static void MigrateLegacyPhotonModeNameInConfig()
+    {
+        try
+        {
+            string configPath = Path.Combine(
+                Paths.ConfigPath,
+                PluginGuid + ".cfg");
+
+            if (!File.Exists(configPath))
+            {
+                return;
+            }
+
+            string existing = File.ReadAllText(configPath);
+
+            if (existing.IndexOf(
+                    "LocalPhotonServer",
+                    StringComparison.Ordinal) < 0)
+            {
+                return;
+            }
+
+            string updated = Regex.Replace(
+                existing,
+                @"^(\s*Mode\s*=\s*)LocalPhotonServer(\s*)$",
+                "$1LocalServer$2",
+                RegexOptions.Multiline);
+
+            if (string.Equals(existing, updated, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            File.WriteAllText(configPath, updated);
+
+            Log.LogInfo(
+                "Config migration: Mode LocalPhotonServer -> LocalServer completed.");
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(
+                "Config migration skipped after failure. " +
+                $"Error={ex.GetType().Name}; " +
+                $"Message={ex.Message}");
+        }
     }
 
     internal static string Fingerprint(string value)

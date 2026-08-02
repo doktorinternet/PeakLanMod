@@ -26,7 +26,7 @@ internal sealed class PhotonCallbackProbe :
             $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
 
-        if (Plugin.IsLocalPhotonServerMode)
+        if (Plugin.IsLocalServerMode)
         {
             if (PhotonNetwork.OfflineMode)
             {
@@ -100,7 +100,7 @@ internal sealed class PhotonCallbackProbe :
             $"server={Plugin.LocalServerAddress.Value}:{Plugin.LocalServerPort.Value}; " +
             $"protocol={Plugin.LocalServerProtocol.Value}");
 
-        if (Plugin.IsLocalPhotonServerMode)
+        if (Plugin.IsLocalServerMode)
         {
             Plugin.NotifyLocalServerNotDetected(
                 $"create room failed {returnCode}");
@@ -123,7 +123,7 @@ internal sealed class PhotonCallbackProbe :
             $"state={PhotonNetwork.NetworkClientState}; " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
 
-        if (Plugin.IsLocalPhotonServerMode)
+        if (Plugin.IsLocalServerMode)
         {
             Plugin.NotifyLocalServerNotDetected(
                 $"disconnect cause {cause}");

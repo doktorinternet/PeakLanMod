@@ -30,11 +30,11 @@ JoinKey = F7
 
 [Photon]
 
-## Photon endpoint mode: CustomCloud (baseline) or LocalPhotonServer.
+## Photon endpoint mode: CustomCloud (legacy) or LocalServer.
 # Setting type: PhotonConnectionMode
 # Default value: CustomCloud
-# Acceptable values: CustomCloud, LocalPhotonServer
-Mode = LocalPhotonServer
+# Acceptable values: CustomCloud, LocalServer
+Mode = LocalServer
 
 ## Custom Photon PUN application ID.
 # Setting type: String
@@ -62,7 +62,7 @@ LocalServerPort = 5058
 # Acceptable values: Udp, Tcp, WebSocket, WebSocketSecure
 LocalServerProtocol = Udp
 
-## Show in-game local server reachability notifications in LocalPhotonServer mode.
+## Show in-game local server reachability notifications in LocalServer mode.
 # Setting type: Boolean
 # Default value: true
 ShowLocalServerStatusUI = true
@@ -79,7 +79,7 @@ ShowStatusOverlayFallback = true
 
 [LanWorkflow]
 
-## Auto-detect host LAN IPv4 during direct host in LocalPhotonServer mode.
+## Auto-detect host LAN IPv4 during direct host in LocalServer mode.
 # Setting type: Boolean
 # Default value: false
 AutoDetectHostIPv4 = false
@@ -94,7 +94,7 @@ PreferredHostIPv4 =
 # Default value:
 AllowedHostInterfaces =
 
-## Automatically rewrite Luxon external_address values during direct host in LocalPhotonServer mode.
+## Automatically rewrite Luxon external_address values during direct host in LocalServer mode.
 # Setting type: Boolean
 # Default value: false
 AutoUpdateLuxonConfigOnHost = false

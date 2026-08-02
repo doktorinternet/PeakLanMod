@@ -50,7 +50,7 @@ See `release/INSTALL-LAN.md` for host/client setup instructions.
 
 ## LAN host IPv4 auto-detection (M1)
 
-Milestone 1 adds optional host-side LAN IPv4 selection for `LocalPhotonServer` mode.
+Milestone 1 adds optional host-side LAN IPv4 selection for `LocalServer` mode.
 
 - `LanWorkflow.AutoDetectHostIPv4 = true` enables host-side endpoint selection when pressing `HostKey`.
 - `LanWorkflow.PreferredHostIPv4` manually overrides auto-detection when you need a specific adapter.
@@ -65,7 +65,7 @@ Rollback path:
 
 Milestone 2 adds optional host-side automation that rewrites Luxon `external_address` values in `config.yml` before direct hosting.
 
-- `LanWorkflow.AutoUpdateLuxonConfigOnHost = true` enables rewriting during host start (`HostKey`) in `LocalPhotonServer` mode.
+- `LanWorkflow.AutoUpdateLuxonConfigOnHost = true` enables rewriting during host start (`HostKey`) in `LocalServer` mode.
 - `LanWorkflow.LuxonConfigPath` points to the Luxon YAML file to update (relative paths resolve from the PEAK process working directory).
 - The updater rewrites all matched `external_address` entries under `NameServer`, `MasterServer`, and `GameServer`, preserving existing ports.
 - Default remains disabled, so manual Luxon config is unchanged unless explicitly enabled.
