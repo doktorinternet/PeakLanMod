@@ -103,3 +103,43 @@ AutoUpdateLuxonConfigOnHost = false
 # Setting type: String
 # Default value: server/config.yml
 LuxonConfigPath = server/config.yml
+
+## Start local server executable during direct host when no matching process is already running.
+# Setting type: Boolean
+# Default value: false
+AutoStartLocalServerOnHost = false
+
+## Relative or absolute path to the local server executable for optional host auto-start.
+# Setting type: String
+# Default value: server/luxon_server.msvc.release.exe
+LocalServerExecutablePath = server/luxon_server.msvc.release.exe
+
+## Working directory used when launching the local server executable.
+# Setting type: String
+# Default value:
+LocalServerWorkingDirectory =
+
+## Arguments passed to the local server executable when host auto-start is enabled.
+# Setting type: String
+# Default value: config.yml
+LocalServerStartArguments = config.yml
+
+## Stop only plugin-owned local server process on plugin unload/game exit.
+# Setting type: Boolean
+# Default value: true
+AutoStopOwnedLocalServerOnExit = true
+
+## Force-kill plugin-owned local server process on exit when graceful stop times out.
+# Setting type: Boolean
+# Default value: true
+ForceKillOwnedLocalServerOnExit = true
+
+## Timeout in milliseconds for graceful stop of plugin-owned local server process.
+# Setting type: Int32
+# Default value: 2000
+OwnedLocalServerStopTimeoutMs = 2000
+
+## Queue host intent on HostKey and auto-complete when Photon becomes connected and ready.
+# Setting type: Boolean
+# Default value: true
+AutoRetryDirectHostUntilReady = true

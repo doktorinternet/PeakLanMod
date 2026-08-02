@@ -37,8 +37,8 @@ Optional package name override (dotnet-safe):
 
 The package staging layout is:
 
-- `mod/bepinex/plugins/BadHorse.PeakLanMod.dll`
-- `mod/bepinex/config/BadHorse.PeakLanMod.cfg`
+- `mod/BepInEx/plugins/BadHorse.PeakLanMod.dll`
+- `mod/BepInEx/config/BadHorse.PeakLanMod.cfg`
 - `server/luxon_server.msvc.release.exe`
 - `server/config.example.yml`
 - `dependencies/README.md`
@@ -73,6 +73,39 @@ Milestone 2 adds optional host-side automation that rewrites Luxon `external_add
 Rollback path:
 
 - Set `LanWorkflow.AutoUpdateLuxonConfigOnHost = false` to return to fully manual Luxon config management.
+
+## Local server process lifecycle control (M3)
+
+Milestone 3 adds optional host-side local server process control with explicit ownership tracking.
+
+- `LanWorkflow.AutoStartLocalServerOnHost = true` enables process auto-start during direct host (`HostKey`) in `LocalServer` mode.
+- `LanWorkflow.LocalServerExecutablePath` sets the server executable path.
+- `LanWorkflow.LocalServerWorkingDirectory` sets process working directory. Leave empty to use the executable directory.
+- `LanWorkflow.LocalServerStartArguments` sets startup arguments.
+- `LanWorkflow.AutoStopOwnedLocalServerOnExit = true` stops only plugin-owned server process on plugin unload/game exit.
+- `LanWorkflow.ForceKillOwnedLocalServerOnExit` and `LanWorkflow.OwnedLocalServerStopTimeoutMs` control timeout and forced termination behavior.
+- `LanWorkflow.AutoRetryDirectHostUntilReady = true` keeps a host request queued after one `HostKey` press and completes it automatically once Photon reaches connected+ready.
+
+If `LocalServerWorkingDirectory` is set to a relative path and that folder does not exist under PEAK's process working directory, the launcher falls back to the executable directory and logs that fallback.
+
+Relative `LocalServerExecutablePath` values are resolved by checking:
+
+- current process working directory,
+- `BepInEx/config` directory and its parent directories.
+
+This supports profile-based installs where the `server/` folder is located near the profile root instead of under the PEAK game directory.
+
+If you prefer the older behavior (manual repeated key presses while waiting for connect), set `LanWorkflow.AutoRetryDirectHostUntilReady = false`.
+
+Ownership behavior:
+
+- If the plugin starts the process, it is owned and eligible for stop-on-exit.
+- If the process was already running externally, it is treated as unowned and never stopped by the plugin.
+
+Rollback path:
+
+- Set `LanWorkflow.AutoStartLocalServerOnHost = false` to return to fully manual server startup.
+- Optionally set `LanWorkflow.AutoStopOwnedLocalServerOnExit = false` to disable plugin-driven shutdown.
 
 ## Release branch guidance
 

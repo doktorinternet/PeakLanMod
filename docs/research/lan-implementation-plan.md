@@ -326,7 +326,7 @@ Status enum:
 |---|---|---|---|---|---|---|---|---|
 | M1 | Automatic LAN IPv4 detection on host | None | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-01 | 2026-08-02 |
 | M2 | Automatic Luxon config including all external_address values | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-02 | 2026-08-02 |
-| M3 | Controlled Luxon startup/shutdown | M2 | Planned | Not started | Not started | TBD | PR-03 | 2026-08-02 |
+| M3 | Controlled Luxon startup/shutdown | M2 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-03 | 2026-08-02 |
 | M4 | Server-readiness check before PEAK connects | M3 | Planned | Not started | Not started | TBD | PR-04 | 2026-08-02 |
 | M5 | UDP LAN session discovery | M1 | Planned | Not started | Not started | TBD | PR-05 | 2026-08-02 |
 | M6 | UI actions for host/join/sessions/status | M4, M5 | Planned | Not started | Not started | TBD | PR-06 | 2026-08-02 |
@@ -373,6 +373,16 @@ M2 implementation notes (2026-08-02):
 - Process ownership tracked correctly.
 - Plugin stops only owned process when configured.
 - Plugin never stops externally-managed Luxon.
+
+M3 implementation notes (2026-08-02):
+
+- Added `LuxonProcessController` with explicit ownership states: `NotStartedByPlugin`, `StartedByPlugin`, `StoppedByPlugin`.
+- Added host-only process guard `LanWorkflow.AutoStartLocalServerOnHost` (default `false`) to preserve manual startup baseline.
+- Added process launch settings: `LanWorkflow.LocalServerExecutablePath`, `LanWorkflow.LocalServerWorkingDirectory`, `LanWorkflow.LocalServerStartArguments`.
+- Added stop-on-exit controls for plugin-owned process only: `LanWorkflow.AutoStopOwnedLocalServerOnExit`, `LanWorkflow.ForceKillOwnedLocalServerOnExit`, `LanWorkflow.OwnedLocalServerStopTimeoutMs`.
+- Wired process check/start into direct host sequence after M1/M2 host-prep steps and before connect sequence.
+- Added ownership-focused diagnostics (started-by-plugin vs already-running external process, with process ID and sanitized executable path fingerprinting).
+- Rollback path confirmed in config: disable `AutoStartLocalServerOnHost` and keep fully manual local server lifecycle.
 
 ### M4: Readiness check before PEAK connect
 
@@ -436,11 +446,13 @@ M2 implementation notes (2026-08-02):
 | 2026-08-02 | M2 Luxon config automation rewrites `external_address` host values while preserving ports | Accepted | Implemented as host-only, config-gated behavior with deterministic file updates and manual rollback path. |
 | 2026-08-02 | Local server mode is the only supported runtime baseline | Accepted | No Photon Cloud connection path is required for this mod going forward. |
 | 2026-08-02 | Replace Luxon/Photon-specific mode naming with generic LocalServer naming in planning artifacts | Accepted | Apply as incremental renames in implementation milestones where behavior ownership changes. |
+| 2026-08-02 | M3 ownership detection uses executable-path match before launch and treats pre-existing process as unowned | Accepted | Prevents plugin from taking ownership of externally managed local server process. |
 
 ## Deviation record
 
 - 2026-08-02: No deviation from M2 scope. Implemented host-side Luxon config automation only; M3+ behavior remains unchanged.
 - 2026-08-02: Prior temporary diagnostic fallback note about preserving CustomCloud is superseded by the approved LAN-only baseline decision.
+- 2026-08-02: M3 runtime acceptance still pending two-machine validation; implementation is static-complete with guarded rollback path.
 
 ## Recommended small PR sequence
 

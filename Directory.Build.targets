@@ -145,8 +145,8 @@
     <Delete Files="$(_LanReleaseZipPath)" Condition="Exists('$(_LanReleaseZipPath)')" />
     <Delete Files="$(_LanReleaseExternalZipPath)" Condition="'$(_LanReleaseExternalZipPath)' != '' And Exists('$(_LanReleaseExternalZipPath)')" />
 
-    <MakeDir Directories="$(_LanReleaseStageDir)mod\bepinex\plugins" />
-    <MakeDir Directories="$(_LanReleaseStageDir)mod\bepinex\config" />
+    <MakeDir Directories="$(_LanReleaseStageDir)mod\BepInEx\plugins" />
+    <MakeDir Directories="$(_LanReleaseStageDir)mod\BepInEx\config" />
     <MakeDir Directories="$(_LanReleaseStageDir)server" />
     <MakeDir Directories="$(_LanReleaseStageDir)dependencies" />
     <MakeDir Directories="$(_LanReleaseStageDir)docs" />
