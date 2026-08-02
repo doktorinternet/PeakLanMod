@@ -4,6 +4,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-02
 
+- Added M6 UX Part 2 polish: `Join Selected` is disabled until a compatible session is selected, panel now shows inline join-unavailable reasons, and `Last refresh` timestamp is displayed with lightweight periodic auto-refresh plus manual refresh.
 - Removed legacy in-game local-server status text notifications and UI reflection fallback probes; M6 LAN session panel is now the primary in-game status surface.
 - Clarified `Photon.LocalServerAddress` as a bootstrap fallback endpoint (auto-managed in typical M6 discovery/join-selected flow).
 - Switched M6 LAN UI interactions from shortcut-only to clickable overlay controls (`Host LAN`, `Join Selected`, `Refresh`) with clickable session rows; removed M6-specific shortcut config keys.

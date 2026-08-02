@@ -74,6 +74,12 @@ public sealed class Plugin : BaseUnityPlugin
     private static int _lastLanDiscoverySnapshotCount = -1;
     private static bool? _lastLanDiscoveryListenerRunning;
     private static bool? _lastLanDiscoveryBroadcasterRunning;
+    private bool _isLanServerListCollapsed;
+    private bool _lanPanelCollapsedBySettingsAutomation;
+    private bool _allowLanPanelExpandedWhileSettingsVisible;
+    private float _lastSettingsScreenProbeAt = -999f;
+    private float _lastLanUiRefreshAtRealtime = -999f;
+    private DateTime _lastLanUiRefreshAtUtc;
     private float _lastNotReadyLogAt = -999f;
     private float _lastReconnectAttemptAt = -999f;
 
@@ -98,6 +104,7 @@ public sealed class Plugin : BaseUnityPlugin
     {
         LogPhotonStateChanges();
         SyncLanDiscoveryRuntime("Update");
+        UpdateLanPanelCollapseForSettingsScreen();
 
         if (!DirectConnectEnabled.Value)
         {
@@ -121,6 +128,115 @@ public sealed class Plugin : BaseUnityPlugin
         {
             TryProcessQueuedDirectHostStart("Update");
         }
+    }
+
+    private void UpdateLanPanelCollapseForSettingsScreen()
+    {
+        if (!IsLocalServerMode
+            || !_enableLanUiActions.Value)
+        {
+            return;
+        }
+
+        float now = Time.realtimeSinceStartup;
+
+        if (now - _lastSettingsScreenProbeAt < 0.25f)
+        {
+            return;
+        }
+
+        _lastSettingsScreenProbeAt = now;
+
+        bool settingsScreenVisible = IsSettingsScreenVisible();
+
+        if (settingsScreenVisible)
+        {
+            if (_allowLanPanelExpandedWhileSettingsVisible)
+            {
+                return;
+            }
+
+            if (!_isLanServerListCollapsed)
+            {
+                _isLanServerListCollapsed = true;
+                _lanPanelCollapsedBySettingsAutomation = true;
+
+                Log.LogInfo(
+                    "LAN UI auto-collapsed because settings screen is visible.");
+            }
+
+            return;
+        }
+
+        _allowLanPanelExpandedWhileSettingsVisible = false;
+
+        if (_lanPanelCollapsedBySettingsAutomation
+            && _isLanServerListCollapsed)
+        {
+            _isLanServerListCollapsed = false;
+            _lanPanelCollapsedBySettingsAutomation = false;
+
+            Log.LogInfo(
+                "LAN UI auto-expanded because settings screen was closed.");
+        }
+    }
+
+    private static bool IsSettingsScreenVisible()
+    {
+        if (!IsMainMenuScene())
+        {
+            return false;
+        }
+
+        RectTransform[] transforms = UnityEngine.Object.FindObjectsByType<RectTransform>(
+            FindObjectsInactive.Exclude,
+            FindObjectsSortMode.None);
+
+        for (int index = 0; index < transforms.Length; index++)
+        {
+            RectTransform current = transforms[index];
+
+            if (!current.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            string name = current.gameObject.name;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            if (IsLikelySettingsPanelName(name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsLikelySettingsPanelName(
+        string name)
+    {
+        string lower = name.ToLowerInvariant();
+
+        if (!lower.Contains("setting"))
+        {
+            return false;
+        }
+
+        if (lower.Contains("button"))
+        {
+            return false;
+        }
+
+        return lower.Contains("panel")
+            || lower.Contains("page")
+            || lower.Contains("screen")
+            || lower.Contains("menu")
+            || lower.Contains("window");
     }
 
     private void LogPhotonStateChanges()
@@ -256,7 +372,7 @@ public sealed class Plugin : BaseUnityPlugin
         AutoDetectHostLanIpv4 = Config.Bind(
             "LanWorkflow",
             "AutoDetectHostIPv4",
-            false,
+            true,
             "Auto-detect host LAN IPv4 during direct host in LocalServer mode.");
 
         PreferredHostIpv4 = Config.Bind(
@@ -274,7 +390,7 @@ public sealed class Plugin : BaseUnityPlugin
         AutoUpdateLuxonConfigOnHost = Config.Bind(
             "LanWorkflow",
             "AutoUpdateLuxonConfigOnHost",
-            false,
+            true,
             "Automatically rewrite Luxon external_address values during direct host in LocalServer mode.");
 
         LuxonConfigPath = Config.Bind(
@@ -298,7 +414,7 @@ public sealed class Plugin : BaseUnityPlugin
         LocalServerWorkingDirectory = Config.Bind(
             "LanWorkflow",
             "LocalServerWorkingDirectory",
-            string.Empty,
+            "server",
             "Working directory used when launching the local server executable. Leave empty to use executable directory.");
 
         LocalServerStartArguments = Config.Bind(
@@ -627,6 +743,50 @@ public sealed class Plugin : BaseUnityPlugin
     {
         LanSessionInfo[] snapshot = LanDiscoveryListener.GetSnapshot();
         LanDiscoveredSessionsViewModel.UpdateSessions(snapshot);
+        _lastLanUiRefreshAtRealtime = Time.realtimeSinceStartup;
+        _lastLanUiRefreshAtUtc = DateTime.UtcNow;
+    }
+
+    private void EnsureLanUiSessionsRefreshed()
+    {
+        const float autoRefreshIntervalSeconds = 1f;
+
+        float now = Time.realtimeSinceStartup;
+
+        if (now - _lastLanUiRefreshAtRealtime < autoRefreshIntervalSeconds)
+        {
+            return;
+        }
+
+        RefreshLanUiSessions();
+    }
+
+    private static bool TryCanJoinSelectedSession(
+        LanSessionInfo? selectedSession,
+        out string reason)
+    {
+        if (selectedSession is null)
+        {
+            reason = "Select a discovered session first.";
+            return false;
+        }
+
+        if (!selectedSession.IsCompatible)
+        {
+            reason = $"Selected session is incompatible: {selectedSession.IncompatibilityReason}";
+            return false;
+        }
+
+        if (!TryResolveDiscoverySessionTransport(
+                selectedSession.Transport,
+                out _))
+        {
+            reason = $"Unsupported transport: {selectedSession.Transport}";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
     }
 
     private void RequestDirectHostStart(
@@ -699,54 +859,137 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void RenderLanUiOverlay()
     {
-        RefreshLanUiSessions();
+        EnsureLanUiSessionsRefreshed();
 
         IReadOnlyList<LanSessionInfo> sessions = LanDiscoveredSessionsViewModel.Sessions;
         int selectedIndex = LanDiscoveredSessionsViewModel.SelectedIndex;
         (string phase, DateTime _) = LanDiscoveryStateStore.GetConnectionPhaseSnapshot();
+        LanSessionInfo? selectedSession = LanDiscoveredSessionsViewModel.GetSelectedSessionOrNull();
+
+        bool canJoinSelected = TryCanJoinSelectedSession(
+            selectedSession,
+            out string joinUnavailableReason);
 
         string summaryLine = LanStatusPresenterBridge.BuildSummaryLine(
             phase,
             GetConfiguredLocalEndpoint(),
             sessions.Count);
 
+        string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
+            ? "Last refresh: never"
+            : $"Last refresh: {_lastLanUiRefreshAtUtc:HH:mm:ss} UTC";
+
+        bool showServerRows = !_isLanServerListCollapsed;
         int visibleRows = Math.Max(1, Math.Min(_lanUiOverlayMaxSessions.Value, sessions.Count));
-        float panelHeight = 110f + (visibleRows * 24f);
+        const float panelMargin = 16f;
+        float panelWidth;
+        float panelHeight;
+
+        if (showServerRows)
+        {
+            float maxPanelWidth = Math.Max(360f, Screen.width - (panelMargin * 2f));
+            panelWidth = Math.Min(960f, maxPanelWidth);
+            panelHeight = Mathf.Max(170f, 110f + (visibleRows * 24f));
+        }
+        else
+        {
+            panelWidth = 252f;
+            panelHeight = 72f;
+        }
+
         var panelRect = new Rect(
-            16f,
-            56f,
-            1100f,
-            Mathf.Max(170f, panelHeight));
+            Screen.width - panelWidth - panelMargin,
+            panelMargin,
+            panelWidth,
+            panelHeight);
+
+        Color previousPanelColor = GUI.color;
+        GUI.color = new Color(0.08f, 0.08f, 0.1f, 1f);
+        GUI.DrawTexture(panelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
+        GUI.color = previousPanelColor;
 
         GUI.Box(panelRect, "LAN Sessions");
 
-        GUI.Label(
-            new Rect(panelRect.x + 12f, panelRect.y + 24f, panelRect.width - 24f, 22f),
-            summaryLine);
+        string collapseToggleLabel = showServerRows
+            ? "Collapse"
+            : "Expand";
 
         if (GUI.Button(
-                new Rect(panelRect.x + 12f, panelRect.y + 50f, 120f, 26f),
+                new Rect(panelRect.x + panelRect.width - 110f, panelRect.y + 2f, 98f, 22f),
+                collapseToggleLabel))
+        {
+            bool nextCollapsed = !_isLanServerListCollapsed;
+            _isLanServerListCollapsed = nextCollapsed;
+
+            if (nextCollapsed)
+            {
+                _allowLanPanelExpandedWhileSettingsVisible = false;
+            }
+            else if (IsSettingsScreenVisible())
+            {
+                _allowLanPanelExpandedWhileSettingsVisible = true;
+                _lanPanelCollapsedBySettingsAutomation = false;
+
+                Log.LogInfo(
+                    "LAN UI manually expanded while settings screen is visible; auto-collapse suspended until settings closes.");
+            }
+
+            Log.LogInfo(
+                $"LAN UI server list toggled. Collapsed={_isLanServerListCollapsed}");
+        }
+
+        float actionButtonY = showServerRows
+            ? panelRect.y + 50f
+            : panelRect.y + 34f;
+
+        if (GUI.Button(
+            new Rect(panelRect.x + 12f, actionButtonY, 120f, 26f),
                 "Host LAN"))
         {
             Log.LogInfo("LAN UI host button clicked.");
             RequestDirectHostStart("LanUiHostButton");
         }
 
+        if (!showServerRows)
+        {
+            return;
+        }
+
+        GUI.Label(
+            new Rect(panelRect.x + 12f, panelRect.y + 24f, panelRect.width - 24f, 22f),
+            summaryLine);
+
+        var lastRefreshStyle = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.UpperRight
+        };
+
+        GUI.Label(
+            new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 24f, panelRect.width - 24f, 20f),
+            lastRefreshLabel,
+            lastRefreshStyle);
+
+        bool previousGuiEnabled = GUI.enabled;
+        GUI.enabled = canJoinSelected;
+
         if (GUI.Button(
-                new Rect(panelRect.x + 138f, panelRect.y + 50f, 120f, 26f),
-                "Join Selected"))
+                new Rect(panelRect.x + 138f, actionButtonY, 120f, 26f),
+                "Join Selected")
+            && canJoinSelected)
         {
             Log.LogInfo("LAN UI join-selected button clicked.");
             TryJoinSelectedLanSession();
         }
 
+        GUI.enabled = previousGuiEnabled;
+
         if (GUI.Button(
-                new Rect(panelRect.x + 264f, panelRect.y + 50f, 110f, 26f),
+            new Rect(panelRect.x + 264f, actionButtonY, 110f, 26f),
                 "Refresh"))
         {
             RefreshLanUiSessions();
             Log.LogInfo(
-                $"LAN UI refresh clicked. SessionCount={LanDiscoveredSessionsViewModel.SessionCount}");
+            $"LAN UI refresh clicked. SessionCount={LanDiscoveredSessionsViewModel.SessionCount}; RefreshedAtUtc={_lastLanUiRefreshAtUtc:O}");
         }
 
         float rowY = panelRect.y + 82f;
@@ -761,17 +1004,50 @@ public sealed class Plugin : BaseUnityPlugin
 
         int renderCount = Math.Min(visibleRows, sessions.Count);
 
+        var rowStyle = new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleLeft
+        };
+
+        var selectedRowStyle = new GUIStyle(rowStyle)
+        {
+            fontStyle = FontStyle.Bold
+        };
+
+        selectedRowStyle.normal.textColor = new Color(1f, 0.95f, 0.35f, 1f);
+        selectedRowStyle.hover.textColor = selectedRowStyle.normal.textColor;
+        selectedRowStyle.active.textColor = selectedRowStyle.normal.textColor;
+
         for (int index = 0; index < renderCount; index++)
         {
             LanSessionInfo session = sessions[index];
+            bool isSelected = index == selectedIndex;
             string rowLabel = LanStatusPresenterBridge.BuildSessionRowLabel(
                 session,
-                index == selectedIndex,
+                isSelected,
                 index + 1);
 
-            if (GUI.Button(
-                    new Rect(panelRect.x + 12f, rowY + (index * 24f), panelRect.width - 24f, 22f),
-                    rowLabel))
+            var rowRect = new Rect(
+                panelRect.x + 12f,
+                rowY + (index * 24f),
+                panelRect.width - 24f,
+                22f);
+
+            Color previousGuiColor = GUI.color;
+
+            if (isSelected)
+            {
+                GUI.color = new Color(0.78f, 0.93f, 0.78f, 1f);
+            }
+
+            bool clicked = GUI.Button(
+                rowRect,
+                rowLabel,
+                isSelected ? selectedRowStyle : rowStyle);
+
+            GUI.color = previousGuiColor;
+
+            if (clicked)
             {
                 if (LanDiscoveredSessionsViewModel.TrySelectIndex(index))
                 {
@@ -792,13 +1068,11 @@ public sealed class Plugin : BaseUnityPlugin
                 $"Showing first {renderCount} of {sessions.Count} sessions. Increase LanUiOverlayMaxSessions to show more.");
         }
 
-        LanSessionInfo? selectedSession = LanDiscoveredSessionsViewModel.GetSelectedSessionOrNull();
-
-        if (selectedSession is not null && !selectedSession.IsCompatible)
+        if (!canJoinSelected)
         {
             GUI.Label(
                 new Rect(panelRect.x + 390f, panelRect.y + 50f, panelRect.width - 402f, 26f),
-                $"Selected session blocked: {selectedSession.IncompatibilityReason}");
+            $"Join unavailable: {joinUnavailableReason}");
         }
     }
 

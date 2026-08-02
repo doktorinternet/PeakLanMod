@@ -458,7 +458,6 @@ M5 validation update (2026-08-02):
 
 M6 implementation notes (2026-08-02):
 
-- Added `Lan/UI/LanActionsController` as an intent-only input mapper for host/select/join actions.
 - Added `Lan/UI/LanDiscoveredSessionsViewModel` for discovered-session snapshot and selection state.
 - Added `Lan/UI/LanStatusPresenterBridge` for rendering connection/session state snapshots into overlay text.
 - Extended `LanConnectionStateStore` with connection-phase snapshots (`SetConnectionPhase`, `GetConnectionPhaseSnapshot`) used by the M6 status UI.
@@ -467,6 +466,11 @@ M6 implementation notes (2026-08-02):
   - `LanWorkflow.EnableLanUiActions`
   - `LanWorkflow.LanUiOverlayMaxSessions`
 - Updated first-release M6 controls to clickable overlay buttons (`Host LAN`, `Join Selected`, `Refresh`) and clickable session rows.
+- Updated M6 panel visibility so server list renders only when main menu scene is loaded.
+- Added M6 UX Part 2 usability behaviors:
+  - `Join Selected` is disabled until a compatible session is selected.
+  - Inline panel message explains why join is unavailable.
+  - Panel shows `Last refresh` timestamp with lightweight periodic auto-refresh plus manual refresh.
 - Join-selected flow applies discovered session room/endpoints/protocol then reuses the existing direct join path.
 - Added focused diagnostics for selection changes, join-selected incompatibility blocks, unsupported transport, and applied join-selected endpoint settings.
 - Rollback path confirmed in config: set `LanWorkflow.EnableLanUiActions = false`.
@@ -524,6 +528,7 @@ M6 validation update (2026-08-02):
 | 2026-08-02 | M5 discovery transport uses UDP broadcast + TTL session store with compatibility tagging | Accepted | Implemented with config gating and callback-driven host broadcast lifecycle; UI consumption deferred to M6. |
 | 2026-08-02 | M6 first-release UI surface uses config-gated overlay + action keys wired to existing host/join flows | Accepted | Minimizes risk to proven networking path while exposing session selection/status without introducing new Photon call sites in UI helpers. |
 | 2026-08-02 | M6 interaction model uses clickable overlay controls instead of M6-specific shortcuts | Accepted | Improves discoverability and avoids hidden keybind UX on first release while preserving existing F6/F7 baseline controls. |
+| 2026-08-02 | M6 UX Part 2 requires disabled join affordance and inline reason before join-selected | Accepted | Prevents no-op clicks and makes incompatibility/selection state obvious without changing host/join network orchestration. |
 
 ## Deviation record
 
@@ -533,7 +538,7 @@ M6 validation update (2026-08-02):
 - 2026-08-02: No deviation from M4 scope. Implemented readiness gating only; M5+ discovery/UI/error-mapping milestones remain unchanged.
 - 2026-08-02: No deviation from M4 validation scope. Validation executed as physically offline LAN two-machine runtime with separate accounts.
 - 2026-08-02: No deviation from M5 scope. Implemented transport/listener/session-store only; no UI wiring added before M6.
-- 2026-08-02: Minor M6 architectural deviation from long-term plan shape: connection intent execution remains in `Plugin` with `LanActionsController` as intent mapper and `LanStatusPresenterBridge`/view model for state rendering. Dedicated coordinator extraction remains deferred to a later refactor milestone.
+- 2026-08-02: Minor M6 architectural deviation from long-term plan shape: connection intent execution remains in `Plugin` with `LanStatusPresenterBridge`/view-model presentation helpers. Dedicated coordinator extraction remains deferred to a later refactor milestone.
 
 ## Recommended small PR sequence
 

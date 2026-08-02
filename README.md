@@ -162,6 +162,8 @@ Current M6 scope:
 - Discovered sessions are read from the in-memory discovery state store.
 - Overlay renders a clickable panel with `Host LAN`, `Join Selected`, and `Refresh` buttons.
 - Overlay rows are clickable session selectors and show compatibility status per session.
+- `Join Selected` is disabled until a compatible session is selected, with inline reason text when unavailable.
+- Overlay shows a `Last refresh` timestamp and updates session snapshots periodically, while keeping manual `Refresh` available.
 - Overlay renders connection phase snapshot plus discovered-session compatibility status.
 - Join-selected applies session room/endpoint/protocol before invoking the existing direct join path.
 
