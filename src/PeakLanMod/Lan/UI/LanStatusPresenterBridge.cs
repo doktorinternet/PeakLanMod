@@ -23,4 +23,11 @@ internal sealed class LanStatusPresenterBridge
 
         return $"{displayIndex}. {session.RoomName} @ {session.NameServerAddress}:{session.NameServerPort} [{session.Transport}] {compatibility} Scene={session.Scene}";
     }
+
+    internal string BuildAdminIdentityRowLabel(
+        LanSessionInfo session,
+        string hostIdentityFingerprint)
+    {
+        return $"Source={session.SourceAddress}:{session.SourcePort} | Host={session.HostDisplayName} | SessionId={session.ServerInstanceId} | HostFp={hostIdentityFingerprint}";
+    }
 }

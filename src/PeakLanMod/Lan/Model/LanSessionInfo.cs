@@ -8,6 +8,8 @@ internal sealed class LanSessionInfo
         string key,
         string roomName,
         string hostDisplayName,
+        string sourceAddress,
+        int sourcePort,
         string nameServerAddress,
         int nameServerPort,
         string transport,
@@ -27,6 +29,8 @@ internal sealed class LanSessionInfo
         Key = key;
         RoomName = roomName;
         HostDisplayName = hostDisplayName;
+        SourceAddress = sourceAddress;
+        SourcePort = sourcePort;
         NameServerAddress = nameServerAddress;
         NameServerPort = nameServerPort;
         Transport = transport;
@@ -47,6 +51,8 @@ internal sealed class LanSessionInfo
     internal string Key { get; }
     internal string RoomName { get; }
     internal string HostDisplayName { get; }
+    internal string SourceAddress { get; }
+    internal int SourcePort { get; }
     internal string NameServerAddress { get; }
     internal int NameServerPort { get; }
     internal string Transport { get; }

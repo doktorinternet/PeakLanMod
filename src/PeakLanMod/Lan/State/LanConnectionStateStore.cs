@@ -36,6 +36,8 @@ internal sealed class LanConnectionStateStore
                     key: session.Key,
                     roomName: session.RoomName,
                     hostDisplayName: session.HostDisplayName,
+                    sourceAddress: session.SourceAddress,
+                    sourcePort: session.SourcePort,
                     nameServerAddress: session.NameServerAddress,
                     nameServerPort: session.NameServerPort,
                     transport: session.Transport,
@@ -59,6 +61,8 @@ internal sealed class LanConnectionStateStore
                 key: session.Key,
                 roomName: session.RoomName,
                 hostDisplayName: session.HostDisplayName,
+                sourceAddress: session.SourceAddress,
+                sourcePort: session.SourcePort,
                 nameServerAddress: session.NameServerAddress,
                 nameServerPort: session.NameServerPort,
                 transport: session.Transport,
@@ -139,6 +143,8 @@ internal sealed class LanConnectionStateStore
     {
         return string.Equals(current.RoomName, incoming.RoomName, StringComparison.Ordinal)
             && string.Equals(current.HostDisplayName, incoming.HostDisplayName, StringComparison.Ordinal)
+            && string.Equals(current.SourceAddress, incoming.SourceAddress, StringComparison.Ordinal)
+            && current.SourcePort == incoming.SourcePort
             && string.Equals(current.NameServerAddress, incoming.NameServerAddress, StringComparison.Ordinal)
             && current.NameServerPort == incoming.NameServerPort
             && string.Equals(current.Transport, incoming.Transport, StringComparison.Ordinal)
