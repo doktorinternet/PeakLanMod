@@ -158,3 +158,33 @@ ReadinessTimeoutMs = 5000
 # Setting type: Int32
 # Default value: 250
 ReadinessPollIntervalMs = 250
+
+## Enable UDP LAN session discovery listener and host announcement broadcast in LocalServer mode.
+# Setting type: Boolean
+# Default value: false
+DiscoveryEnabled = false
+
+## UDP port used for LAN discovery announcements.
+# Setting type: Int32
+# Default value: 47777
+DiscoveryUdpPort = 47777
+
+## Interval in milliseconds for host discovery announcements.
+# Setting type: Int32
+# Default value: 1000
+DiscoveryBroadcastIntervalMs = 1000
+
+## Milliseconds before an unrefreshed discovered session is evicted.
+# Setting type: Int32
+# Default value: 5000
+DiscoveryEntryTtlMs = 5000
+
+## Discovery protocol version string advertised and required for session compatibility.
+# Setting type: String
+# Default value: 1
+ProtocolVersion = 1
+
+## Require exact game/mod version match for discovery session compatibility.
+# Setting type: Boolean
+# Default value: true
+RequireVersionMatch = true

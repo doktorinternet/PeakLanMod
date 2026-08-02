@@ -328,7 +328,7 @@ Status enum:
 | M2 | Automatic Luxon config including all external_address values | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-02 | 2026-08-02 |
 | M3 | Controlled Luxon startup/shutdown | M2 | VerifiedTwoMachine | Manual two-machine validation passed; PR-03 merged and accepted; offline validation pending | Yes (config rollback) | TBD | PR-03 | 2026-08-02 |
 | M4 | Server-readiness check before PEAK connects | M3 | VerifiedOffline | Physically offline two-machine runtime validation passed (host and client on separate machines/accounts); rollback path retained | Yes (config rollback) | TBD | PR-04 | 2026-08-02 |
-| M5 | UDP LAN session discovery | M1 | Planned | Not started | Not started | TBD | PR-05 | 2026-08-02 |
+| M5 | UDP LAN session discovery | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-05 | 2026-08-02 |
 | M6 | UI actions for host/join/sessions/status | M4, M5 | Planned | Not started | Not started | TBD | PR-06 | 2026-08-02 |
 | M7 | Structured connection errors and mapping | M6 | Planned | Not started | Not started | TBD | PR-07 | 2026-08-02 |
 | M8 | Final mode isolation and rollback hardening | M7 | Planned | Not started | Not started | TBD | PR-08 | 2026-08-02 |
@@ -421,6 +421,31 @@ M4 validation update (2026-08-02):
 - Client receives, deduplicates, and expires stale entries by TTL.
 - Incompatible sessions are visible with explicit reason.
 
+M5 implementation notes (2026-08-02):
+
+- Added `UdpLanDiscoveryBroadcaster` for host-side UDP broadcast announcements using schema `type=peak_lan_announce` and `schema_version=1`.
+- Added `UdpLanDiscoveryListener` with required-field validation, malformed packet rejection diagnostics, dedupe key `server_instance_id + room_name`, and TTL-based eviction.
+- Added `LanConnectionStateStore` and `LanSessionInfo` to maintain in-memory discovered-session snapshots for future UI integration (M6).
+- Added config guards and settings:
+  - `LanWorkflow.DiscoveryEnabled`
+  - `LanWorkflow.DiscoveryUdpPort`
+  - `LanWorkflow.DiscoveryBroadcastIntervalMs`
+  - `LanWorkflow.DiscoveryEntryTtlMs`
+  - `LanWorkflow.ProtocolVersion`
+  - `LanWorkflow.RequireVersionMatch`
+- Added compatibility classification for discovered sessions with explicit reasons:
+  - `IncompatibleProtocolVersion`
+  - `IncompatibleGameVersion`
+  - `IncompatibleModVersion`
+- Wired host announcement lifecycle to Photon callbacks (`OnCreatedRoom`, `OnJoinedRoom`, `OnDisconnected`) while preserving existing host/join connection flow.
+- Rollback path confirmed in config: set `LanWorkflow.DiscoveryEnabled = false` to disable M5 behavior and return to pre-M5 networking behavior.
+
+M5 validation update (2026-08-02):
+
+- Validation type: static analysis and local compile.
+- Runtime outcome: pending manual two-machine verification.
+- Remaining scope outside M5: M6+ milestones unchanged.
+
 ### M6: UI actions and connection status
 
 - UI supports:
@@ -475,6 +500,7 @@ M4 validation update (2026-08-02):
 | 2026-08-02 | M3 manual two-machine validation passed and PR-03 is merged/accepted | Accepted | M4 may proceed; offline verification remains a separate gate. |
 | 2026-08-02 | M4 readiness gate uses protocol-aware endpoint probes with queue-safe host retry handling and bounded timeout | Accepted | Implemented as config-gated (`EnableLocalServerReadinessCheck`) to preserve rollback and existing baseline behavior. |
 | 2026-08-02 | M4 physically offline two-machine validation passed | Accepted | Host and client succeeded on separate machines/accounts with internet path removed; milestone status advanced to `VerifiedOffline`. |
+| 2026-08-02 | M5 discovery transport uses UDP broadcast + TTL session store with compatibility tagging | Accepted | Implemented with config gating and callback-driven host broadcast lifecycle; UI consumption deferred to M6. |
 
 ## Deviation record
 
@@ -483,6 +509,7 @@ M4 validation update (2026-08-02):
 - 2026-08-02: M3 manual two-machine validation passed and PR-03 merged/accepted; physically offline validation remains pending.
 - 2026-08-02: No deviation from M4 scope. Implemented readiness gating only; M5+ discovery/UI/error-mapping milestones remain unchanged.
 - 2026-08-02: No deviation from M4 validation scope. Validation executed as physically offline LAN two-machine runtime with separate accounts.
+- 2026-08-02: No deviation from M5 scope. Implemented transport/listener/session-store only; no UI wiring added before M6.
 
 ## Recommended small PR sequence
 
