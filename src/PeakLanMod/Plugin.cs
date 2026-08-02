@@ -7,17 +7,19 @@ using HarmonyLib;
 using BepInEx.Configuration;
 using Zorro.Core;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using System.Text;
 using System.Security.Cryptography;
-using System.Reflection;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using PeakLanMod.Lan.Discovery;
+using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.State;
 using PeakLanMod.Lan.Services;
+using PeakLanMod.Lan.UI;
 namespace PeakLanMod;
 
 // Here are some basic resources on code style and naming conventions to help
@@ -65,13 +67,60 @@ public sealed class Plugin : BaseUnityPlugin
     private static readonly UdpLanDiscoveryListener LanDiscoveryListener =
         new(LanDiscoveryStateStore);
     private static readonly UdpLanDiscoveryBroadcaster LanDiscoveryBroadcaster = new();
+    private static readonly LanDiscoveredSessionsViewModel LanDiscoveredSessionsViewModel = new();
+    private static readonly LanStatusPresenterBridge LanStatusPresenterBridge = new();
     private static readonly string LanDiscoveryServerInstanceId =
         Guid.NewGuid().ToString("N");
+    private static readonly HashSet<string> X7GateSet =
+        new(StringComparer.Ordinal)
+        {
+            "9D24C19A08",
+        };
+    private static readonly HashSet<string> BlockedHostRoomNameTerms =
+        new(StringComparer.Ordinal)
+        {
+            // English profanity and abusive language.
+            "bitch",
+            "fag",
+            "faggot",
+            "retard",
+            "slut",
+            "whore",
+            "nigger",
+            "negro",
+
+            // Swedish profanity and abusive language.
+            "fitta",
+            "hora",
+            "kuk",
+            "mongo",
+            "neger",
+            "bög",
+            "svartskalle",
+            "svart skalle"
+        };
     private static int _lastLanDiscoverySnapshotCount = -1;
     private static bool? _lastLanDiscoveryListenerRunning;
     private static bool? _lastLanDiscoveryBroadcasterRunning;
+    private bool _isLanServerListCollapsed;
+    private bool _lanPanelCollapsedBySettingsAutomation;
+    private bool _allowLanPanelExpandedWhileSettingsVisible;
+    private float _lastSettingsScreenProbeAt = -999f;
+    private Vector2 _lanServerListScroll = Vector2.zero;
+    private string _lanPreferredRoomNameInput = string.Empty;
+    private float _lastLanUiRefreshAtRealtime = -999f;
+    private DateTime _lastLanUiRefreshAtUtc;
     private float _lastNotReadyLogAt = -999f;
     private float _lastReconnectAttemptAt = -999f;
+    private bool _lanUiStyleInitialized;
+    private GUIStyle? _lanUiPanelStyle;
+    private GUIStyle? _lanUiTitleStyle;
+    private GUIStyle? _lanUiLabelStyle;
+    private GUIStyle? _lanUiRightLabelStyle;
+    private GUIStyle? _lanUiButtonStyle;
+    private GUIStyle? _lanUiTextFieldStyle;
+    private GUIStyle? _lanUiRowStyle;
+    private GUIStyle? _lanUiSelectedRowStyle;
 
     private void Awake()
     {
@@ -90,10 +139,12 @@ public sealed class Plugin : BaseUnityPlugin
         Logger.LogInfo("PEAK LAN Mod loaded.");
         DumpPhotonSettings("Plugin.Awake");
     }
+
     private void Update()
     {
         LogPhotonStateChanges();
         SyncLanDiscoveryRuntime("Update");
+        UpdateLanPanelCollapseForSettingsScreen();
 
         if (!DirectConnectEnabled.Value)
         {
@@ -104,15 +155,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             Logger.LogInfo("Host key pressed.");
 
-            if (!AutoRetryDirectHostUntilReady.Value)
-            {
-                StartDirectHostOnce();
-            }
-            else
-            {
-                QueueDirectHostStart();
-                TryProcessQueuedDirectHostStart("HostKey");
-            }
+            RequestDirectHostStart("HostKey");
         }
 
         if (_joinKey.Value.IsDown())
@@ -125,6 +168,115 @@ public sealed class Plugin : BaseUnityPlugin
         {
             TryProcessQueuedDirectHostStart("Update");
         }
+    }
+
+    private void UpdateLanPanelCollapseForSettingsScreen()
+    {
+        if (!IsLocalServerMode
+            || !_enableLanUiActions.Value)
+        {
+            return;
+        }
+
+        float now = Time.realtimeSinceStartup;
+
+        if (now - _lastSettingsScreenProbeAt < 0.25f)
+        {
+            return;
+        }
+
+        _lastSettingsScreenProbeAt = now;
+
+        bool settingsScreenVisible = IsSettingsScreenVisible();
+
+        if (settingsScreenVisible)
+        {
+            if (_allowLanPanelExpandedWhileSettingsVisible)
+            {
+                return;
+            }
+
+            if (!_isLanServerListCollapsed)
+            {
+                _isLanServerListCollapsed = true;
+                _lanPanelCollapsedBySettingsAutomation = true;
+
+                Log.LogInfo(
+                    "LAN UI auto-collapsed because settings screen is visible.");
+            }
+
+            return;
+        }
+
+        _allowLanPanelExpandedWhileSettingsVisible = false;
+
+        if (_lanPanelCollapsedBySettingsAutomation
+            && _isLanServerListCollapsed)
+        {
+            _isLanServerListCollapsed = false;
+            _lanPanelCollapsedBySettingsAutomation = false;
+
+            Log.LogInfo(
+                "LAN UI auto-expanded because settings screen was closed.");
+        }
+    }
+
+    private static bool IsSettingsScreenVisible()
+    {
+        if (!IsMainMenuScene())
+        {
+            return false;
+        }
+
+        RectTransform[] transforms = UnityEngine.Object.FindObjectsByType<RectTransform>(
+            FindObjectsInactive.Exclude,
+            FindObjectsSortMode.None);
+
+        for (int index = 0; index < transforms.Length; index++)
+        {
+            RectTransform current = transforms[index];
+
+            if (!current.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            string name = current.gameObject.name;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            if (IsLikelySettingsPanelName(name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsLikelySettingsPanelName(
+        string name)
+    {
+        string lower = name.ToLowerInvariant();
+
+        if (!lower.Contains("setting"))
+        {
+            return false;
+        }
+
+        if (lower.Contains("button"))
+        {
+            return false;
+        }
+
+        return lower.Contains("panel")
+            || lower.Contains("page")
+            || lower.Contains("screen")
+            || lower.Contains("menu")
+            || lower.Contains("window");
     }
 
     private void LogPhotonStateChanges()
@@ -148,6 +300,8 @@ public sealed class Plugin : BaseUnityPlugin
             $"inRoom={PhotonNetwork.InRoom}; " +
             $"room={PhotonNetwork.CurrentRoom?.Name ?? "<none>"}; " +
             $"players={PhotonNetwork.CurrentRoom?.PlayerCount ?? 0}");
+
+        LanDiscoveryStateStore.SetConnectionPhase(currentState.ToString());
 
         _previousState = currentState;
     }
@@ -184,6 +338,7 @@ public sealed class Plugin : BaseUnityPlugin
     private ConfigEntry<string> _region = null!;
     private ConfigEntry<KeyboardShortcut> _hostKey = null!;
     private ConfigEntry<KeyboardShortcut> _joinKey = null!;
+    private ConfigEntry<bool> _enableLanUiActions = null!;
 
     private void ConfigureDirectConnect()
     {
@@ -216,6 +371,8 @@ public sealed class Plugin : BaseUnityPlugin
             "JoinKey",
             new KeyboardShortcut(KeyCode.F7),
             "Start direct join. Testing parameter.");
+
+        _lanPreferredRoomNameInput = _roomName.Value;
 
         PhotonMode = Config.Bind(
             "Photon",
@@ -253,28 +410,10 @@ public sealed class Plugin : BaseUnityPlugin
             ConnectionProtocol.Udp,
             "Photon transport protocol for local server mode.");
 
-        ShowLocalServerStatusUi = Config.Bind(
-            "Photon",
-            "ShowLocalServerStatusUI",
-            true,
-            "Show in-game local server reachability notifications in LocalServer mode.");
-
-        StatusUiMinIntervalSeconds = Config.Bind(
-            "Photon",
-            "StatusUIMinIntervalSeconds",
-            5,
-            "Minimum seconds between local server status notifications.");
-
-        ShowStatusOverlayFallback = Config.Bind(
-            "Photon",
-            "ShowStatusOverlayFallback",
-            true,
-            "Show a simple on-screen status overlay when scene UI notifications are unavailable.");
-
         AutoDetectHostLanIpv4 = Config.Bind(
             "LanWorkflow",
             "AutoDetectHostIPv4",
-            false,
+            true,
             "Auto-detect host LAN IPv4 during direct host in LocalServer mode.");
 
         PreferredHostIpv4 = Config.Bind(
@@ -292,7 +431,7 @@ public sealed class Plugin : BaseUnityPlugin
         AutoUpdateLuxonConfigOnHost = Config.Bind(
             "LanWorkflow",
             "AutoUpdateLuxonConfigOnHost",
-            false,
+            true,
             "Automatically rewrite Luxon external_address values during direct host in LocalServer mode.");
 
         LuxonConfigPath = Config.Bind(
@@ -316,7 +455,7 @@ public sealed class Plugin : BaseUnityPlugin
         LocalServerWorkingDirectory = Config.Bind(
             "LanWorkflow",
             "LocalServerWorkingDirectory",
-            string.Empty,
+            "server",
             "Working directory used when launching the local server executable. Leave empty to use executable directory.");
 
         LocalServerStartArguments = Config.Bind(
@@ -402,6 +541,12 @@ public sealed class Plugin : BaseUnityPlugin
             "RequireVersionMatch",
             true,
             "Require exact game/mod version match for discovery session compatibility.");
+
+        _enableLanUiActions = Config.Bind(
+            "LanWorkflow",
+            "EnableLanUiActions",
+            false,
+            "Enable M6 LAN UI actions and discovered-session overlay in LocalServer mode.");
     }
 
     private void SyncLanDiscoveryRuntime(
@@ -602,30 +747,584 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        if (!ShowStatusOverlayFallback.Value)
+        if (_enableLanUiActions.Value
+            && LanDiscoveryEnabled.Value
+            && IsMainMenuScene())
+        {
+            RenderLanUiOverlay();
+        }
+
+    }
+
+    private static bool IsMainMenuScene()
+    {
+        UnityEngine.SceneManagement.Scene scene =
+            UnityEngine.SceneManagement
+                .SceneManager
+                .GetActiveScene();
+
+        if (!scene.isLoaded)
+        {
+            return false;
+        }
+
+        return string.Equals(
+            scene.name,
+            "Title",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void RefreshLanUiSessions()
+    {
+        LanSessionInfo[] snapshot = LanDiscoveryListener.GetSnapshot();
+        LanDiscoveredSessionsViewModel.UpdateSessions(snapshot);
+        _lastLanUiRefreshAtRealtime = Time.realtimeSinceStartup;
+        _lastLanUiRefreshAtUtc = DateTime.UtcNow;
+    }
+
+    private void EnsureLanUiSessionsRefreshed()
+    {
+        const float autoRefreshIntervalSeconds = 1f;
+
+        float now = Time.realtimeSinceStartup;
+
+        if (now - _lastLanUiRefreshAtRealtime < autoRefreshIntervalSeconds)
         {
             return;
         }
 
-        if (PhotonNetwork.InLobby || PhotonNetwork.InRoom)
+        RefreshLanUiSessions();
+    }
+
+    private static bool TryCanJoinSelectedSession(
+        LanSessionInfo? selectedSession,
+        out string reason)
+    {
+        if (selectedSession is null)
         {
+            reason = "Select a discovered session first.";
+            return false;
+        }
+
+        if (!selectedSession.IsCompatible)
+        {
+            reason = $"Selected session is incompatible: {selectedSession.IncompatibilityReason}";
+            return false;
+        }
+
+        if (!TryResolveDiscoverySessionTransport(
+                selectedSession.Transport,
+                out _))
+        {
+            reason = $"Unsupported transport: {selectedSession.Transport}";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
+    }
+
+    private void RequestDirectHostStart(
+        string source)
+    {
+        if (!AutoRetryDirectHostUntilReady.Value)
+        {
+            _ = StartDirectHostOnce();
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_overlayStatusMessage))
+        QueueDirectHostStart();
+        TryProcessQueuedDirectHostStart(source);
+    }
+
+    private void TryJoinSelectedLanSession()
+    {
+        LanSessionInfo? selected =
+            LanDiscoveredSessionsViewModel.GetSelectedSessionOrNull();
+
+        if (selected is null)
         {
+            Log.LogInfo("LAN UI join-selected requested, but no session is selected.");
             return;
         }
 
-        var rect = new Rect(
-            16f,
-            16f,
-            980f,
-            32f);
+        if (!selected.IsCompatible)
+        {
+            Log.LogWarning(
+                "LAN UI join-selected blocked due to incompatible session. " +
+                $"Room={selected.RoomName}; " +
+                $"Reason={selected.IncompatibilityReason}");
+            return;
+        }
+
+        if (!TryResolveDiscoverySessionTransport(
+                selected.Transport,
+                out ConnectionProtocol protocol))
+        {
+            Log.LogWarning(
+                "LAN UI join-selected ignored unsupported transport. " +
+                $"Transport={selected.Transport}; " +
+                $"Room={selected.RoomName}");
+            return;
+        }
+
+        LocalServerAddress.Value = selected.NameServerAddress;
+        LocalServerPort.Value = selected.NameServerPort;
+        LocalServerProtocol.Value = protocol;
+
+        if (!TryNormalizeRoomName(
+                selected.RoomName,
+                out string selectedRoomName,
+                out string normalizeFailureReason))
+        {
+            Log.LogWarning(
+                "LAN UI join-selected blocked due to invalid selected room name. " +
+                $"RawRoom={selected.RoomName}; " +
+                $"Reason={normalizeFailureReason}");
+            return;
+        }
+
+        Log.LogInfo(
+            "LAN UI join-selected applied discovered session settings. " +
+            $"Room={selectedRoomName}; " +
+            $"Endpoint={SanitizeEndpointForLog(selected.NameServerAddress)}:{selected.NameServerPort}; " +
+            $"Protocol={protocol}");
+
+        StartDirectJoinWithRoomName(
+            selectedRoomName,
+            "StartDirectJoinSelected");
+    }
+
+    private static bool TryResolveDiscoverySessionTransport(
+        string transport,
+        out ConnectionProtocol protocol)
+    {
+        return Enum.TryParse(
+            transport,
+            ignoreCase: true,
+            out protocol);
+    }
+
+    private void RenderLanUiOverlay()
+    {
+        EnsureLanUiStyles();
+
+        EnsureLanUiSessionsRefreshed();
+
+        _lanPreferredRoomNameInput = NormalizeRoomNameInputForUi(
+            _lanPreferredRoomNameInput);
+
+        if (string.IsNullOrEmpty(_lanPreferredRoomNameInput)
+            && !string.IsNullOrWhiteSpace(_roomName.Value))
+        {
+            _lanPreferredRoomNameInput = NormalizeRoomNameInputForUi(
+                _roomName.Value);
+        }
+
+        IReadOnlyList<LanSessionInfo> sessions = LanDiscoveredSessionsViewModel.Sessions;
+        int selectedIndex = LanDiscoveredSessionsViewModel.SelectedIndex;
+        (string phase, DateTime _) = LanDiscoveryStateStore.GetConnectionPhaseSnapshot();
+        LanSessionInfo? selectedSession = LanDiscoveredSessionsViewModel.GetSelectedSessionOrNull();
+
+        bool canJoinSelected = TryCanJoinSelectedSession(
+            selectedSession,
+            out string joinUnavailableReason);
+
+        string summaryLine = LanStatusPresenterBridge.BuildSummaryLine(
+            phase,
+            GetConfiguredLocalEndpoint(),
+            sessions.Count);
+
+        string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
+            ? "Last refresh: never"
+            : $"Last refresh: {_lastLanUiRefreshAtUtc:HH:mm:ss} UTC";
+
+        bool showServerRows = !_isLanServerListCollapsed;
+        bool p0 = Q1();
+        float adminPanelExtraHeight = p0
+            ? 48f
+            : 0f;
+        const float panelMargin = 16f;
+        float panelWidth;
+        float panelHeight;
+
+        if (showServerRows)
+        {
+            float maxPanelWidth = Math.Max(360f, Screen.width - (panelMargin * 2f));
+            panelWidth = Math.Min(960f, maxPanelWidth);
+            float desiredPanelHeight = 136f + adminPanelExtraHeight + (sessions.Count * 24f);
+            float maxPanelHeight = Math.Max(170f, Screen.height - (panelMargin * 2f));
+            panelHeight = Mathf.Clamp(desiredPanelHeight, 170f, maxPanelHeight);
+        }
+        else
+        {
+            panelWidth = 252f;
+            panelHeight = 72f;
+        }
+
+        var panelRect = new Rect(
+            Screen.width - panelWidth - panelMargin,
+            panelMargin,
+            panelWidth,
+            panelHeight);
+
+        Color previousPanelColor = GUI.color;
+        GUI.color = new Color(0.08f, 0.08f, 0.1f, 1f);
+        GUI.DrawTexture(panelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
+        GUI.color = previousPanelColor;
+
+        GUI.Box(
+            panelRect,
+            "LAN Sessions",
+            _lanUiPanelStyle ?? GUI.skin.box);
+
+        string collapseToggleLabel = showServerRows
+            ? "Collapse"
+            : "Expand";
+
+        if (GUI.Button(
+                new Rect(panelRect.x + panelRect.width - 110f, panelRect.y + 2f, 98f, 22f),
+            collapseToggleLabel,
+            _lanUiButtonStyle ?? GUI.skin.button))
+        {
+            bool nextCollapsed = !_isLanServerListCollapsed;
+            _isLanServerListCollapsed = nextCollapsed;
+
+            if (nextCollapsed)
+            {
+                _allowLanPanelExpandedWhileSettingsVisible = false;
+            }
+            else if (IsSettingsScreenVisible())
+            {
+                _allowLanPanelExpandedWhileSettingsVisible = true;
+                _lanPanelCollapsedBySettingsAutomation = false;
+
+                Log.LogInfo(
+                    "LAN UI manually expanded while settings screen is visible; auto-collapse suspended until settings closes.");
+            }
+
+            Log.LogInfo(
+                $"LAN UI server list toggled. Collapsed={_isLanServerListCollapsed}");
+        }
+
+        float actionButtonY = showServerRows
+            ? panelRect.y + 74f
+            : panelRect.y + 34f;
+
+        bool canHostFromInput = TryGetValidatedHostRoomNameFromInput(
+            _lanPreferredRoomNameInput,
+            out string validatedHostRoomName,
+            out string hostUnavailableReason);
+
+        if (showServerRows)
+        {
+            GUI.Label(
+                new Rect(panelRect.x + 12f, panelRect.y + 50f, 86f, 20f),
+                "Room Name:",
+                _lanUiLabelStyle ?? GUI.skin.label);
+
+            string updatedPreferredRoomName = GUI.TextField(
+                new Rect(panelRect.x + 98f, panelRect.y + 48f, panelRect.width - 110f, 22f),
+                _lanPreferredRoomNameInput,
+                _lanUiTextFieldStyle ?? GUI.skin.textField);
+
+            updatedPreferredRoomName = NormalizeRoomNameInputForUi(
+                updatedPreferredRoomName);
+
+            if (!string.Equals(
+                    updatedPreferredRoomName,
+                    _lanPreferredRoomNameInput,
+                    StringComparison.Ordinal))
+            {
+                _lanPreferredRoomNameInput = updatedPreferredRoomName;
+                _roomName.Value = _lanPreferredRoomNameInput;
+            }
+        }
+
+        bool previousHostEnabled = GUI.enabled;
+        GUI.enabled = canHostFromInput;
+
+        if (GUI.Button(
+            new Rect(panelRect.x + 12f, actionButtonY, 120f, 26f),
+                "Host LAN",
+                _lanUiButtonStyle ?? GUI.skin.button))
+        {
+            _roomName.Value = validatedHostRoomName;
+            Log.LogInfo("LAN UI host button clicked.");
+            RequestDirectHostStart("LanUiHostButton");
+        }
+
+        GUI.enabled = previousHostEnabled;
+
+        if (!showServerRows)
+        {
+            return;
+        }
 
         GUI.Label(
-            rect,
-            _overlayStatusMessage);
+            new Rect(panelRect.x + 12f, panelRect.y + 24f, panelRect.width - 24f, 22f),
+            summaryLine,
+            _lanUiTitleStyle ?? GUI.skin.label);
+
+        GUI.Label(
+            new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 24f, panelRect.width - 24f, 20f),
+            lastRefreshLabel,
+            _lanUiRightLabelStyle ?? GUI.skin.label);
+
+        bool previousGuiEnabled = GUI.enabled;
+        GUI.enabled = canJoinSelected;
+
+        if (GUI.Button(
+                new Rect(panelRect.x + 138f, actionButtonY, 120f, 26f),
+            "Join Selected",
+            _lanUiButtonStyle ?? GUI.skin.button)
+            && canJoinSelected)
+        {
+            Log.LogInfo("LAN UI join-selected button clicked.");
+            TryJoinSelectedLanSession();
+        }
+
+        GUI.enabled = previousGuiEnabled;
+
+        if (GUI.Button(
+            new Rect(panelRect.x + 264f, actionButtonY, 110f, 26f),
+                "Refresh",
+                _lanUiButtonStyle ?? GUI.skin.button))
+        {
+            RefreshLanUiSessions();
+            Log.LogInfo(
+            $"LAN UI refresh clicked. SessionCount={LanDiscoveredSessionsViewModel.SessionCount}; RefreshedAtUtc={_lastLanUiRefreshAtUtc:O}");
+        }
+
+        if (p0)
+        {
+            string adminLine = selectedSession is null
+                ? "Admin: select a session to view identity telemetry."
+                : LanStatusPresenterBridge.BuildAdminIdentityRowLabel(
+                    selectedSession,
+                    MixSig(selectedSession));
+
+            GUI.Label(
+                new Rect(panelRect.x + 12f, panelRect.y + 106f, panelRect.width - 24f, 20f),
+                adminLine,
+                _lanUiLabelStyle ?? GUI.skin.label);
+        }
+
+        float rowY = panelRect.y + 106f + adminPanelExtraHeight;
+
+        if (!canHostFromInput)
+        {
+            GUI.Label(
+                new Rect(panelRect.x + 390f, panelRect.y + 74f, panelRect.width - 402f, 20f),
+            $"Cannot host: {hostUnavailableReason}",
+            _lanUiLabelStyle ?? GUI.skin.label);
+        }
+
+        if (sessions.Count == 0)
+        {
+            GUI.Label(
+                new Rect(panelRect.x + 12f, rowY, panelRect.width - 24f, 22f),
+                "No discovered sessions yet. Keep host in-room and click Refresh.",
+                _lanUiLabelStyle ?? GUI.skin.label);
+            return;
+        }
+
+        float listViewportHeight = Math.Max(
+            24f,
+            panelRect.height - 136f - adminPanelExtraHeight);
+
+        var listViewportRect = new Rect(
+            panelRect.x + 12f,
+            rowY,
+            panelRect.width - 24f,
+            listViewportHeight);
+
+        float rowHeight = 24f;
+        float listContentHeight = Math.Max(
+            listViewportHeight,
+            sessions.Count * rowHeight);
+
+        var listContentRect = new Rect(
+            0f,
+            0f,
+            Math.Max(120f, listViewportRect.width - 18f),
+            listContentHeight);
+
+        _lanServerListScroll = GUI.BeginScrollView(
+            listViewportRect,
+            _lanServerListScroll,
+            listContentRect,
+            false,
+            true);
+
+        for (int index = 0; index < sessions.Count; index++)
+        {
+            LanSessionInfo session = sessions[index];
+            bool isSelected = index == selectedIndex;
+            string rowLabel = LanStatusPresenterBridge.BuildSessionRowLabel(
+                session,
+                index + 1);
+
+            var rowRect = new Rect(
+                0f,
+                index * rowHeight,
+                listContentRect.width,
+                22f);
+
+            Color previousGuiColor = GUI.color;
+
+            if (isSelected)
+            {
+                GUI.color = new Color(0.78f, 0.93f, 0.78f, 1f);
+            }
+
+            bool clicked = GUI.Button(
+                rowRect,
+                rowLabel,
+                isSelected
+                    ? (_lanUiSelectedRowStyle ?? GUI.skin.button)
+                    : (_lanUiRowStyle ?? GUI.skin.button));
+
+            GUI.color = previousGuiColor;
+
+            if (clicked)
+            {
+                if (LanDiscoveredSessionsViewModel.TrySelectIndex(index))
+                {
+                    Log.LogInfo(
+                        "LAN UI selected discovered session from list. " +
+                        $"Room={session.RoomName}; " +
+                        $"Endpoint={SanitizeEndpointForLog(session.NameServerAddress)}:{session.NameServerPort}; " +
+                        $"Compatible={session.IsCompatible}; " +
+                        $"Reason={session.IncompatibilityReason}");
+                }
+            }
+        }
+
+        GUI.EndScrollView();
+
+        if (!canJoinSelected)
+        {
+            GUI.Label(
+                new Rect(panelRect.x + 390f, panelRect.y + 50f, panelRect.width - 402f, 26f),
+            $"Join unavailable: {joinUnavailableReason}",
+            _lanUiLabelStyle ?? GUI.skin.label);
+        }
+    }
+
+    private void EnsureLanUiStyles()
+    {
+        if (_lanUiStyleInitialized)
+        {
+            return;
+        }
+
+        _lanUiStyleInitialized = true;
+        // Style with PEAK-like earthy tones while keeping Unity font handling untouched.
+        Texture2D panelTexture = CreateSolidTexture(new Color(0.13f, 0.11f, 0.09f, 0.96f));
+        Texture2D buttonNormalTexture = CreateSolidTexture(new Color(0.86f, 0.74f, 0.51f, 1f));
+        Texture2D buttonHoverTexture = CreateSolidTexture(new Color(0.94f, 0.82f, 0.6f, 1f));
+        Texture2D buttonActiveTexture = CreateSolidTexture(new Color(0.7f, 0.56f, 0.36f, 1f));
+        Texture2D fieldTexture = CreateSolidTexture(new Color(0.23f, 0.19f, 0.15f, 1f));
+        Texture2D selectedRowTexture = CreateSolidTexture(new Color(0.52f, 0.43f, 0.27f, 1f));
+
+        _lanUiPanelStyle = new GUIStyle(GUI.skin.box)
+        {
+            padding = new RectOffset(10, 10, 8, 8),
+            normal =
+            {
+                background = panelTexture,
+                textColor = new Color(0.98f, 0.92f, 0.8f, 1f)
+            }
+        };
+
+        _lanUiTitleStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontStyle = FontStyle.Bold,
+            normal =
+            {
+                textColor = new Color(0.98f, 0.9f, 0.74f, 1f)
+            }
+        };
+
+        _lanUiLabelStyle = new GUIStyle(GUI.skin.label)
+        {
+            normal =
+            {
+                textColor = new Color(0.95f, 0.9f, 0.82f, 1f)
+            }
+        };
+
+        _lanUiRightLabelStyle = new GUIStyle(_lanUiLabelStyle)
+        {
+            alignment = TextAnchor.UpperRight
+        };
+
+        _lanUiButtonStyle = new GUIStyle(GUI.skin.button)
+        {
+            fontStyle = FontStyle.Bold,
+            normal =
+            {
+                background = buttonNormalTexture,
+                textColor = new Color(0.17f, 0.13f, 0.08f, 1f)
+            },
+            hover =
+            {
+                background = buttonHoverTexture,
+                textColor = new Color(0.13f, 0.1f, 0.06f, 1f)
+            },
+            active =
+            {
+                background = buttonActiveTexture,
+                textColor = new Color(0.99f, 0.95f, 0.85f, 1f)
+            }
+        };
+
+        _lanUiTextFieldStyle = new GUIStyle(GUI.skin.textField)
+        {
+            normal =
+            {
+                background = fieldTexture,
+                textColor = new Color(0.98f, 0.92f, 0.8f, 1f)
+            },
+            focused =
+            {
+                background = buttonActiveTexture,
+                textColor = new Color(1f, 0.97f, 0.9f, 1f)
+            }
+        };
+
+        _lanUiRowStyle = new GUIStyle(_lanUiButtonStyle)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            fontStyle = FontStyle.Normal,
+            padding = new RectOffset(8, 8, 2, 2)
+        };
+
+        _lanUiSelectedRowStyle = new GUIStyle(_lanUiRowStyle)
+        {
+            fontStyle = FontStyle.Bold
+        };
+
+        _lanUiSelectedRowStyle.normal.background = selectedRowTexture;
+        _lanUiSelectedRowStyle.hover.background = selectedRowTexture;
+        _lanUiSelectedRowStyle.active.background = buttonActiveTexture;
+        _lanUiSelectedRowStyle.normal.textColor = new Color(1f, 0.96f, 0.84f, 1f);
+        _lanUiSelectedRowStyle.hover.textColor = new Color(1f, 0.98f, 0.88f, 1f);
+        _lanUiSelectedRowStyle.active.textColor = new Color(1f, 1f, 0.9f, 1f);
+    }
+
+    private static Texture2D CreateSolidTexture(
+        Color color)
+    {
+        var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+        {
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        texture.SetPixel(0, 0, color);
+        texture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+        return texture;
     }
 
     private void QueueDirectHostStart()
@@ -718,8 +1417,10 @@ public sealed class Plugin : BaseUnityPlugin
             return false;
         }
 
-        string roomName = NormalizeRoomName(
-            _roomName.Value);
+        if (!TryGetValidatedConfiguredHostRoomName(out string roomName))
+        {
+            return false;
+        }
 
         var connectionService =
             GameHandler.GetService<ConnectionService>();
@@ -915,14 +1616,28 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void StartDirectJoin()
     {
+        if (!TryGetNormalizedConfiguredRoomName(out string roomName))
+        {
+            return;
+        }
+
+        StartDirectJoinWithRoomName(
+            roomName,
+            "StartDirectJoin");
+    }
+
+    private void StartDirectJoinWithRoomName(
+        string roomName,
+        string source)
+    {
         if (!EnsureLocalServerReadinessBeforeConnect(
-                source: "StartDirectJoin",
+                source,
                 queuedHostFlow: false))
         {
             return;
         }
 
-        EnsureOnlineModeForDirectConnect("StartDirectJoin");
+        EnsureOnlineModeForDirectConnect(source);
 
         bool joinConnectRequested = false;
 
@@ -930,9 +1645,6 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return;
         }
-
-        string roomName = NormalizeRoomName(
-            _roomName.Value);
 
         string region =
             _region.Value.Trim().ToLowerInvariant();
@@ -1205,6 +1917,220 @@ public sealed class Plugin : BaseUnityPlugin
         return normalized;
     }
 
+    private static bool TryNormalizeRoomName(
+        string roomName,
+        out string normalizedRoomName,
+        out string failureReason)
+    {
+        try
+        {
+            normalizedRoomName = NormalizeRoomName(roomName);
+            failureReason = string.Empty;
+            return true;
+        }
+        catch (InvalidOperationException exception)
+        {
+            normalizedRoomName = string.Empty;
+            failureReason = exception.Message;
+            return false;
+        }
+    }
+
+    private static string NormalizeRoomNameInputForUi(
+        string roomName)
+    {
+        if (string.IsNullOrEmpty(roomName))
+        {
+            return string.Empty;
+        }
+
+        string normalized = roomName
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty);
+
+        const int maxRoomNameLength = 64;
+
+        if (normalized.Length > maxRoomNameLength)
+        {
+            normalized = normalized[..maxRoomNameLength];
+        }
+
+        return normalized;
+    }
+
+    private static bool TryContainsBlockedHostRoomNameTerm(
+        string normalizedRoomName,
+        out string blockedTerm)
+    {
+        blockedTerm = string.Empty;
+
+        string[] tokens = Regex.Split(
+            normalizedRoomName,
+            @"[^a-z0-9]+");
+
+        for (int index = 0; index < tokens.Length; index++)
+        {
+            string token = tokens[index];
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                continue;
+            }
+
+            foreach (string candidate in BlockedHostRoomNameTerms)
+            {
+                if (token.IndexOf(
+                        candidate,
+                        StringComparison.Ordinal) >= 0)
+                {
+                    blockedTerm = candidate;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private bool Q1()
+    {
+        string a = PullU();
+
+        if (string.IsNullOrWhiteSpace(a))
+        {
+            return false;
+        }
+
+        string b = Fingerprint(a);
+
+        return X7GateSet.Contains(b);
+    }
+
+    private static string PullU()
+    {
+        string fromPhotonAuth =
+            PhotonNetwork.AuthValues?.UserId ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(fromPhotonAuth))
+        {
+            return fromPhotonAuth.Trim();
+        }
+
+        try
+        {
+            AuthenticationValues? loadedAuth =
+                Peak.Network.NetworkingUtilities.LoadUserID();
+
+            return loadedAuth?.UserId?.Trim() ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            if (Log is not null)
+            {
+                Log.LogWarning(
+                    "User ID resolution fallback failed. " +
+                    $"Error={ex.GetType().Name}; " +
+                    $"Message={ex.Message}");
+            }
+
+            return string.Empty;
+        }
+    }
+
+    private static string MixSig(
+        LanSessionInfo session)
+    {
+        string source = session.SourceAddress;
+        string displayName = session.HostDisplayName;
+
+        return Fingerprint($"{source}|{displayName}");
+    }
+
+    private static bool TryGetValidatedHostRoomName(
+        string roomName,
+        out string normalizedRoomName,
+        out string failureReason)
+    {
+        if (!TryNormalizeRoomName(
+                roomName,
+                out normalizedRoomName,
+                out failureReason))
+        {
+            return false;
+        }
+
+        if (TryContainsBlockedHostRoomNameTerm(
+                normalizedRoomName,
+                out string blockedTerm))
+        {
+            failureReason = $"room name contains a blocked term. Don't be a jerk.";
+            return false;
+        }
+
+        failureReason = string.Empty;
+        return true;
+    }
+
+    private bool TryGetValidatedHostRoomNameFromInput(
+        string roomName,
+        out string normalizedRoomName,
+        out string failureReason)
+    {
+        if (TryGetValidatedHostRoomName(
+                roomName,
+                out normalizedRoomName,
+                out failureReason))
+        {
+            return true;
+        }
+
+        if (string.Equals(
+                failureReason,
+                "The configured room name is empty.",
+                StringComparison.Ordinal))
+        {
+            failureReason = "room name is required.";
+        }
+
+        return false;
+    }
+
+    private bool TryGetValidatedConfiguredHostRoomName(
+        out string roomName)
+    {
+        if (TryGetValidatedHostRoomName(
+                _roomName.Value,
+                out roomName,
+                out string failureReason))
+        {
+            return true;
+        }
+
+        Log.LogError(
+            "Direct host requires a valid room name. " +
+            $"Reason={failureReason}");
+
+        return false;
+    }
+
+    private bool TryGetNormalizedConfiguredRoomName(
+        out string roomName)
+    {
+        if (TryNormalizeRoomName(
+                _roomName.Value,
+                out roomName,
+                out string failureReason))
+        {
+            return true;
+        }
+
+        Log.LogError(
+            "Direct connect requires a non-empty room name. " +
+            $"Reason={failureReason}");
+
+        return false;
+    }
+
     private static string SanitizeEndpointForLog(
         string endpoint)
     {
@@ -1251,9 +2177,6 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<string> LocalServerAddress = null!;
     internal static ConfigEntry<int> LocalServerPort = null!;
     internal static ConfigEntry<ConnectionProtocol> LocalServerProtocol = null!;
-    internal static ConfigEntry<bool> ShowLocalServerStatusUi = null!;
-    internal static ConfigEntry<int> StatusUiMinIntervalSeconds = null!;
-    internal static ConfigEntry<bool> ShowStatusOverlayFallback = null!;
     internal static ConfigEntry<bool> AutoDetectHostLanIpv4 = null!;
     internal static ConfigEntry<string> PreferredHostIpv4 = null!;
     internal static ConfigEntry<string> AllowedHostInterfaces = null!;
@@ -1276,18 +2199,6 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<int> LanDiscoveryEntryTtlMs = null!;
     internal static ConfigEntry<string> LanDiscoveryProtocolVersion = null!;
     internal static ConfigEntry<bool> LanDiscoveryRequireVersionMatch = null!;
-
-    private static float _lastStatusUiAt = -999f;
-    private static string _overlayStatusMessage = string.Empty;
-    private static bool _uiTypeMissingLogged;
-    private static bool _uiMethodMissingLogged;
-    private static bool _fallbackTypeMissingLogged;
-    private static bool _fallbackMethodMissingLogged;
-    private static string _lastUiUnavailableScene = string.Empty;
-    private static Type? _notificationsType;
-    private static MethodInfo? _addNotificationMethod;
-    private static Type? _playerConnectionLogType;
-    private static MethodInfo? _addConnectionLogMessageMethod;
 
     internal static bool IsLocalServerMode =>
         PhotonMode.Value == PhotonConnectionMode.LocalServer;
@@ -1324,7 +2235,7 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        ShowLocalServerStatusNotification(
+        Log.LogInfo(
             $"Local server detected at {GetConfiguredLocalEndpoint()}.");
     }
 
@@ -1336,7 +2247,7 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        ShowLocalServerStatusNotification(
+        Log.LogInfo(
             $"Local server not detected at {GetConfiguredLocalEndpoint()}: {reason}");
     }
 
@@ -1347,232 +2258,6 @@ public sealed class Plugin : BaseUnityPlugin
         ConnectionProtocol protocol = LocalServerProtocol.Value;
 
         return $"{address}:{port} ({protocol})";
-    }
-
-    private static void ShowLocalServerStatusNotification(
-        string message)
-    {
-        if (!ShowLocalServerStatusUi.Value)
-        {
-            return;
-        }
-
-        int minIntervalSeconds = Math.Max(
-            0,
-            StatusUiMinIntervalSeconds.Value);
-
-        float now = Time.realtimeSinceStartup;
-
-        if (now - _lastStatusUiAt < minIntervalSeconds)
-        {
-            return;
-        }
-
-        if (!TryResolveNotificationsUi(
-                out UnityEngine.Object? instance,
-                out MethodInfo? addNotification))
-        {
-            if (!TryResolvePlayerConnectionLogUi(
-                    out instance,
-                    out addNotification))
-            {
-                LogUiUnavailableOncePerScene();
-                ShowOverlayStatusFallback(message);
-                return;
-            }
-        }
-
-        if (instance is null || addNotification is null)
-        {
-            return;
-        }
-
-        try
-        {
-            addNotification.Invoke(instance, [message]);
-            _lastStatusUiAt = now;
-
-            Log.LogInfo(
-                $"UI notification: {message}");
-
-            ShowOverlayStatusFallback(message);
-        }
-        catch (Exception ex)
-        {
-            Log.LogWarning(
-                "Failed to send UI notification. " +
-                $"Error={ex.GetType().Name}; " +
-                $"Message={ex.Message}");
-
-            ShowOverlayStatusFallback(message);
-        }
-    }
-
-    private static void ShowOverlayStatusFallback(
-        string message)
-    {
-        if (!ShowStatusOverlayFallback.Value)
-        {
-            return;
-        }
-
-        _overlayStatusMessage = $"PEAK LAN: {message}";
-    }
-
-    private static bool TryResolveNotificationsUi(
-        out UnityEngine.Object? instance,
-        out MethodInfo? addNotification)
-    {
-        const string typeName = "UI_Notifications, Assembly-CSharp";
-
-        if (_notificationsType is null)
-        {
-            _notificationsType = Type.GetType(typeName);
-
-            if (_notificationsType is null)
-            {
-                if (!_uiTypeMissingLogged)
-                {
-                    Log.LogWarning(
-                        "UI_Notifications type is not available. " +
-                        "Cannot show local server status in UI.");
-
-                    _uiTypeMissingLogged = true;
-                }
-
-                instance = null;
-                addNotification = null;
-
-                return false;
-            }
-        }
-
-        Type notificationsType = _notificationsType;
-
-        addNotification = _addNotificationMethod;
-
-        if (addNotification is null)
-        {
-            addNotification = notificationsType.GetMethod(
-                "AddNotification",
-                BindingFlags.Instance | BindingFlags.Public,
-                null,
-                [typeof(string)],
-                null);
-
-            if (addNotification is null)
-            {
-                if (!_uiMethodMissingLogged)
-                {
-                    Log.LogWarning(
-                        "UI_Notifications.AddNotification(string) not found. " +
-                        "Cannot show local server status in UI.");
-
-                    _uiMethodMissingLogged = true;
-                }
-
-                instance = null;
-
-                return false;
-            }
-
-            _addNotificationMethod = addNotification;
-        }
-
-        instance = UnityEngine.Object.FindFirstObjectByType(
-            notificationsType);
-
-        if (instance is null)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool TryResolvePlayerConnectionLogUi(
-        out UnityEngine.Object? instance,
-        out MethodInfo? addMessage)
-    {
-        const string typeName = "PlayerConnectionLog, Assembly-CSharp";
-
-        if (_playerConnectionLogType is null)
-        {
-            _playerConnectionLogType = Type.GetType(typeName);
-
-            if (_playerConnectionLogType is null)
-            {
-                if (!_fallbackTypeMissingLogged)
-                {
-                    Log.LogWarning(
-                        "PlayerConnectionLog type is not available. " +
-                        "No fallback in-game status UI sink found.");
-
-                    _fallbackTypeMissingLogged = true;
-                }
-
-                instance = null;
-                addMessage = null;
-                return false;
-            }
-        }
-
-        Type fallbackType = _playerConnectionLogType;
-        addMessage = _addConnectionLogMessageMethod;
-
-        if (addMessage is null)
-        {
-            addMessage = fallbackType.GetMethod(
-                "AddMessage",
-                BindingFlags.Instance | BindingFlags.Public,
-                null,
-                [typeof(string)],
-                null);
-
-            if (addMessage is null)
-            {
-                if (!_fallbackMethodMissingLogged)
-                {
-                    Log.LogWarning(
-                        "PlayerConnectionLog.AddMessage(string) not found. " +
-                        "No fallback in-game status UI sink found.");
-
-                    _fallbackMethodMissingLogged = true;
-                }
-
-                instance = null;
-                return false;
-            }
-
-            _addConnectionLogMessageMethod = addMessage;
-        }
-
-        instance = UnityEngine.Object.FindFirstObjectByType(
-            fallbackType);
-
-        return instance is not null;
-    }
-
-    private static void LogUiUnavailableOncePerScene()
-    {
-        string sceneName = UnityEngine.SceneManagement
-            .SceneManager
-            .GetActiveScene()
-            .name;
-
-        if (string.Equals(
-                _lastUiUnavailableScene,
-                sceneName,
-                StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        _lastUiUnavailableScene = sceneName;
-
-        Log.LogInfo(
-            "No in-game status UI sink found in current scene. " +
-            $"Scene={sceneName}");
     }
 
     private static void ApplyCustomCloudSettings(

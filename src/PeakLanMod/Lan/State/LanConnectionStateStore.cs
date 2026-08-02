@@ -17,6 +17,8 @@ internal sealed class LanConnectionStateStore
     private readonly object _sync = new();
     private readonly Dictionary<string, LanSessionInfo> _sessions =
         new(StringComparer.OrdinalIgnoreCase);
+    private string _connectionPhase = "Idle";
+    private DateTime _connectionPhaseUpdatedAtUtc = DateTime.UtcNow;
 
     internal LanSessionUpdateKind UpsertDiscoveredSession(LanSessionInfo session)
     {
@@ -34,6 +36,8 @@ internal sealed class LanConnectionStateStore
                     key: session.Key,
                     roomName: session.RoomName,
                     hostDisplayName: session.HostDisplayName,
+                    sourceAddress: session.SourceAddress,
+                    sourcePort: session.SourcePort,
                     nameServerAddress: session.NameServerAddress,
                     nameServerPort: session.NameServerPort,
                     transport: session.Transport,
@@ -57,6 +61,8 @@ internal sealed class LanConnectionStateStore
                 key: session.Key,
                 roomName: session.RoomName,
                 hostDisplayName: session.HostDisplayName,
+                sourceAddress: session.SourceAddress,
+                sourcePort: session.SourcePort,
                 nameServerAddress: session.NameServerAddress,
                 nameServerPort: session.NameServerPort,
                 transport: session.Transport,
@@ -109,12 +115,36 @@ internal sealed class LanConnectionStateStore
         }
     }
 
+    internal void SetConnectionPhase(
+        string phase)
+    {
+        string normalized = string.IsNullOrWhiteSpace(phase)
+            ? "Unknown"
+            : phase.Trim();
+
+        lock (_sync)
+        {
+            _connectionPhase = normalized;
+            _connectionPhaseUpdatedAtUtc = DateTime.UtcNow;
+        }
+    }
+
+    internal (string Phase, DateTime UpdatedAtUtc) GetConnectionPhaseSnapshot()
+    {
+        lock (_sync)
+        {
+            return (_connectionPhase, _connectionPhaseUpdatedAtUtc);
+        }
+    }
+
     private static bool AreEquivalent(
         LanSessionInfo current,
         LanSessionInfo incoming)
     {
         return string.Equals(current.RoomName, incoming.RoomName, StringComparison.Ordinal)
             && string.Equals(current.HostDisplayName, incoming.HostDisplayName, StringComparison.Ordinal)
+            && string.Equals(current.SourceAddress, incoming.SourceAddress, StringComparison.Ordinal)
+            && current.SourcePort == incoming.SourcePort
             && string.Equals(current.NameServerAddress, incoming.NameServerAddress, StringComparison.Ordinal)
             && current.NameServerPort == incoming.NameServerPort
             && string.Equals(current.Transport, incoming.Transport, StringComparison.Ordinal)

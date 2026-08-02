@@ -329,7 +329,7 @@ Status enum:
 | M3 | Controlled Luxon startup/shutdown | M2 | VerifiedTwoMachine | Manual two-machine validation passed; PR-03 merged and accepted; offline validation pending | Yes (config rollback) | TBD | PR-03 | 2026-08-02 |
 | M4 | Server-readiness check before PEAK connects | M3 | VerifiedOffline | Physically offline two-machine runtime validation passed (host and client on separate machines/accounts); rollback path retained | Yes (config rollback) | TBD | PR-04 | 2026-08-02 |
 | M5 | UDP LAN session discovery | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-05 | 2026-08-02 |
-| M6 | UI actions for host/join/sessions/status | M4, M5 | Planned | Not started | Not started | TBD | PR-06 | 2026-08-02 |
+| M6 | UI actions for host/join/sessions/status | M4, M5 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-06 | 2026-08-02 |
 | M7 | Structured connection errors and mapping | M6 | Planned | Not started | Not started | TBD | PR-07 | 2026-08-02 |
 | M8 | Final mode isolation and rollback hardening | M7 | Planned | Not started | Not started | TBD | PR-08 | 2026-08-02 |
 
@@ -456,6 +456,31 @@ M5 validation update (2026-08-02):
 - UI displays live phase updates from state store.
 - UI invokes coordinator intents only.
 
+M6 implementation notes (2026-08-02):
+
+- Added `Lan/UI/LanDiscoveredSessionsViewModel` for discovered-session snapshot and selection state.
+- Added `Lan/UI/LanStatusPresenterBridge` for rendering connection/session state snapshots into overlay text.
+- Extended `LanConnectionStateStore` with connection-phase snapshots (`SetConnectionPhase`, `GetConnectionPhaseSnapshot`) used by the M6 status UI.
+- Wired M6 behavior behind config guard `LanWorkflow.EnableLanUiActions` (default `false`) to preserve pre-M6 host/join and overlay behavior by default.
+- Added M6 UI panel settings:
+  - `LanWorkflow.EnableLanUiActions`
+- Updated first-release M6 controls to clickable overlay buttons (`Host LAN`, `Join Selected`, `Refresh`) and clickable session rows.
+- Updated M6 list rendering to a scrollable session view with no fixed item-count cap.
+- Updated M6 panel visibility so server list renders only when main menu scene is loaded.
+- Added M6 UX Part 2 usability behaviors:
+  - `Join Selected` is disabled until a compatible session is selected.
+  - Inline panel message explains why join is unavailable.
+  - Panel shows `Last refresh` timestamp with lightweight periodic auto-refresh plus manual refresh.
+- Join-selected flow applies discovered session room/endpoints/protocol then reuses the existing direct join path.
+- Added focused diagnostics for selection changes, join-selected incompatibility blocks, unsupported transport, and applied join-selected endpoint settings.
+- Rollback path confirmed in config: set `LanWorkflow.EnableLanUiActions = false`.
+
+M6 validation update (2026-08-02):
+
+- Validation type: static analysis and local compile.
+- Runtime outcome: pending manual two-machine verification.
+- Remaining scope outside M6: M7+ milestones unchanged.
+
 ### M7: Structured error mapping
 
 - Distinguish and display these error categories:
@@ -501,6 +526,9 @@ M5 validation update (2026-08-02):
 | 2026-08-02 | M4 readiness gate uses protocol-aware endpoint probes with queue-safe host retry handling and bounded timeout | Accepted | Implemented as config-gated (`EnableLocalServerReadinessCheck`) to preserve rollback and existing baseline behavior. |
 | 2026-08-02 | M4 physically offline two-machine validation passed | Accepted | Host and client succeeded on separate machines/accounts with internet path removed; milestone status advanced to `VerifiedOffline`. |
 | 2026-08-02 | M5 discovery transport uses UDP broadcast + TTL session store with compatibility tagging | Accepted | Implemented with config gating and callback-driven host broadcast lifecycle; UI consumption deferred to M6. |
+| 2026-08-02 | M6 first-release UI surface uses config-gated overlay + action keys wired to existing host/join flows | Accepted | Minimizes risk to proven networking path while exposing session selection/status without introducing new Photon call sites in UI helpers. |
+| 2026-08-02 | M6 interaction model uses clickable overlay controls instead of M6-specific shortcuts | Accepted | Improves discoverability and avoids hidden keybind UX on first release while preserving existing F6/F7 baseline controls. |
+| 2026-08-02 | M6 UX Part 2 requires disabled join affordance and inline reason before join-selected | Accepted | Prevents no-op clicks and makes incompatibility/selection state obvious without changing host/join network orchestration. |
 
 ## Deviation record
 
@@ -510,6 +538,7 @@ M5 validation update (2026-08-02):
 - 2026-08-02: No deviation from M4 scope. Implemented readiness gating only; M5+ discovery/UI/error-mapping milestones remain unchanged.
 - 2026-08-02: No deviation from M4 validation scope. Validation executed as physically offline LAN two-machine runtime with separate accounts.
 - 2026-08-02: No deviation from M5 scope. Implemented transport/listener/session-store only; no UI wiring added before M6.
+- 2026-08-02: Minor M6 architectural deviation from long-term plan shape: connection intent execution remains in `Plugin` with `LanStatusPresenterBridge`/view-model presentation helpers. Dedicated coordinator extraction remains deferred to a later refactor milestone.
 
 ## Recommended small PR sequence
 

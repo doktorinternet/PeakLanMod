@@ -119,7 +119,7 @@ Milestone 4 adds an optional readiness gate that checks local NameServer reachab
 Focused diagnostics:
 
 - Logs include readiness endpoint (sanitized), protocol, elapsed milliseconds, attempts, and last probe failure reason.
-- On timeout, an in-game local-server status notification is emitted to show that readiness checks failed before connect.
+- On timeout, a focused plugin log entry is emitted with endpoint/protocol/attempt context.
 
 Rollback path:
 
@@ -148,6 +148,28 @@ Current M5 scope:
 Rollback path:
 
 - Set `LanWorkflow.DiscoveryEnabled = false` to disable discovery and return to pre-M5 behavior.
+
+## LAN UI actions and session/status overlay (M6)
+
+Milestone 6 adds optional UI intent controls and discovered-session rendering for `LocalServer` mode.
+
+- `LanWorkflow.EnableLanUiActions = true` enables M6 behavior (disabled by default to preserve previous flow).
+
+Current M6 scope:
+
+- UI actions are intent-only wrappers over existing host/join orchestration.
+- Discovered sessions are read from the in-memory discovery state store.
+- Overlay renders a clickable panel with `Host LAN`, `Join Selected`, and `Refresh` buttons.
+- Overlay rows are clickable session selectors and show compatibility status per session.
+- `Join Selected` is disabled until a compatible session is selected, with inline reason text when unavailable.
+- Overlay shows a `Last refresh` timestamp and updates session snapshots periodically, while keeping manual `Refresh` available.
+- Session list is scrollable and no longer capped by a fixed item-count limit.
+- Overlay renders connection phase snapshot plus discovered-session compatibility status.
+- Join-selected applies session room/endpoint/protocol before invoking the existing direct join path.
+
+Rollback path:
+
+- Set `LanWorkflow.EnableLanUiActions = false` to restore pre-M6 controls and overlay behavior.
 
 ## Release branch guidance
 

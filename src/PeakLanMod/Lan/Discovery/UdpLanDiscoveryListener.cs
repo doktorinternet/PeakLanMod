@@ -203,11 +203,15 @@ internal sealed class UdpLanDiscoveryListener : IDisposable
                     compatibilityEvaluator(announcement);
 
                 DateTime nowUtc = DateTime.UtcNow;
+                string sourceAddress = ResolveSourceAddress(remote);
+                int sourcePort = remote.Port;
 
                 var session = new LanSessionInfo(
                     key: announcement.SessionKey,
                     roomName: announcement.RoomName,
                     hostDisplayName: announcement.HostDisplayName,
+                    sourceAddress: sourceAddress,
+                    sourcePort: sourcePort,
                     nameServerAddress: announcement.NameServerAddress,
                     nameServerPort: announcement.NameServerPort,
                     transport: announcement.Transport,
@@ -272,6 +276,17 @@ internal sealed class UdpLanDiscoveryListener : IDisposable
 
         byte[] bytes = endpoint.Address.GetAddressBytes();
         return $"{bytes[0]}.{bytes[1]}.{bytes[2]}.x:{endpoint.Port}";
+    }
+
+    private static string ResolveSourceAddress(
+        IPEndPoint endpoint)
+    {
+        if (endpoint.Address.AddressFamily != AddressFamily.InterNetwork)
+        {
+            return "<non-ipv4>";
+        }
+
+        return endpoint.Address.ToString();
     }
 
     internal LanSessionInfo[] GetSnapshot()

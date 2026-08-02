@@ -4,6 +4,12 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-02
 
+- Updated M6 server list UX to be scrollable with no fixed session-count cap.
+- Added M6 UX Part 2 polish: `Join Selected` is disabled until a compatible session is selected, panel now shows inline join-unavailable reasons, and `Last refresh` timestamp is displayed with lightweight periodic auto-refresh plus manual refresh.
+- Removed legacy in-game local-server status text notifications and UI reflection fallback probes; M6 LAN session panel is now the primary in-game status surface.
+- Clarified `Photon.LocalServerAddress` as a bootstrap fallback endpoint (auto-managed in typical M6 discovery/join-selected flow).
+- Switched M6 LAN UI interactions from shortcut-only to clickable overlay controls (`Host LAN`, `Join Selected`, `Refresh`) with clickable session rows; removed M6-specific shortcut config keys.
+- Implemented Milestone 6 UI integration: added config-gated LAN UI panel rendering, join-selected session application, and connection-phase status snapshots from the LAN state store while preserving pre-M6 behavior behind `LanWorkflow.EnableLanUiActions`.
 - Further reduced M5 discovery diagnostics noise: snapshot status now logs on change only, and incompatible-session updates log only when payload compatibility state changes.
 - Reduced M5 discovery log noise: equivalent repeated announcements now refresh TTL without emitting repeated incompatible-session update lines.
 - Implemented Milestone 5 UDP LAN discovery transport: config-gated host announcements, client listener, TTL/dedupe session store, and compatibility tagging (`IncompatibleProtocolVersion`, `IncompatibleGameVersion`, `IncompatibleModVersion`).
