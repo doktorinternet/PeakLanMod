@@ -46,7 +46,8 @@ AppIdRealtime =
 # Default value:
 AppIdVoice =
 
-## Local Photon Server hostname or IP.
+## Local server bootstrap endpoint fallback used before discovery selection.
+## In M6 discovery UI flow this is usually auto-managed by host auto-detect and join-selected actions.
 # Setting type: String
 # Default value: 127.0.0.1
 LocalServerAddress = 127.0.0.1
@@ -61,21 +62,6 @@ LocalServerPort = 5058
 # Default value: Udp
 # Acceptable values: Udp, Tcp, WebSocket, WebSocketSecure
 LocalServerProtocol = Udp
-
-## Show in-game local server reachability notifications in LocalServer mode.
-# Setting type: Boolean
-# Default value: true
-ShowLocalServerStatusUI = true
-
-## Minimum seconds between local server status notifications.
-# Setting type: Int32
-# Default value: 5
-StatusUIMinIntervalSeconds = 5
-
-## Show a simple on-screen status overlay when scene UI notifications are unavailable.
-# Setting type: Boolean
-# Default value: true
-ShowStatusOverlayFallback = true
 
 [LanWorkflow]
 
@@ -188,3 +174,13 @@ ProtocolVersion = 1
 # Setting type: Boolean
 # Default value: true
 RequireVersionMatch = true
+
+## Enable M6 LAN UI actions and discovered-session overlay in LocalServer mode.
+# Setting type: Boolean
+# Default value: false
+EnableLanUiActions = false
+
+## Maximum discovered sessions rendered in M6 overlay.
+# Setting type: Int32
+# Default value: 6
+LanUiOverlayMaxSessions = 6

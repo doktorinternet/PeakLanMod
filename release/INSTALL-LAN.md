@@ -30,7 +30,7 @@ This guide installs a full LAN package without Thunderstore.
 3. Copy package `server/` into your PEAK installation folder.
 4. In the mod config file, set:
   - `Mode = LocalServer`
-   - `LocalServerAddress` to host LAN IP (or `127.0.0.1` if server and host game are same machine).
+  - `LocalServerAddress` fallback endpoint (typically leave `127.0.0.1`; M6 join-selected can auto-apply discovered endpoint).
    - `LocalServerPort` and `LocalServerProtocol` to match server config.
    - Optional host automation:
      - `LanWorkflow.AutoDetectHostIPv4 = true`
@@ -58,6 +58,9 @@ This guide installs a full LAN package without Thunderstore.
        - `LanWorkflow.DiscoveryEntryTtlMs = 5000`
        - `LanWorkflow.ProtocolVersion = 1`
        - `LanWorkflow.RequireVersionMatch = true`
+     - Optional LAN UI actions and session/status overlay (M6):
+       - `LanWorkflow.EnableLanUiActions = true`
+       - `LanWorkflow.LanUiOverlayMaxSessions = 6`
 5. Install any other packaged dependency mods from `dependencies/`.
 6. Start PEAK and verify overlay status indicates that the mod is loaded.
 
@@ -72,9 +75,11 @@ This guide installs a full LAN package without Thunderstore.
 
 ## Quick runtime test
 
-1. Host presses `F6`.
-2. Client presses `F7`.
-3. Confirm both reach same room and player count increases to 2.
+1. Host presses `F6` (or uses the M6 `Host LAN` button if enabled).
+2. Confirm host reaches in-room master state.
+3. On client with discovery enabled, verify at least one session appears in the LAN overlay panel.
+4. Client clicks a session row to select it, then clicks `Join Selected`.
+5. Confirm both reach same room and player count increases to 2.
 
 ## Troubleshooting
 
@@ -90,9 +95,15 @@ This guide installs a full LAN package without Thunderstore.
   verify `LanWorkflow.AutoStartLocalServerOnHost = true`, confirm `LanWorkflow.LocalServerExecutablePath` points to the deployed executable, and either leave `LanWorkflow.LocalServerWorkingDirectory` empty or set it to a valid absolute folder.
 - Host/join waits and then reports local server readiness timeout:
   verify `LanWorkflow.EnableLocalServerReadinessCheck = true`, confirm `Photon.LocalServerAddress`, `Photon.LocalServerPort`, and `Photon.LocalServerProtocol` match the active server, and check firewall rules for the selected protocol/port.
+- Expected status-text behavior:
+  local-server status text notifications were removed in favor of the M6 clickable LAN session panel and focused logs.
 - No LAN sessions discovered while host is in-room:
   verify `LanWorkflow.DiscoveryEnabled = true` on both machines, ensure both use the same `LanWorkflow.DiscoveryUdpPort`, allow inbound/outbound UDP on that port in host/client firewalls, and confirm the host reached room-master state (`OnJoinedRoom` as master).
 - Sessions appear but are marked incompatible:
   compare host/client `LanWorkflow.ProtocolVersion` and, when `LanWorkflow.RequireVersionMatch = true`, verify PEAK game version and mod version match exactly.
+- M6 panel is not visible:
+  verify `LanWorkflow.EnableLanUiActions = true` and `LanWorkflow.DiscoveryEnabled = true` in the active `BepInEx/config/BadHorse.PeakLanMod.cfg` file (not only in the template file).
+- M6 join-selected action does nothing:
+  ensure at least one compatible discovered session row is selected, then click `Join Selected`.
 - Airport loaded but not in room:
   room creation/join did not complete. Check host/client callbacks and disconnect logs.
