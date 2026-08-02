@@ -143,3 +143,18 @@ OwnedLocalServerStopTimeoutMs = 2000
 # Setting type: Boolean
 # Default value: true
 AutoRetryDirectHostUntilReady = true
+
+## Wait for local NameServer readiness before direct host/join connect attempts in LocalServer mode.
+# Setting type: Boolean
+# Default value: false
+EnableLocalServerReadinessCheck = false
+
+## Maximum milliseconds to wait for local NameServer readiness before connect attempts.
+# Setting type: Int32
+# Default value: 5000
+ReadinessTimeoutMs = 5000
+
+## Milliseconds between local NameServer readiness probe attempts.
+# Setting type: Int32
+# Default value: 250
+ReadinessPollIntervalMs = 250

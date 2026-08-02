@@ -107,6 +107,24 @@ Rollback path:
 - Set `LanWorkflow.AutoStartLocalServerOnHost = false` to return to fully manual server startup.
 - Optionally set `LanWorkflow.AutoStopOwnedLocalServerOnExit = false` to disable plugin-driven shutdown.
 
+## Local NameServer readiness gate (M4)
+
+Milestone 4 adds an optional readiness gate that checks local NameServer reachability before direct host/join connect attempts.
+
+- `LanWorkflow.EnableLocalServerReadinessCheck = true` enables readiness gating in `LocalServer` mode.
+- `LanWorkflow.ReadinessTimeoutMs` controls maximum wait time before reporting readiness timeout.
+- `LanWorkflow.ReadinessPollIntervalMs` controls probe cadence.
+- In host auto-retry flow (`AutoRetryDirectHostUntilReady = true`), the host intent remains queued until readiness succeeds or timeout is reached.
+
+Focused diagnostics:
+
+- Logs include readiness endpoint (sanitized), protocol, elapsed milliseconds, attempts, and last probe failure reason.
+- On timeout, an in-game local-server status notification is emitted to show that readiness checks failed before connect.
+
+Rollback path:
+
+- Set `LanWorkflow.EnableLocalServerReadinessCheck = false` to restore pre-M4 behavior.
+
 ## Release branch guidance
 
 Using a dedicated `release` branch is optional and depends on your team workflow.

@@ -55,3 +55,13 @@ Save host and client logs from the same attempt. Record:
 - room-operation return code/message,
 - relevant exception,
 - whether a retry used the same room instance.
+
+## Latest verified run
+
+- Date: 2026-08-02
+- Validation type: physically offline LAN two-machine runtime
+- Host role: gaming PC
+- Client role: office laptop
+- Accounts: separate Steam accounts
+- Connection mode: LocalServer
+- Result: pass

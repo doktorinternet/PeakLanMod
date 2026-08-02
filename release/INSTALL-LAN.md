@@ -47,6 +47,10 @@ This guide installs a full LAN package without Thunderstore.
      - `LanWorkflow.AutoStopOwnedLocalServerOnExit = true`
      - `LanWorkflow.ForceKillOwnedLocalServerOnExit = true`
      - `LanWorkflow.OwnedLocalServerStopTimeoutMs = 2000`
+     - Optional readiness gate before connect:
+       - `LanWorkflow.EnableLocalServerReadinessCheck = true`
+       - `LanWorkflow.ReadinessTimeoutMs = 5000`
+       - `LanWorkflow.ReadinessPollIntervalMs = 250`
 5. Install any other packaged dependency mods from `dependencies/`.
 6. Start PEAK and verify overlay status indicates that the mod is loaded.
 
@@ -77,5 +81,7 @@ This guide installs a full LAN package without Thunderstore.
   verify `LanWorkflow.AutoUpdateLuxonConfigOnHost = true`, ensure `LanWorkflow.LuxonConfigPath` points to the active `config.yml`, and confirm `Photon.LocalServerAddress` is a non-loopback IPv4.
 - Host key pressed but local server did not auto-start:
   verify `LanWorkflow.AutoStartLocalServerOnHost = true`, confirm `LanWorkflow.LocalServerExecutablePath` points to the deployed executable, and either leave `LanWorkflow.LocalServerWorkingDirectory` empty or set it to a valid absolute folder.
+- Host/join waits and then reports local server readiness timeout:
+  verify `LanWorkflow.EnableLocalServerReadinessCheck = true`, confirm `Photon.LocalServerAddress`, `Photon.LocalServerPort`, and `Photon.LocalServerProtocol` match the active server, and check firewall rules for the selected protocol/port.
 - Airport loaded but not in room:
   room creation/join did not complete. Check host/client callbacks and disconnect logs.
