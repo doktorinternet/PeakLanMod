@@ -93,3 +93,13 @@ PreferredHostIPv4 =
 # Setting type: String
 # Default value:
 AllowedHostInterfaces =
+
+## Automatically rewrite Luxon external_address values during direct host in LocalPhotonServer mode.
+# Setting type: Boolean
+# Default value: false
+AutoUpdateLuxonConfigOnHost = false
+
+## Relative or absolute path to Luxon config.yml used by host-side external_address automation.
+# Setting type: String
+# Default value: server/config.yml
+LuxonConfigPath = server/config.yml

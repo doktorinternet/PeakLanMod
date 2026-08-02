@@ -18,15 +18,15 @@ Scope type: Planning only (no milestone implementation in this document)
 
 The following baseline is treated as verified from prior work and should be preserved while implementing milestones:
 
-- PEAK host and client can connect through a locally running Luxon server.
+- PEAK host and client can connect through a locally running local server.
 - Two machines can join the same room over LAN.
 - Gameplay and Photon Voice currently work in this baseline.
-- Manual configuration currently supplies Luxon server address, room name, and server configuration.
+- Manual configuration currently supplies local server address, room name, and server configuration.
 - Release packaging process already exists.
 
 Development modes to preserve throughout this project:
 
-- Manual local Luxon connection.
+- Manual local server connection.
 - Automatic local LAN host (to be implemented incrementally).
 - LAN client discovery/join (to be implemented incrementally).
 
@@ -169,7 +169,7 @@ Rename rule: rename only when file responsibilities have actually changed, not j
 Planned config additions:
 
 - `LanWorkflow.Mode`:
-  - `ManualLocalLuxon`
+  - `ManualLocalServer`
   - `AutoLocalLanHost`
   - `LanClientDiscoveryJoin`
 - `LanWorkflow.AutoStartLuxonOnHost` (bool)
@@ -187,7 +187,7 @@ Planned config additions:
 
 Retained compatibility requirement:
 
-- Existing manual room name/address settings remain usable in `ManualLocalLuxon` mode.
+- Existing manual room name/address settings remain usable in `ManualLocalServer` mode.
 
 ## Process ownership and shutdown rules
 
@@ -325,7 +325,7 @@ Status enum:
 | Milestone | Title | Depends On | Status | Acceptance Status | Rollback Path Verified | Owner | Target PR | Last Updated |
 |---|---|---|---|---|---|---|---|---|
 | M1 | Automatic LAN IPv4 detection on host | None | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-01 | 2026-08-02 |
-| M2 | Automatic Luxon config including all external_address values | M1 | Planned | Not started | Not started | TBD | PR-02 | 2026-08-02 |
+| M2 | Automatic Luxon config including all external_address values | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-02 | 2026-08-02 |
 | M3 | Controlled Luxon startup/shutdown | M2 | Planned | Not started | Not started | TBD | PR-03 | 2026-08-02 |
 | M4 | Server-readiness check before PEAK connects | M3 | Planned | Not started | Not started | TBD | PR-04 | 2026-08-02 |
 | M5 | UDP LAN session discovery | M1 | Planned | Not started | Not started | TBD | PR-05 | 2026-08-02 |
@@ -358,6 +358,14 @@ M1 implementation notes (2026-08-02):
   - GameServer
 - Generated config is deterministic and repeatable from same inputs.
 - Manual mode config behavior remains unchanged.
+
+M2 implementation notes (2026-08-02):
+
+- Added `LuxonConfigManager` to rewrite host portions of `external_address` values under `NameServer`, `MasterServer`, and `GameServer` while preserving existing ports.
+- Added host-only config guard `LanWorkflow.AutoUpdateLuxonConfigOnHost` (default `false`) and path setting `LanWorkflow.LuxonConfigPath`.
+- Wired automation into direct host flow after host endpoint selection and before connect sequence.
+- Added focused diagnostics for success/failure with sanitized host endpoint logging and update counts.
+- Rollback path confirmed in config: disable `AutoUpdateLuxonConfigOnHost` and keep manual Luxon config management.
 
 ### M3: Controlled Luxon startup/shutdown
 
@@ -401,7 +409,7 @@ M1 implementation notes (2026-08-02):
 
 ### M8: Rollback hardening and mode isolation
 
-- Manual local Luxon mode remains functional and unaffected.
+- Manual local server mode remains functional and unaffected.
 - Auto local host mode functions with process/readiness workflow.
 - LAN discovery/join mode functions end to end.
 - Mode switching does not leak process/discovery state.
@@ -425,10 +433,14 @@ M1 implementation notes (2026-08-02):
 | 2026-08-02 | Use UDP broadcast with versioned schema for discovery | Accepted | No central service required. |
 | 2026-08-02 | Allow class renaming for patch classes as responsibilities evolve | Accepted | Rename only when function changes justify it. |
 | 2026-08-02 | M1 host endpoint selection policy: `PreferredHostIPv4` override, otherwise active non-loopback IPv4 with optional interface filters | Accepted | Implemented with config guard and sanitized diagnostics; manual LocalServerAddress remains rollback path. |
+| 2026-08-02 | M2 Luxon config automation rewrites `external_address` host values while preserving ports | Accepted | Implemented as host-only, config-gated behavior with deterministic file updates and manual rollback path. |
+| 2026-08-02 | Local server mode is the only supported runtime baseline | Accepted | No Photon Cloud connection path is required for this mod going forward. |
+| 2026-08-02 | Replace Luxon/Photon-specific mode naming with generic LocalServer naming in planning artifacts | Accepted | Apply as incremental renames in implementation milestones where behavior ownership changes. |
 
 ## Deviation record
 
-- 2026-08-02: No deviation from M1 scope. Only host-side endpoint detection and documentation updates were implemented. M2+ behavior remains unchanged.
+- 2026-08-02: No deviation from M2 scope. Implemented host-side Luxon config automation only; M3+ behavior remains unchanged.
+- 2026-08-02: Prior temporary diagnostic fallback note about preserving CustomCloud is superseded by the approved LAN-only baseline decision.
 
 ## Recommended small PR sequence
 

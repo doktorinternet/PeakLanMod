@@ -245,6 +245,18 @@ public sealed class Plugin : BaseUnityPlugin
             "AllowedHostInterfaces",
             string.Empty,
             "Optional CSV interface filters (name/description/id contains match) for host LAN IPv4 auto-detection.");
+
+        AutoUpdateLuxonConfigOnHost = Config.Bind(
+            "LanWorkflow",
+            "AutoUpdateLuxonConfigOnHost",
+            false,
+            "Automatically rewrite Luxon external_address values during direct host in LocalPhotonServer mode.");
+
+        LuxonConfigPath = Config.Bind(
+            "LanWorkflow",
+            "LuxonConfigPath",
+            "server/config.yml",
+            "Relative or absolute path to Luxon config.yml used by host-side external_address automation.");
     }
 
     private void OnGUI()
@@ -283,6 +295,7 @@ public sealed class Plugin : BaseUnityPlugin
     private void StartDirectHost()
     {
         ApplyHostLanIpv4Selection();
+        ApplyHostLuxonConfigAutomation();
 
         EnsureOnlineModeForDirectConnect("StartDirectHost");
 
@@ -364,6 +377,44 @@ public sealed class Plugin : BaseUnityPlugin
             $"Selected={SanitizeEndpointForLog(selectedIpv4)}; " +
             $"SelectedFingerprint={Fingerprint(selectedIpv4)}; " +
             $"SelectionReason={reason}");
+    }
+
+    private static void ApplyHostLuxonConfigAutomation()
+    {
+        if (!IsLocalPhotonServerMode)
+        {
+            return;
+        }
+
+        if (!AutoUpdateLuxonConfigOnHost.Value)
+        {
+            return;
+        }
+
+        string endpointHost = LocalServerAddress.Value.Trim();
+        string configPath = LuxonConfigPath.Value.Trim();
+
+        if (!LuxonConfigManager.TryUpdateExternalAddresses(
+                endpointHost,
+                configPath,
+                out LuxonConfigUpdateResult result))
+        {
+            Log.LogWarning(
+                "Luxon config host automation failed. " +
+                $"Host={SanitizeEndpointForLog(endpointHost)}; " +
+                $"ConfigPath={result.ConfigPathForLog}; " +
+                $"Reason={result.Message}");
+
+            return;
+        }
+
+        Log.LogInfo(
+            "Luxon config host automation succeeded. " +
+            $"Host={SanitizeEndpointForLog(endpointHost)}; " +
+            $"ConfigPath={result.ConfigPathForLog}; " +
+            $"UpdatedEntries={result.UpdatedEntryCount}; " +
+            $"MatchedEntries={result.MatchedEntryCount}; " +
+            $"Changed={result.WasChanged}");
     }
 
     private void StartDirectJoin()
@@ -521,6 +572,8 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<bool> AutoDetectHostLanIpv4 = null!;
     internal static ConfigEntry<string> PreferredHostIpv4 = null!;
     internal static ConfigEntry<string> AllowedHostInterfaces = null!;
+    internal static ConfigEntry<bool> AutoUpdateLuxonConfigOnHost = null!;
+    internal static ConfigEntry<string> LuxonConfigPath = null!;
 
     private static float _lastStatusUiAt = -999f;
     private static string _overlayStatusMessage = string.Empty;

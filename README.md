@@ -61,6 +61,19 @@ Rollback path:
 
 - Set `LanWorkflow.AutoDetectHostIPv4 = false` to keep using the configured `Photon.LocalServerAddress` directly.
 
+## Luxon external_address automation (M2)
+
+Milestone 2 adds optional host-side automation that rewrites Luxon `external_address` values in `config.yml` before direct hosting.
+
+- `LanWorkflow.AutoUpdateLuxonConfigOnHost = true` enables rewriting during host start (`HostKey`) in `LocalPhotonServer` mode.
+- `LanWorkflow.LuxonConfigPath` points to the Luxon YAML file to update (relative paths resolve from the PEAK process working directory).
+- The updater rewrites all matched `external_address` entries under `NameServer`, `MasterServer`, and `GameServer`, preserving existing ports.
+- Default remains disabled, so manual Luxon config is unchanged unless explicitly enabled.
+
+Rollback path:
+
+- Set `LanWorkflow.AutoUpdateLuxonConfigOnHost = false` to return to fully manual Luxon config management.
+
 ## Release branch guidance
 
 Using a dedicated `release` branch is optional and depends on your team workflow.

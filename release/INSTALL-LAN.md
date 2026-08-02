@@ -35,6 +35,9 @@ This guide installs a full LAN package without Thunderstore.
      - `LanWorkflow.AutoDetectHostIPv4 = true`
      - `LanWorkflow.PreferredHostIPv4 = <specific host IPv4>` (optional manual override)
      - `LanWorkflow.AllowedHostInterfaces = Ethernet,Wi-Fi` (optional CSV filter)
+   - Optional M2 Luxon config automation:
+     - `LanWorkflow.AutoUpdateLuxonConfigOnHost = true`
+     - `LanWorkflow.LuxonConfigPath = server/config.yml` (or an absolute path)
 5. Install any packaged dependency mods from `dependencies/`.
 6. Start the LAN server from package `server/`.
 7. Start PEAK and verify overlay status indicates server detected.
@@ -62,5 +65,7 @@ This guide installs a full LAN package without Thunderstore.
   endpoint/port/protocol mismatch, server not running, or firewall block.
 - Host LAN IPv4 detection selected an unexpected adapter:
   set `LanWorkflow.PreferredHostIPv4` for manual override, or set `LanWorkflow.AllowedHostInterfaces` to filter interfaces.
+- Luxon config was not rewritten on host start:
+  verify `LanWorkflow.AutoUpdateLuxonConfigOnHost = true`, ensure `LanWorkflow.LuxonConfigPath` points to the active `config.yml`, and confirm `Photon.LocalServerAddress` is a non-loopback IPv4.
 - Airport loaded but not in room:
   room creation/join did not complete. Check host/client callbacks and disconnect logs.
