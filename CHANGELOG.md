@@ -4,6 +4,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-02
 
+- Release tag: `v0.3.0-m6-server-list` (Milestone 6 Part 2 UX/UI polish).
 - Updated M6 server list UX to be scrollable with no fixed session-count cap.
 - Added M6 UX Part 2 polish: `Join Selected` is disabled until a compatible session is selected, panel now shows inline join-unavailable reasons, and `Last refresh` timestamp is displayed with lightweight periodic auto-refresh plus manual refresh.
 - Removed legacy in-game local-server status text notifications and UI reflection fallback probes; M6 LAN session panel is now the primary in-game status surface.
