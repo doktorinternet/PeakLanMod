@@ -112,6 +112,15 @@ public sealed class Plugin : BaseUnityPlugin
     private DateTime _lastLanUiRefreshAtUtc;
     private float _lastNotReadyLogAt = -999f;
     private float _lastReconnectAttemptAt = -999f;
+    private bool _lanUiStyleInitialized;
+    private GUIStyle? _lanUiPanelStyle;
+    private GUIStyle? _lanUiTitleStyle;
+    private GUIStyle? _lanUiLabelStyle;
+    private GUIStyle? _lanUiRightLabelStyle;
+    private GUIStyle? _lanUiButtonStyle;
+    private GUIStyle? _lanUiTextFieldStyle;
+    private GUIStyle? _lanUiRowStyle;
+    private GUIStyle? _lanUiSelectedRowStyle;
 
     private void Awake()
     {
@@ -898,6 +907,8 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void RenderLanUiOverlay()
     {
+        EnsureLanUiStyles();
+
         EnsureLanUiSessionsRefreshed();
 
         _lanPreferredRoomNameInput = NormalizeRoomNameInputForUi(
@@ -920,6 +931,7 @@ public sealed class Plugin : BaseUnityPlugin
             out string joinUnavailableReason);
 
         string summaryLine = LanStatusPresenterBridge.BuildSummaryLine(
+            phase,
             GetConfiguredLocalEndpoint(),
             sessions.Count);
 
@@ -961,7 +973,10 @@ public sealed class Plugin : BaseUnityPlugin
         GUI.DrawTexture(panelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
         GUI.color = previousPanelColor;
 
-        GUI.Box(panelRect, "LAN Sessions");
+        GUI.Box(
+            panelRect,
+            "LAN Sessions",
+            _lanUiPanelStyle ?? GUI.skin.box);
 
         string collapseToggleLabel = showServerRows
             ? "Collapse"
@@ -969,7 +984,8 @@ public sealed class Plugin : BaseUnityPlugin
 
         if (GUI.Button(
                 new Rect(panelRect.x + panelRect.width - 110f, panelRect.y + 2f, 98f, 22f),
-                collapseToggleLabel))
+            collapseToggleLabel,
+            _lanUiButtonStyle ?? GUI.skin.button))
         {
             bool nextCollapsed = !_isLanServerListCollapsed;
             _isLanServerListCollapsed = nextCollapsed;
@@ -1004,11 +1020,13 @@ public sealed class Plugin : BaseUnityPlugin
         {
             GUI.Label(
                 new Rect(panelRect.x + 12f, panelRect.y + 50f, 86f, 20f),
-                "Room Name:");
+                "Room Name:",
+                _lanUiLabelStyle ?? GUI.skin.label);
 
             string updatedPreferredRoomName = GUI.TextField(
                 new Rect(panelRect.x + 98f, panelRect.y + 48f, panelRect.width - 110f, 22f),
-                _lanPreferredRoomNameInput);
+                _lanPreferredRoomNameInput,
+                _lanUiTextFieldStyle ?? GUI.skin.textField);
 
             updatedPreferredRoomName = NormalizeRoomNameInputForUi(
                 updatedPreferredRoomName);
@@ -1028,7 +1046,8 @@ public sealed class Plugin : BaseUnityPlugin
 
         if (GUI.Button(
             new Rect(panelRect.x + 12f, actionButtonY, 120f, 26f),
-                "Host LAN"))
+                "Host LAN",
+                _lanUiButtonStyle ?? GUI.skin.button))
         {
             _roomName.Value = validatedHostRoomName;
             Log.LogInfo("LAN UI host button clicked.");
@@ -1044,24 +1063,21 @@ public sealed class Plugin : BaseUnityPlugin
 
         GUI.Label(
             new Rect(panelRect.x + 12f, panelRect.y + 24f, panelRect.width - 24f, 22f),
-            summaryLine);
-
-        var lastRefreshStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.UpperRight
-        };
+            summaryLine,
+            _lanUiTitleStyle ?? GUI.skin.label);
 
         GUI.Label(
             new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 24f, panelRect.width - 24f, 20f),
             lastRefreshLabel,
-            lastRefreshStyle);
+            _lanUiRightLabelStyle ?? GUI.skin.label);
 
         bool previousGuiEnabled = GUI.enabled;
         GUI.enabled = canJoinSelected;
 
         if (GUI.Button(
                 new Rect(panelRect.x + 138f, actionButtonY, 120f, 26f),
-                "Join Selected")
+            "Join Selected",
+            _lanUiButtonStyle ?? GUI.skin.button)
             && canJoinSelected)
         {
             Log.LogInfo("LAN UI join-selected button clicked.");
@@ -1072,7 +1088,8 @@ public sealed class Plugin : BaseUnityPlugin
 
         if (GUI.Button(
             new Rect(panelRect.x + 264f, actionButtonY, 110f, 26f),
-                "Refresh"))
+                "Refresh",
+                _lanUiButtonStyle ?? GUI.skin.button))
         {
             RefreshLanUiSessions();
             Log.LogInfo(
@@ -1089,7 +1106,8 @@ public sealed class Plugin : BaseUnityPlugin
 
             GUI.Label(
                 new Rect(panelRect.x + 12f, panelRect.y + 106f, panelRect.width - 24f, 20f),
-                adminLine);
+                adminLine,
+                _lanUiLabelStyle ?? GUI.skin.label);
         }
 
         float rowY = panelRect.y + 106f + adminPanelExtraHeight;
@@ -1098,14 +1116,16 @@ public sealed class Plugin : BaseUnityPlugin
         {
             GUI.Label(
                 new Rect(panelRect.x + 390f, panelRect.y + 74f, panelRect.width - 402f, 20f),
-            $"Cannot host: {hostUnavailableReason}");
+            $"Cannot host: {hostUnavailableReason}",
+            _lanUiLabelStyle ?? GUI.skin.label);
         }
 
         if (sessions.Count == 0)
         {
             GUI.Label(
                 new Rect(panelRect.x + 12f, rowY, panelRect.width - 24f, 22f),
-                "No discovered sessions yet. Keep host in-room and click Refresh.");
+                "No discovered sessions yet. Keep host in-room and click Refresh.",
+                _lanUiLabelStyle ?? GUI.skin.label);
             return;
         }
 
@@ -1129,20 +1149,6 @@ public sealed class Plugin : BaseUnityPlugin
             0f,
             Math.Max(120f, listViewportRect.width - 18f),
             listContentHeight);
-
-        var rowStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleLeft
-        };
-
-        var selectedRowStyle = new GUIStyle(rowStyle)
-        {
-            fontStyle = FontStyle.Bold
-        };
-
-        selectedRowStyle.normal.textColor = new Color(1f, 0.95f, 0.35f, 1f);
-        selectedRowStyle.hover.textColor = selectedRowStyle.normal.textColor;
-        selectedRowStyle.active.textColor = selectedRowStyle.normal.textColor;
 
         _lanServerListScroll = GUI.BeginScrollView(
             listViewportRect,
@@ -1175,7 +1181,9 @@ public sealed class Plugin : BaseUnityPlugin
             bool clicked = GUI.Button(
                 rowRect,
                 rowLabel,
-                isSelected ? selectedRowStyle : rowStyle);
+                isSelected
+                    ? (_lanUiSelectedRowStyle ?? GUI.skin.button)
+                    : (_lanUiRowStyle ?? GUI.skin.button));
 
             GUI.color = previousGuiColor;
 
@@ -1199,8 +1207,124 @@ public sealed class Plugin : BaseUnityPlugin
         {
             GUI.Label(
                 new Rect(panelRect.x + 390f, panelRect.y + 50f, panelRect.width - 402f, 26f),
-            $"Join unavailable: {joinUnavailableReason}");
+            $"Join unavailable: {joinUnavailableReason}",
+            _lanUiLabelStyle ?? GUI.skin.label);
         }
+    }
+
+    private void EnsureLanUiStyles()
+    {
+        if (_lanUiStyleInitialized)
+        {
+            return;
+        }
+
+        _lanUiStyleInitialized = true;
+        // Style with PEAK-like earthy tones while keeping Unity font handling untouched.
+        Texture2D panelTexture = CreateSolidTexture(new Color(0.13f, 0.11f, 0.09f, 0.96f));
+        Texture2D buttonNormalTexture = CreateSolidTexture(new Color(0.86f, 0.74f, 0.51f, 1f));
+        Texture2D buttonHoverTexture = CreateSolidTexture(new Color(0.94f, 0.82f, 0.6f, 1f));
+        Texture2D buttonActiveTexture = CreateSolidTexture(new Color(0.7f, 0.56f, 0.36f, 1f));
+        Texture2D fieldTexture = CreateSolidTexture(new Color(0.23f, 0.19f, 0.15f, 1f));
+        Texture2D selectedRowTexture = CreateSolidTexture(new Color(0.52f, 0.43f, 0.27f, 1f));
+
+        _lanUiPanelStyle = new GUIStyle(GUI.skin.box)
+        {
+            padding = new RectOffset(10, 10, 8, 8),
+            normal =
+            {
+                background = panelTexture,
+                textColor = new Color(0.98f, 0.92f, 0.8f, 1f)
+            }
+        };
+
+        _lanUiTitleStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontStyle = FontStyle.Bold,
+            normal =
+            {
+                textColor = new Color(0.98f, 0.9f, 0.74f, 1f)
+            }
+        };
+
+        _lanUiLabelStyle = new GUIStyle(GUI.skin.label)
+        {
+            normal =
+            {
+                textColor = new Color(0.95f, 0.9f, 0.82f, 1f)
+            }
+        };
+
+        _lanUiRightLabelStyle = new GUIStyle(_lanUiLabelStyle)
+        {
+            alignment = TextAnchor.UpperRight
+        };
+
+        _lanUiButtonStyle = new GUIStyle(GUI.skin.button)
+        {
+            fontStyle = FontStyle.Bold,
+            normal =
+            {
+                background = buttonNormalTexture,
+                textColor = new Color(0.17f, 0.13f, 0.08f, 1f)
+            },
+            hover =
+            {
+                background = buttonHoverTexture,
+                textColor = new Color(0.13f, 0.1f, 0.06f, 1f)
+            },
+            active =
+            {
+                background = buttonActiveTexture,
+                textColor = new Color(0.99f, 0.95f, 0.85f, 1f)
+            }
+        };
+
+        _lanUiTextFieldStyle = new GUIStyle(GUI.skin.textField)
+        {
+            normal =
+            {
+                background = fieldTexture,
+                textColor = new Color(0.98f, 0.92f, 0.8f, 1f)
+            },
+            focused =
+            {
+                background = buttonActiveTexture,
+                textColor = new Color(1f, 0.97f, 0.9f, 1f)
+            }
+        };
+
+        _lanUiRowStyle = new GUIStyle(_lanUiButtonStyle)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            fontStyle = FontStyle.Normal,
+            padding = new RectOffset(8, 8, 2, 2)
+        };
+
+        _lanUiSelectedRowStyle = new GUIStyle(_lanUiRowStyle)
+        {
+            fontStyle = FontStyle.Bold
+        };
+
+        _lanUiSelectedRowStyle.normal.background = selectedRowTexture;
+        _lanUiSelectedRowStyle.hover.background = selectedRowTexture;
+        _lanUiSelectedRowStyle.active.background = buttonActiveTexture;
+        _lanUiSelectedRowStyle.normal.textColor = new Color(1f, 0.96f, 0.84f, 1f);
+        _lanUiSelectedRowStyle.hover.textColor = new Color(1f, 0.98f, 0.88f, 1f);
+        _lanUiSelectedRowStyle.active.textColor = new Color(1f, 1f, 0.9f, 1f);
+    }
+
+    private static Texture2D CreateSolidTexture(
+        Color color)
+    {
+        var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+        {
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        texture.SetPixel(0, 0, color);
+        texture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+        return texture;
     }
 
     private void QueueDirectHostStart()
