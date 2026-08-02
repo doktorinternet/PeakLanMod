@@ -2,7 +2,7 @@ using HarmonyLib;
 using Peak.Network;
 using Photon.Realtime;
 
-namespace PeakLanProbe.Patches;
+namespace PeakLanMod.Patches;
 
 [HarmonyPatch(typeof(NetworkConnector))]
 internal static class NetworkConnectorPatches

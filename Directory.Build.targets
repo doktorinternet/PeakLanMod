@@ -102,4 +102,134 @@
   >
     <Error Text="Release configuration must be used when publishing Thunderstore package." />
   </Target>
+
+  <Target
+    Name="LanRelease"
+    DependsOnTargets="Build"
+  >
+    <PropertyGroup>
+      <LanReleaseOutputDir Condition="'$(LanReleaseOutputDir)' == ''">$(SolutionRoot)artifacts/release</LanReleaseOutputDir>
+      <LanReleasePackageId Condition="'$(LanReleasePackageId)' == ''">BadHorse.PeakLanMod</LanReleasePackageId>
+      <_LanReleaseName>$(LanReleasePackageId)-LAN-v$(Version)</_LanReleaseName>
+      <_LanReleaseRoot>$([MSBuild]::NormalizeDirectory('$(LanReleaseOutputDir)'))</_LanReleaseRoot>
+      <_LanReleaseStageDir>$(_LanReleaseRoot)$(_LanReleaseName)\</_LanReleaseStageDir>
+      <_LanReleaseZipPath>$(_LanReleaseRoot)$(_LanReleaseName).zip</_LanReleaseZipPath>
+      <_LanReleaseExternalRoot Condition="'$(LanReleaseCopyOutputDir)' != ''">$([MSBuild]::NormalizeDirectory('$(LanReleaseCopyOutputDir)'))</_LanReleaseExternalRoot>
+      <_LanReleaseExternalZipPath Condition="'$(LanReleaseCopyOutputDir)' != ''">$(_LanReleaseExternalRoot)$(_LanReleaseName).zip</_LanReleaseExternalZipPath>
+      <_LanReleaseChecksumPath>$(_LanReleaseStageDir)metadata\CHECKSUMS.sha256</_LanReleaseChecksumPath>
+      <_LanReleaseBuildInfoPath>$(_LanReleaseStageDir)metadata\BUILD_INFO.txt</_LanReleaseBuildInfoPath>
+      <_LanReleaseModConfigTemplate>$(SolutionRoot)release\BadHorse.PeakLanMod.cfg.template</_LanReleaseModConfigTemplate>
+      <_LanReleaseInstallGuide>$(SolutionRoot)release\INSTALL-LAN.md</_LanReleaseInstallGuide>
+      <_LanReleaseDependenciesGuide>$(SolutionRoot)release\DEPENDENCIES-README.md</_LanReleaseDependenciesGuide>
+      <_LanReleaseServerDir>$(SolutionRoot)server\</_LanReleaseServerDir>
+      <_LanReleasePdbPath>$(TargetDir)$(AssemblyName).pdb</_LanReleasePdbPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_LanReleaseRequiredFile Include="$(TargetPath)" />
+      <_LanReleaseRequiredFile Include="$(_LanReleaseModConfigTemplate)" />
+      <_LanReleaseRequiredFile Include="$(_LanReleaseInstallGuide)" />
+      <_LanReleaseRequiredFile Include="$(_LanReleaseDependenciesGuide)" />
+      <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)luxon_server.msvc.release.exe" />
+      <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)config.example.yml" />
+    </ItemGroup>
+
+    <Error
+      Text="LanRelease missing required file: %(_LanReleaseRequiredFile.Identity)"
+      Condition="!Exists('%(_LanReleaseRequiredFile.Identity)')"
+    />
+
+    <MakeDir Directories="$(_LanReleaseRoot)" />
+    <MakeDir Directories="$(_LanReleaseExternalRoot)" Condition="'$(_LanReleaseExternalRoot)' != ''" />
+    <RemoveDir Directories="$(_LanReleaseStageDir)" Condition="Exists('$(_LanReleaseStageDir)')" />
+    <Delete Files="$(_LanReleaseZipPath)" Condition="Exists('$(_LanReleaseZipPath)')" />
+    <Delete Files="$(_LanReleaseExternalZipPath)" Condition="'$(_LanReleaseExternalZipPath)' != '' And Exists('$(_LanReleaseExternalZipPath)')" />
+
+    <MakeDir Directories="$(_LanReleaseStageDir)mod\bepinex\plugins" />
+    <MakeDir Directories="$(_LanReleaseStageDir)mod\bepinex\config" />
+    <MakeDir Directories="$(_LanReleaseStageDir)server" />
+    <MakeDir Directories="$(_LanReleaseStageDir)dependencies" />
+    <MakeDir Directories="$(_LanReleaseStageDir)docs" />
+    <MakeDir Directories="$(_LanReleaseStageDir)metadata" />
+
+    <Copy
+      SourceFiles="$(TargetPath)"
+      DestinationFiles="$(_LanReleaseStageDir)mod\bepinex\plugins\$(AssemblyName).dll"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleasePdbPath)"
+      DestinationFiles="$(_LanReleaseStageDir)mod\bepinex\plugins\$(AssemblyName).pdb"
+      Condition="Exists('$(_LanReleasePdbPath)')"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseModConfigTemplate)"
+      DestinationFiles="$(_LanReleaseStageDir)mod\bepinex\config\BadHorse.PeakLanMod.cfg"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseDependenciesGuide)"
+      DestinationFiles="$(_LanReleaseStageDir)dependencies\README.md"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseInstallGuide)"
+      DestinationFiles="$(_LanReleaseStageDir)docs\INSTALL-LAN.md"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseInstallGuide)"
+      DestinationFiles="$(_LanReleaseStageDir)README.md"
+    />
+
+    <Copy
+      SourceFiles="$(SolutionRoot)CHANGELOG.md"
+      DestinationFiles="$(_LanReleaseStageDir)CHANGELOG.md"
+      Condition="Exists('$(SolutionRoot)CHANGELOG.md')"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseServerDir)luxon_server.msvc.release.exe"
+      DestinationFiles="$(_LanReleaseStageDir)server\luxon_server.msvc.release.exe"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseServerDir)config.example.yml"
+      DestinationFiles="$(_LanReleaseStageDir)server\config.example.yml"
+    />
+
+    <WriteLinesToFile
+      File="$(_LanReleaseBuildInfoPath)"
+      Overwrite="true"
+      Lines="Version: $(Version);Configuration: $(Configuration);BuiltAtUtc: $([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'));GitCommit: $(SourceRevisionId);Project: $(MSBuildProjectName)"
+    />
+
+    <Exec
+      Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;Get-ChildItem -File -Recurse '$(_LanReleaseStageDir)' | Where-Object { $_.FullName -notmatch 'CHECKSUMS\\.sha256$' } | Get-FileHash -Algorithm SHA256 | ForEach-Object { '{0}  {1}' -f $_.Hash.ToLowerInvariant(), ($_.Path.Substring('$(_LanReleaseStageDir)'.Length).Replace('\\','/')) } | Set-Content '$(_LanReleaseChecksumPath)'&quot;"
+    />
+
+    <ZipDirectory
+      SourceDirectory="$(_LanReleaseStageDir)"
+      DestinationFile="$(_LanReleaseZipPath)"
+      Overwrite="true"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseZipPath)"
+      DestinationFiles="$(_LanReleaseExternalZipPath)"
+      Condition="'$(_LanReleaseExternalZipPath)' != ''"
+    />
+
+    <Message
+      Text="LanRelease complete: stage=$(_LanReleaseStageDir); zip=$(_LanReleaseZipPath)"
+      Importance="High"
+    />
+
+    <Message
+      Text="LanRelease copied zip to external output: $(_LanReleaseExternalZipPath)"
+      Importance="High"
+      Condition="'$(_LanReleaseExternalZipPath)' != ''"
+    />
+  </Target>
 </Project>

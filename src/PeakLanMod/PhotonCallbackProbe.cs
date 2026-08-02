@@ -3,7 +3,7 @@ using Photon.Pun;
 using Photon.Realtime;
 using PhotonPlayer = Photon.Realtime.Player;
 
-namespace PeakLanProbe;
+namespace PeakLanMod;
 
 internal sealed class PhotonCallbackProbe :
     MonoBehaviourPunCallbacks

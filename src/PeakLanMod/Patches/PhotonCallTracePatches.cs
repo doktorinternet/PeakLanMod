@@ -5,7 +5,7 @@ using HarmonyLib;
 using Photon.Pun;
 using Photon.Realtime;
 
-namespace PeakLanProbe.Patches;
+namespace PeakLanMod.Patches;
 
 [HarmonyPatch]
 internal static class PhotonCallTracePatches

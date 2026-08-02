@@ -5,7 +5,7 @@ param(
 )
 
 $patterns = @(
-    'PEAK LAN Probe',
+    'PEAK LAN (Probe|Mod)',
     'Photon state',
     'CALLBACK',
     'ConnectUsingSettings',

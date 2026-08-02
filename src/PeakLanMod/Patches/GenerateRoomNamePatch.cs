@@ -1,6 +1,6 @@
 using HarmonyLib;
 
-namespace PeakLanProbe.Patches;
+namespace PeakLanMod.Patches;
 
 [HarmonyPatch(typeof(SteamLobbyHandler), "GenerateRoomName")]
 internal static class GenerateRoomNamePatch

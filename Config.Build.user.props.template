@@ -17,6 +17,15 @@
 
     <!-- Enable/disable deploying mod files to BepInEx directory. -->
     <DeployModFiles>true</DeployModFiles>
+
+    <!-- Optional output directory root for LAN release package artifacts. -->
+    <!-- <LanReleaseOutputDir>D:\Releases\PEAK_LAN_MOD</LanReleaseOutputDir> -->
+
+    <!-- Optional dotnet-safe package ID for LAN release name. -->
+    <!-- <LanReleasePackageId>BadHorse.PeakLanMod</LanReleasePackageId> -->
+
+    <!-- Optional extra copy destination for finished LAN release zip (can be outside repo). -->
+    <!-- <LanReleaseCopyOutputDir>D:\LAN-Releases</LanReleaseCopyOutputDir> -->
   </PropertyGroup>
 
   <!--

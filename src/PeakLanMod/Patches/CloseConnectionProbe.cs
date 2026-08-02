@@ -4,7 +4,7 @@ using HarmonyLib;
 using Photon.Pun;
 using PhotonPlayer = Photon.Realtime.Player;
 
-namespace PeakLanProbe.Patches;
+namespace PeakLanMod.Patches;
 
 [HarmonyPatch]
 internal static class CloseConnectionProbe

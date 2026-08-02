@@ -11,7 +11,7 @@ using UnityEngine;
 using System.Text;
 using System.Security.Cryptography;
 using System.Reflection;
-namespace PeakLanProbe;
+namespace PeakLanMod;
 
 // Here are some basic resources on code style and naming conventions to help
 // you in your first CSharp plugin!
@@ -24,7 +24,7 @@ namespace PeakLanProbe;
 // For more info, see https://github.com/Hamunii/BepInEx.AutoPlugin
 
 /// <summary>
-/// The BepInEx plugin class of PeakLanProbe.
+/// The BepInEx plugin class of PeakLanMod.
 /// </summary>
 [BepInPlugin(
     PluginGuid,
@@ -38,8 +38,8 @@ public sealed class Plugin : BaseUnityPlugin
         LocalPhotonServer
     }
 
-    public const string PluginGuid = "AntonWahlberg.PeakLanProbe";
-    public const string PluginName = "PEAK LAN Probe";
+    public const string PluginGuid = "BadHorse.PeakLanMod";
+    public const string PluginName = "PEAK LAN Mod";
     public const string PluginVersion = "0.1.0";
 
     internal static ManualLogSource Log { get; private set; } = null!;
@@ -58,7 +58,7 @@ public sealed class Plugin : BaseUnityPlugin
         _harmony = new Harmony(PluginGuid);
         _harmony.PatchAll();
 
-        Logger.LogInfo("PEAK LAN Probe loaded.");
+        Logger.LogInfo("PEAK LAN Mod loaded.");
         DumpPhotonSettings("Plugin.Awake");
     }
     private void Update()
@@ -150,56 +150,56 @@ public sealed class Plugin : BaseUnityPlugin
         _roomName = Config.Bind(
             "Direct Connect",
             "RoomName",
-            "antonwahlberg-test-room",
-            "Photon room name.");
+            "badhorse-lan-mod-room_" + Guid.NewGuid().ToString("N")[..8],
+            "Host room name.");
 
         _region = Config.Bind(
             "Direct Connect",
             "Region",
-            "eu",
-            "Photon Cloud region.");
+            "",
+            "Photon Cloud region. Leave blank for local server mode.");
 
         _hostKey = Config.Bind(
             "Direct Connect",
             "HostKey",
             new KeyboardShortcut(KeyCode.F6),
-            "Start direct host.");
+            "Start direct host. Testing parameter.");
 
         _joinKey = Config.Bind(
             "Direct Connect",
             "JoinKey",
             new KeyboardShortcut(KeyCode.F7),
-            "Start direct join.");
+            "Start direct join. Testing parameter.");
 
         PhotonMode = Config.Bind(
             "Photon",
             "Mode",
-            PhotonConnectionMode.CustomCloud,
-            "Photon endpoint mode: CustomCloud (baseline) or LocalPhotonServer.");
+            PhotonConnectionMode.LocalPhotonServer,
+            "Photon endpoint mode: CustomCloud or LocalPhotonServer (default).");
 
         AppIdRealtime = Config.Bind(
             "Photon",
             "AppIdRealtime",
             string.Empty,
-            "Custom Photon PUN application ID.");
+            "Custom Photon PUN application ID. Photon Cloud only.");
 
         AppIdVoice = Config.Bind(
             "Photon",
             "AppIdVoice",
             string.Empty,
-            "Custom Photon Voice application ID.");
+            "Custom Photon Voice application ID. Photon Cloud only.");
 
         LocalServerAddress = Config.Bind(
             "Photon",
             "LocalServerAddress",
             "127.0.0.1",
-            "Local Photon Server hostname or IP.");
+            "Local Photon Server hostname or IP. Swap with LAN host address.");
 
         LocalServerPort = Config.Bind(
             "Photon",
             "LocalServerPort",
-            5055,
-            "Local Photon Server UDP/TCP port.");
+            5058,
+            "Port of Local Luxon Name Server UDP/TCP port.");
 
         LocalServerProtocol = Config.Bind(
             "Photon",

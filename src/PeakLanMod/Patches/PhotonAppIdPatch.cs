@@ -1,7 +1,7 @@
 using HarmonyLib;
 using Peak.Network;
 
-namespace PeakLanProbe.Patches;
+namespace PeakLanMod.Patches;
 
 [HarmonyPatch(
     typeof(NetworkingUtilities),

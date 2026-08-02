@@ -3,7 +3,7 @@ using System.Reflection;
 using HarmonyLib;
 using Photon.Pun;
 
-namespace PeakLanProbe.Patches;
+namespace PeakLanMod.Patches;
 
 [HarmonyPatch]
 internal static class OfflineModeTracePatch

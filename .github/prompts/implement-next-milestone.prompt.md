@@ -22,3 +22,6 @@ Requirements:
 - add focused diagnostics,
 - run `dotnet build` only if PEAK's local references are available,
 - clearly report what was compiled, what remains a manual two-machine test, and the rollback path.
+- update changes in CHANGELOG.md with a short description of the change and the date.
+- update readme with any new configuration and/or troubleshooting instructions, if applicable.
+- update release process, instructions, configuration templates, and/or troubleshooting instructions, if applicable.

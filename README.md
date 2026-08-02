@@ -1,6 +1,63 @@
-# PeakLanProbe
+# PeakLanMod
 
-Prestudy repo to identify whether it's plausible to implement a LAN multiplayer mod for PEAK.
+Repository for developing and distributing a LAN multiplayer mod for PEAK.
+
+## LAN release packaging (offline distribution)
+
+This repository supports a LAN-focused release package that can be copied over local network shares.
+
+Build a release package:
+
+```sh
+dotnet build -c Release -t:LanRelease -p:RunThunderPipePackAfterBuild=false
+```
+
+By default, package output is written to:
+
+- `artifacts/release/BadHorse.PeakLanMod-LAN-v<version>/`
+- `artifacts/release/BadHorse.PeakLanMod-LAN-v<version>.zip`
+
+You can override package output root in `Config.Build.user.props`:
+
+```xml
+<LanReleaseOutputDir>D:\Releases\PEAK_LAN_MOD</LanReleaseOutputDir>
+```
+
+You can set an optional second copy destination (outside repo) for the finished zip in `Config.Build.user.props`:
+
+```xml
+<LanReleaseCopyOutputDir>Z:\LAN-Drop\PEAK</LanReleaseCopyOutputDir>
+```
+
+Optional package name override (dotnet-safe):
+
+```xml
+<LanReleasePackageId>BadHorse.PeakLanMod</LanReleasePackageId>
+```
+
+The package staging layout is:
+
+- `mod/bepinex/plugins/BadHorse.PeakLanMod.dll`
+- `mod/bepinex/config/BadHorse.PeakLanMod.cfg`
+- `server/luxon_server.msvc.release.exe`
+- `server/config.example.yml`
+- `dependencies/README.md`
+- `docs/INSTALL-LAN.md`
+- `metadata/BUILD_INFO.txt`
+- `metadata/CHECKSUMS.sha256`
+
+See `release/INSTALL-LAN.md` for host/client setup instructions.
+
+## Release branch guidance
+
+Using a dedicated `release` branch is optional and depends on your team workflow.
+
+Recommendation for this project:
+
+- Keep release branching manual and documented.
+- Do not automate branch creation/switching in build targets.
+
+Reason: build automation should be deterministic and non-destructive; automating git branch operations can surprise local development state and create hard-to-debug release mistakes.
 
 ## Template Instructions
 
