@@ -53,6 +53,9 @@ internal sealed class PhotonCallbackProbe :
             $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
             $"userIdFingerprint={Plugin.Fingerprint(userId)}");
 
+            Plugin.TryAutoLockWorkflowModeAfterSuccessfulHost(
+                "PhotonCallbackProbe.OnCreatedRoom");
+
             Plugin.RefreshLanDiscoveryBroadcast("OnCreatedRoom");
     }
 

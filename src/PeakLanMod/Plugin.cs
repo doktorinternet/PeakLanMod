@@ -58,6 +58,13 @@ public sealed class Plugin : BaseUnityPlugin
         internal ConnectionProtocol Protocol { get; }
     }
 
+    internal enum LanWorkflowMode
+    {
+        AutoSetup,
+        LockedRuntime,
+        Advanced
+    }
+
     internal enum PhotonConnectionMode
     {
         CustomCloud,
@@ -86,6 +93,7 @@ public sealed class Plugin : BaseUnityPlugin
     private string _pendingDirectJoinSource = string.Empty;
     private LocalServerEndpoint? _pendingDirectJoinEndpoint;
     private static LocalServerEndpoint? _transientJoinEndpointOverride;
+    private LanWorkflowMode? _lastAppliedLanWorkflowMode;
     private static readonly LanConnectionStateStore LanDiscoveryStateStore = new();
     private static readonly UdpLanDiscoveryListener LanDiscoveryListener =
         new(LanDiscoveryStateStore);
@@ -152,6 +160,7 @@ public sealed class Plugin : BaseUnityPlugin
         MigrateLegacyPhotonModeNameInConfig();
 
         ConfigureDirectConnect();
+        ApplyLanWorkflowMode(force: true, source: "Awake");
         SyncLanDiscoveryRuntime("Awake");
 
         gameObject.AddComponent<PhotonCallbackProbe>();
@@ -165,6 +174,8 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void Update()
     {
+        ApplyLanWorkflowMode(force: false, source: "Update");
+
         LogPhotonStateChanges();
         SyncLanDiscoveryRuntime("Update");
         UpdateLanPanelCollapseForSettingsScreen();
@@ -435,11 +446,23 @@ public sealed class Plugin : BaseUnityPlugin
             ConnectionProtocol.Udp,
             "Photon transport protocol for local server mode.");
 
+        WorkflowMode = Config.Bind(
+            "LanWorkflow",
+            "WorkflowMode",
+            LanWorkflowMode.AutoSetup,
+            "High-level LAN workflow mode: AutoSetup (auto host endpoint/luxon updates), LockedRuntime (stable host endpoint, no host endpoint rewrites), or Advanced (manual control of all LAN workflow settings).");
+
+        AutoLockWorkflowModeAfterSuccessfulHost = Config.Bind(
+            "LanWorkflow",
+            "AutoLockWorkflowModeAfterSuccessfulHost",
+            true,
+            "Automatically switch WorkflowMode from AutoSetup to LockedRuntime after a successful host room creation. Sets itself to false afterwards.");
+
         AutoDetectHostLanIpv4 = Config.Bind(
             "LanWorkflow",
             "AutoDetectHostIPv4",
             true,
-            "Auto-detect host LAN IPv4 during direct host in LocalServer mode.");
+            "Auto-detect host LAN IPv4 during direct host in LocalServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
 
         PreferredHostIpv4 = Config.Bind(
             "LanWorkflow",
@@ -458,7 +481,7 @@ public sealed class Plugin : BaseUnityPlugin
             "LanWorkflow",
             "AutoUpdateLuxonConfigOnHost",
             true,
-            "Automatically rewrite Luxon external_address values during direct host in LocalServer mode.");
+            "Automatically rewrite Luxon external_address values during direct host in LocalServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
 
         LuxonConfigPath = Config.Bind(
             "LanWorkflow",
@@ -579,6 +602,90 @@ public sealed class Plugin : BaseUnityPlugin
             "EnableLanUiActions",
             false,
             "Enable M6 LAN UI actions and discovered-session overlay in LocalServer mode.");
+    }
+
+    private void ApplyLanWorkflowMode(
+        bool force,
+        string source)
+    {
+        LanWorkflowMode mode = WorkflowMode.Value;
+
+        if (!force && _lastAppliedLanWorkflowMode == mode)
+        {
+            return;
+        }
+
+        switch (mode)
+        {
+            case LanWorkflowMode.AutoSetup:
+                ApplyLanWorkflowPreset(
+                    source,
+                    mode,
+                    autoDetectHostIpv4: true,
+                    autoUpdateLuxonConfigOnHost: true);
+                break;
+
+            case LanWorkflowMode.LockedRuntime:
+                ApplyLanWorkflowPreset(
+                    source,
+                    mode,
+                    autoDetectHostIpv4: false,
+                    autoUpdateLuxonConfigOnHost: false);
+                break;
+
+            case LanWorkflowMode.Advanced:
+                Log.LogInfo(
+                    $"{source}: LanWorkflow mode Advanced active. " +
+                    $"Using explicit settings: " +
+                    $"AutoDetectHostIPv4={AutoDetectHostLanIpv4.Value}; " +
+                    $"AutoUpdateLuxonConfigOnHost={AutoUpdateLuxonConfigOnHost.Value}.");
+                break;
+
+            default:
+                Log.LogWarning(
+                    $"{source}: unknown LanWorkflow mode '{mode}'. " +
+                    "Falling back to Advanced behavior.");
+                break;
+        }
+
+        _lastAppliedLanWorkflowMode = mode;
+    }
+
+    private static void ApplyLanWorkflowPreset(
+        string source,
+        LanWorkflowMode mode,
+        bool autoDetectHostIpv4,
+        bool autoUpdateLuxonConfigOnHost)
+    {
+        bool changedAutoDetect = SetConfigEntryValue(
+            AutoDetectHostLanIpv4,
+            autoDetectHostIpv4);
+
+        bool changedAutoUpdate = SetConfigEntryValue(
+            AutoUpdateLuxonConfigOnHost,
+            autoUpdateLuxonConfigOnHost);
+
+        Log.LogInfo(
+            $"{source}: LanWorkflow mode {mode} applied. " +
+            $"AutoDetectHostIPv4={AutoDetectHostLanIpv4.Value}" +
+            (changedAutoDetect ? " (updated)" : string.Empty) +
+            "; " +
+            $"AutoUpdateLuxonConfigOnHost={AutoUpdateLuxonConfigOnHost.Value}" +
+            (changedAutoUpdate ? " (updated)" : string.Empty) +
+            ".");
+    }
+
+    private static bool SetConfigEntryValue<T>(
+        ConfigEntry<T> entry,
+        T value)
+    {
+        if (EqualityComparer<T>.Default.Equals(entry.Value, value))
+        {
+            return false;
+        }
+
+        entry.Value = value;
+        return true;
     }
 
     private void SyncLanDiscoveryRuntime(
@@ -2303,6 +2410,8 @@ public sealed class Plugin : BaseUnityPlugin
     }
 
     internal static ConfigEntry<PhotonConnectionMode> PhotonMode = null!;
+    internal static ConfigEntry<LanWorkflowMode> WorkflowMode = null!;
+    internal static ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost = null!;
     internal static ConfigEntry<string> AppIdRealtime = null!;
     internal static ConfigEntry<string> AppIdVoice = null!;
     internal static ConfigEntry<string> LocalServerAddress = null!;
@@ -2447,6 +2556,37 @@ public sealed class Plugin : BaseUnityPlugin
             $"UseNameServer={settings.UseNameServer}; " +
             $"Realtime={Fingerprint(realtimeId)}; " +
             $"Voice={Fingerprint(voiceId)}");
+    }
+
+    internal static void TryAutoLockWorkflowModeAfterSuccessfulHost(
+        string source)
+    {
+        if (!IsLocalServerMode)
+        {
+            return;
+        }
+
+        if (!AutoLockWorkflowModeAfterSuccessfulHost.Value)
+        {
+            return;
+        }
+
+        if (WorkflowMode.Value != LanWorkflowMode.AutoSetup)
+        {
+            return;
+        }
+
+        if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient)
+        {
+            return;
+        }
+
+        WorkflowMode.Value = LanWorkflowMode.LockedRuntime;
+        AutoLockWorkflowModeAfterSuccessfulHost.Value = false;
+
+        Log.LogInfo(
+            $"{source}: auto-switched LanWorkflow WorkflowMode " +
+            "from AutoSetup to LockedRuntime after successful host room creation.");
     }
 
     private static void ApplyLocalServerSettings(

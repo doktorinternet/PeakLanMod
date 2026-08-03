@@ -65,7 +65,22 @@ LocalServerProtocol = Udp
 
 [LanWorkflow]
 
+## High-level LAN workflow mode.
+## AutoSetup: enables host endpoint auto-detect and Luxon config auto-update.
+## LockedRuntime: disables host endpoint rewrites for stability after setup verification.
+## Advanced: manual control of LAN workflow settings below.
+# Setting type: LanWorkflowMode
+# Default value: AutoSetup
+# Acceptable values: AutoSetup, LockedRuntime, Advanced
+WorkflowMode = AutoSetup
+
+## Automatically switch WorkflowMode from AutoSetup to LockedRuntime after a successful host room creation.
+# Setting type: Boolean
+# Default value: false
+AutoLockWorkflowModeAfterSuccessfulHost = false
+
 ## Auto-detect host LAN IPv4 during direct host in LocalServer mode.
+# Controlled by WorkflowMode unless WorkflowMode=Advanced.
 # Setting type: Boolean
 # Default value: false
 AutoDetectHostIPv4 = false
@@ -81,6 +96,7 @@ PreferredHostIPv4 =
 AllowedHostInterfaces =
 
 ## Automatically rewrite Luxon external_address values during direct host in LocalServer mode.
+# Controlled by WorkflowMode unless WorkflowMode=Advanced.
 # Setting type: Boolean
 # Default value: false
 AutoUpdateLuxonConfigOnHost = false
