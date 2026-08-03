@@ -973,17 +973,12 @@ public sealed class Plugin : BaseUnityPlugin
         GUI.DrawTexture(panelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
         GUI.color = previousPanelColor;
 
-        GUI.Box(
-            panelRect,
-            "LAN Sessions",
-            _lanUiPanelStyle ?? GUI.skin.box);
-
         string collapseToggleLabel = showServerRows
-            ? "Collapse"
-            : "Expand";
+            ? "-"
+            : "+";
 
         if (GUI.Button(
-                new Rect(panelRect.x + panelRect.width - 110f, panelRect.y + 2f, 98f, 22f),
+                new Rect(panelRect.x + panelRect.width - 24f, panelRect.y + 2f, 22f, 22f),
             collapseToggleLabel,
             _lanUiButtonStyle ?? GUI.skin.button))
         {
