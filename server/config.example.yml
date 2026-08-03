@@ -7,9 +7,10 @@ Servers:
       proxies:
         - protocol: TCP
           address: 127.0.0.1:4533
-
-    - port: 27000
-      external_address: 127.0.0.1:27000
+    # Additional servers are supported by Luxon but not required for the mod according to tests. I've left them commented out here for reference, 
+    # but you can uncomment them if you want to run a full Luxon server setup.
+    # - port: 27000
+    #   external_address: 127.0.0.1:27000
 
   MasterServer:
     - port: 5055
@@ -18,8 +19,8 @@ Servers:
         - protocol: TCP
           address: 127.0.0.1:4530
 
-    - port: 27001
-      external_address: 127.0.0.1:27001
+    # - port: 27001
+    #   external_address: 127.0.0.1:27001
 
   GameServer:
     - port: 5056
@@ -28,8 +29,8 @@ Servers:
         - protocol: TCP
           address: 127.0.0.1:4531
 
-    - port: 27002
-      external_address: 127.0.0.1:27002
+    # - port: 27002
+    #   external_address: 127.0.0.1:27002
 
 
 # Misc settings
