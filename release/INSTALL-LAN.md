@@ -21,14 +21,21 @@ This guide installs a full LAN package without Thunderstore.
 
 - Place any additional required dependency mods under `dependencies/` before distribution.
 - Install dependency mods according to their own instructions.
-- Typical destination is PEAK `BepInEx/plugins/` and `BepInEx/config/`.
+- Typical mod destination is PEAK `BepInEx/plugins/` and `BepInEx/config/`.
 
-## Host setup
+## Client setup (required)
 
-1. Install BepInEx for PEAK found in the `dependencies/` folder. (TODO ADD bepinex install instructions in dependencies folder)
-2. Copy package `mod/BepInEx/` into your PEAK `BepInEx/` folder. Make sure the mod dll and config files are present in `BepInEx/plugins/` and `BepInEx/config/`.
-3. Copy package `server/` into your PEAK installation folder.
-4. In the mod config file, set:
+1. Install BepInEx for PEAK found in the `dependencies/` folder. (TODO ADD bepinex install instructions in dependencies folder).
+2. Copy the content of `mod/BepInEx/` into your PEAK `BepInEx/` folder. Make sure the mod dll and config files are present in `BepInEx/plugins/` and `BepInEx/config/`.
+3. Install any packaged dependency mods from `dependencies/`. 
+4. Start PEAK and verify that the mod is loaded by the new main menu server list .
+
+## Host setup 
+
+This section is optional. It installs a Luxon server downloaded from the luxon github page. The 
+
+1. Copy the folder `server/` into your PEAK root installation folder, where `PEAK.exe` lives.
+2. In the mod config file, set:
   - `Mode = LocalServer`
   - `LocalServerAddress` fallback endpoint (typically leave `127.0.0.1`; M6 join-selected can auto-apply discovered endpoint).
    - `LocalServerPort` and `LocalServerProtocol` to match server config.
@@ -60,17 +67,8 @@ This guide installs a full LAN package without Thunderstore.
        - `LanWorkflow.RequireVersionMatch = true`
      - Optional LAN UI actions and session/status overlay (M6):
        - `LanWorkflow.EnableLanUiActions = true`
-5. Install any other packaged dependency mods from `dependencies/`.
-6. Start PEAK and verify overlay status indicates that the mod is loaded.
-
-## Client setup
-
-1. Install BepInEx for PEAK.
-2. Copy package `mod/bepinex/plugins/*` into your PEAK `BepInEx/plugins/`.
-3. Copy package `mod/bepinex/config/*` into your PEAK `BepInEx/config/`.
-4. Install any packaged dependency mods from `dependencies/`.
-5. In the config file, set same room name and same local server endpoint values as host.
-6. Start PEAK and verify overlay status indicates that the mod is loaded.
+3. Install any other packaged dependency mods from `dependencies/`.
+4. Start PEAK and verify overlay status indicates that the mod is loaded.
 
 ## Quick runtime test
 
