@@ -2,6 +2,12 @@
 
 TODO: You can follow this format for your changelog: <https://keepachangelog.com/en/1.1.0/>
 
+## 2026-08-03
+
+- Release tag: `v0.4.0`.
+- Improved network setup and stability
+- Improved installation guide
+
 ## 2026-08-02
 
 - Release tag: `v0.3.0-m6-server-list` (Milestone 6 Part 2 UX/UI polish).
