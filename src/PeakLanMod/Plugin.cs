@@ -549,6 +549,12 @@ public sealed class Plugin : BaseUnityPlugin
             true,
             "Wait for local NameServer readiness before direct host/join connect attempts in LocalServer mode.");
 
+        AutoSkipPhotonFailureDialogInLocalMode = Config.Bind(
+            "LanWorkflow",
+            "AutoSkipPhotonFailureDialogInLocalMode",
+            true,
+            "Auto-apply offline fallback in LocalServer mode to bypass the default Photon retry/offline popup on menu entry and post-room return.");
+
         LocalServerReadinessTimeoutMs = Config.Bind(
             "LanWorkflow",
             "ReadinessTimeoutMs",
@@ -2431,6 +2437,7 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<bool> ForceKillOwnedLocalServerOnExit = null!;
     internal static ConfigEntry<int> OwnedLocalServerStopTimeoutMs = null!;
     internal static ConfigEntry<bool> AutoRetryDirectHostUntilReady = null!;
+    internal static ConfigEntry<bool> AutoSkipPhotonFailureDialogInLocalMode = null!;
     internal static ConfigEntry<bool> EnableLocalServerReadinessCheck = null!;
     internal static ConfigEntry<int> LocalServerReadinessTimeoutMs = null!;
     internal static ConfigEntry<int> LocalServerReadinessPollIntervalMs = null!;
