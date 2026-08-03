@@ -154,18 +154,18 @@
 
     <Copy
       SourceFiles="$(TargetPath)"
-      DestinationFiles="$(_LanReleaseStageDir)mod\bepinex\plugins\$(AssemblyName).dll"
+      DestinationFiles="$(_LanReleaseStageDir)mod\BepInEx\plugins\$(AssemblyName).dll"
     />
 
     <Copy
       SourceFiles="$(_LanReleasePdbPath)"
-      DestinationFiles="$(_LanReleaseStageDir)mod\bepinex\plugins\$(AssemblyName).pdb"
+      DestinationFiles="$(_LanReleaseStageDir)mod\BepInEx\plugins\$(AssemblyName).pdb"
       Condition="Exists('$(_LanReleasePdbPath)')"
     />
 
     <Copy
       SourceFiles="$(_LanReleaseModConfigTemplate)"
-      DestinationFiles="$(_LanReleaseStageDir)mod\bepinex\config\BadHorse.PeakLanMod.cfg"
+      DestinationFiles="$(_LanReleaseStageDir)mod\BepInEx\config\BadHorse.PeakLanMod.cfg"
     />
 
     <Copy
