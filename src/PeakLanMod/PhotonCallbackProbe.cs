@@ -136,6 +136,16 @@ internal sealed class PhotonCallbackProbe :
         }
     }
 
+    public override void OnLeftRoom()
+    {
+        Plugin.Log.LogInfo(
+            $"[{Time}] CALLBACK OnLeftRoom: " +
+            $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
+            $"offlineMode={PhotonNetwork.OfflineMode}");
+
+        Plugin.HandleLeftRoom();
+    }
+
     public override void OnPlayerEnteredRoom(
         PhotonPlayer newPlayer)
     {

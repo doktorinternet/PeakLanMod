@@ -41,6 +41,23 @@ namespace PeakLanMod;
     PluginVersion)]
 public sealed class Plugin : BaseUnityPlugin
 {
+    private readonly struct LocalServerEndpoint
+    {
+        internal LocalServerEndpoint(
+            string address,
+            int port,
+            ConnectionProtocol protocol)
+        {
+            Address = address;
+            Port = port;
+            Protocol = protocol;
+        }
+
+        internal string Address { get; }
+        internal int Port { get; }
+        internal ConnectionProtocol Protocol { get; }
+    }
+
     internal enum PhotonConnectionMode
     {
         CustomCloud,
@@ -63,6 +80,12 @@ public sealed class Plugin : BaseUnityPlugin
     private bool _queuedHostPreflightCompleted;
     private DateTime _queuedHostReadinessStartedAtUtc;
     private int _queuedHostReadinessAttempts;
+    private bool _pendingDirectJoinStart;
+    private bool _pendingDirectJoinConnectRequested;
+    private string _pendingDirectJoinRoomName = string.Empty;
+    private string _pendingDirectJoinSource = string.Empty;
+    private LocalServerEndpoint? _pendingDirectJoinEndpoint;
+    private static LocalServerEndpoint? _transientJoinEndpointOverride;
     private static readonly LanConnectionStateStore LanDiscoveryStateStore = new();
     private static readonly UdpLanDiscoveryListener LanDiscoveryListener =
         new(LanDiscoveryStateStore);
@@ -168,6 +191,8 @@ public sealed class Plugin : BaseUnityPlugin
         {
             TryProcessQueuedDirectHostStart("Update");
         }
+
+        TryProcessQueuedDirectJoinStart("Update");
     }
 
     private void UpdateLanPanelCollapseForSettingsScreen()
@@ -425,6 +450,7 @@ public sealed class Plugin : BaseUnityPlugin
         AllowedHostInterfaces = Config.Bind(
             "LanWorkflow",
             "AllowedHostInterfaces",
+            //"Ethernet,Wi-Fi",
             string.Empty,
             "Optional CSV interface filters (name/description/id contains match) for host LAN IPv4 auto-detection.");
 
@@ -469,6 +495,12 @@ public sealed class Plugin : BaseUnityPlugin
             "AutoStopOwnedLocalServerOnExit",
             true,
             "Stop only plugin-owned local server process on plugin unload/game exit.");
+
+        AutoStopOwnedLocalServerOnLeaveRoom = Config.Bind(
+            "LanWorkflow",
+            "AutoStopOwnedLocalServerOnLeaveRoom",
+            true,
+            "Stop plugin-owned local server process when leaving a room.");
 
         ForceKillOwnedLocalServerOnExit = Config.Bind(
             "LanWorkflow",
@@ -827,6 +859,11 @@ public sealed class Plugin : BaseUnityPlugin
     private void RequestDirectHostStart(
         string source)
     {
+        ClearPendingDirectJoinState(
+            clearEndpointOverride: true,
+            source: source,
+            reason: "host intent started");
+
         if (!AutoRetryDirectHostUntilReady.Value)
         {
             _ = StartDirectHostOnce();
@@ -868,10 +905,6 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        LocalServerAddress.Value = selected.NameServerAddress;
-        LocalServerPort.Value = selected.NameServerPort;
-        LocalServerProtocol.Value = protocol;
-
         if (!TryNormalizeRoomName(
                 selected.RoomName,
                 out string selectedRoomName,
@@ -885,14 +918,18 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         Log.LogInfo(
-            "LAN UI join-selected applied discovered session settings. " +
+            "LAN UI join-selected staged discovered session as runtime join target. " +
             $"Room={selectedRoomName}; " +
             $"Endpoint={SanitizeEndpointForLog(selected.NameServerAddress)}:{selected.NameServerPort}; " +
             $"Protocol={protocol}");
 
-        StartDirectJoinWithRoomName(
+        RequestDirectJoinStart(
             selectedRoomName,
-            "StartDirectJoinSelected");
+            "StartDirectJoinSelected",
+            new LocalServerEndpoint(
+                selected.NameServerAddress,
+                selected.NameServerPort,
+                protocol));
     }
 
     private static bool TryResolveDiscoverySessionTransport(
@@ -1368,6 +1405,99 @@ public sealed class Plugin : BaseUnityPlugin
             $"{source}: queued direct host request completed.");
     }
 
+    private void RequestDirectJoinStart(
+        string roomName,
+        string source,
+        LocalServerEndpoint endpoint)
+    {
+        _pendingDirectJoinStart = true;
+        _pendingDirectJoinConnectRequested = false;
+        _pendingDirectJoinRoomName = roomName;
+        _pendingDirectJoinSource = source;
+        _pendingDirectJoinEndpoint = endpoint;
+
+        ApplyTransientJoinEndpointOverride(
+            endpoint,
+            source);
+
+        Log.LogInfo(
+            $"{source}: queued direct join request. " +
+            $"Room={roomName}; " +
+            $"Endpoint={SanitizeEndpointForLog(endpoint.Address)}:{endpoint.Port}; " +
+            $"Protocol={endpoint.Protocol}");
+
+        TryProcessQueuedDirectJoinStart(source);
+    }
+
+    private void TryProcessQueuedDirectJoinStart(
+        string source)
+    {
+        if (!_pendingDirectJoinStart)
+        {
+            return;
+        }
+
+        if (_pendingDirectJoinEndpoint is null)
+        {
+            ClearPendingDirectJoinState(
+                clearEndpointOverride: true,
+                source: source,
+                reason: "runtime join target missing");
+            return;
+        }
+
+        if (PhotonNetwork.InRoom)
+        {
+            ClearPendingDirectJoinState(
+                clearEndpointOverride: true,
+                source: source,
+                reason: "already in room");
+            return;
+        }
+
+        if (!StartDirectJoinOnce(
+                _pendingDirectJoinRoomName,
+                _pendingDirectJoinSource,
+                _pendingDirectJoinEndpoint.Value))
+        {
+            return;
+        }
+
+        ClearPendingDirectJoinState(
+            clearEndpointOverride: true,
+            source: source,
+            reason: "queued direct join request completed");
+    }
+
+    private void ClearPendingDirectJoinState(
+        bool clearEndpointOverride,
+        string source,
+        string reason)
+    {
+        bool hadPendingJoin =
+            _pendingDirectJoinStart
+            || _pendingDirectJoinEndpoint is not null;
+
+        _pendingDirectJoinStart = false;
+        _pendingDirectJoinConnectRequested = false;
+        _pendingDirectJoinRoomName = string.Empty;
+        _pendingDirectJoinSource = string.Empty;
+        _pendingDirectJoinEndpoint = null;
+
+        if (clearEndpointOverride)
+        {
+            ClearTransientJoinEndpointOverride(source);
+        }
+
+        if (!hadPendingJoin)
+        {
+            return;
+        }
+
+        Log.LogInfo(
+            $"{source}: cleared queued direct join request ({reason}).");
+    }
+
     private bool StartDirectHostOnce()
     {
         bool queuedHostFlow =
@@ -1616,29 +1746,30 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        StartDirectJoinWithRoomName(
+        RequestDirectJoinStart(
             roomName,
-            "StartDirectJoin");
+            "StartDirectJoin",
+            GetConfiguredLocalServerEndpoint());
     }
 
-    private void StartDirectJoinWithRoomName(
+    private bool StartDirectJoinOnce(
         string roomName,
-        string source)
+        string source,
+        LocalServerEndpoint endpoint)
     {
         if (!EnsureLocalServerReadinessBeforeConnect(
                 source,
-                queuedHostFlow: false))
+                queuedHostFlow: false,
+                endpointOverride: endpoint))
         {
-            return;
+            return false;
         }
 
         EnsureOnlineModeForDirectConnect(source);
 
-        bool joinConnectRequested = false;
-
-        if (!CanStartDirectConnection(ref joinConnectRequested))
+        if (!CanStartDirectConnection(ref _pendingDirectJoinConnectRequested))
         {
-            return;
+            return false;
         }
 
         string region =
@@ -1661,11 +1792,13 @@ public sealed class Plugin : BaseUnityPlugin
             $"currentRegion={PhotonNetwork.CloudRegion}");
 
         LoadAirport();
+        return true;
     }
 
     private bool EnsureLocalServerReadinessBeforeConnect(
         string source,
-        bool queuedHostFlow)
+        bool queuedHostFlow,
+        LocalServerEndpoint? endpointOverride = null)
     {
         if (!IsLocalServerMode)
         {
@@ -1680,9 +1813,12 @@ public sealed class Plugin : BaseUnityPlugin
         int timeoutMs = Math.Max(0, LocalServerReadinessTimeoutMs.Value);
         int pollIntervalMs = Math.Max(50, LocalServerReadinessPollIntervalMs.Value);
 
-        string host = LocalServerAddress.Value.Trim();
-        int port = LocalServerPort.Value;
-        ConnectionProtocol protocol = LocalServerProtocol.Value;
+        LocalServerEndpoint endpoint = endpointOverride
+            ?? GetConfiguredLocalServerEndpoint();
+
+        string host = endpoint.Address.Trim();
+        int port = endpoint.Port;
+        ConnectionProtocol protocol = endpoint.Protocol;
 
         if (queuedHostFlow)
         {
@@ -2182,6 +2318,7 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<string> LocalServerWorkingDirectory = null!;
     internal static ConfigEntry<string> LocalServerStartArguments = null!;
     internal static ConfigEntry<bool> AutoStopOwnedLocalServerOnExit = null!;
+    internal static ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom = null!;
     internal static ConfigEntry<bool> ForceKillOwnedLocalServerOnExit = null!;
     internal static ConfigEntry<int> OwnedLocalServerStopTimeoutMs = null!;
     internal static ConfigEntry<bool> AutoRetryDirectHostUntilReady = null!;
@@ -2231,7 +2368,7 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         Log.LogInfo(
-            $"Local server detected at {GetConfiguredLocalEndpoint()}.");
+            $"Local server detected at {GetEffectiveLocalEndpoint()}.");
     }
 
     internal static void NotifyLocalServerNotDetected(
@@ -2243,7 +2380,22 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         Log.LogInfo(
-            $"Local server not detected at {GetConfiguredLocalEndpoint()}: {reason}");
+            $"Local server not detected at {GetEffectiveLocalEndpoint()}: {reason}");
+    }
+
+    internal static void HandleLeftRoom()
+    {
+        if (!IsLocalServerMode)
+        {
+            return;
+        }
+
+        if (!AutoStopOwnedLocalServerOnLeaveRoom.Value)
+        {
+            return;
+        }
+
+        StopOwnedLocalServerProcessOnExit("PhotonCallbackProbe.OnLeftRoom");
     }
 
     private static string GetConfiguredLocalEndpoint()
@@ -2253,6 +2405,14 @@ public sealed class Plugin : BaseUnityPlugin
         ConnectionProtocol protocol = LocalServerProtocol.Value;
 
         return $"{address}:{port} ({protocol})";
+    }
+
+    private static string GetEffectiveLocalEndpoint()
+    {
+        LocalServerEndpoint endpoint =
+            GetEffectiveLocalServerEndpointForConnection();
+
+        return $"{endpoint.Address}:{endpoint.Port} ({endpoint.Protocol})";
     }
 
     private static void ApplyCustomCloudSettings(
@@ -2292,7 +2452,10 @@ public sealed class Plugin : BaseUnityPlugin
     private static void ApplyLocalServerSettings(
         AppSettings settings)
     {
-        string serverAddress = LocalServerAddress.Value.Trim();
+        LocalServerEndpoint endpoint =
+            GetEffectiveLocalServerEndpointForConnection();
+
+        string serverAddress = endpoint.Address.Trim();
 
         if (string.IsNullOrWhiteSpace(serverAddress))
         {
@@ -2303,7 +2466,7 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        int configuredPort = LocalServerPort.Value;
+        int configuredPort = endpoint.Port;
 
         if (configuredPort is < 1 or > 65535)
         {
@@ -2317,7 +2480,7 @@ public sealed class Plugin : BaseUnityPlugin
         settings.UseNameServer = true;
         settings.Server = serverAddress;
         settings.Port = (ushort)configuredPort;
-        settings.Protocol = LocalServerProtocol.Value;
+        settings.Protocol = endpoint.Protocol;
         settings.FixedRegion = string.Empty;
 
         Log.LogInfo(
@@ -2325,7 +2488,52 @@ public sealed class Plugin : BaseUnityPlugin
             $"Server={serverAddress}; " +
             $"Port={settings.Port}; " +
             $"Protocol={settings.Protocol}; " +
-            $"UseNameServer={settings.UseNameServer}");
+            $"UseNameServer={settings.UseNameServer}; " +
+            $"EndpointSource={(IsJoinEndpointOverrideActive ? "join-runtime" : "config")}");
+    }
+
+    private static bool IsJoinEndpointOverrideActive =>
+        _transientJoinEndpointOverride is not null;
+
+    private static LocalServerEndpoint GetConfiguredLocalServerEndpoint()
+    {
+        string address = LocalServerAddress.Value.Trim();
+        int port = LocalServerPort.Value;
+        ConnectionProtocol protocol = LocalServerProtocol.Value;
+
+        return new LocalServerEndpoint(address, port, protocol);
+    }
+
+    private static LocalServerEndpoint GetEffectiveLocalServerEndpointForConnection()
+    {
+        return _transientJoinEndpointOverride
+            ?? GetConfiguredLocalServerEndpoint();
+    }
+
+    private static void ApplyTransientJoinEndpointOverride(
+        LocalServerEndpoint endpoint,
+        string source)
+    {
+        _transientJoinEndpointOverride = endpoint;
+
+        Log.LogInfo(
+            $"{source}: runtime join endpoint override applied. " +
+            $"Endpoint={SanitizeEndpointForLog(endpoint.Address)}:{endpoint.Port}; " +
+            $"Protocol={endpoint.Protocol}");
+    }
+
+    private static void ClearTransientJoinEndpointOverride(
+        string source)
+    {
+        if (_transientJoinEndpointOverride is null)
+        {
+            return;
+        }
+
+        _transientJoinEndpointOverride = null;
+
+        Log.LogInfo(
+            $"{source}: cleared runtime join endpoint override.");
     }
 
     private static void MigrateLegacyPhotonModeNameInConfig()
