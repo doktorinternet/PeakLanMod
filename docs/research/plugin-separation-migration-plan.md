@@ -511,9 +511,21 @@ Use this section as append-only log during implementation.
 - Files changed: src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
 - Behavioral hypothesis for this step: moving deterministic identity/validation helpers behind compatibility wrappers is behavior-neutral when signatures and call paths are preserved.
 - Build result: dotnet build succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): two-machine (user confirmed)
+- First divergent callback/state observed (if any): none observed in user-confirmed two-machine verification
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, interface ownership ledger, phase update log
+- Notes: Preserved Plugin helper method signatures as wrappers while extracting normalization, blocked-term checks, endpoint sanitization, fingerprinting, and user-id helper logic into LanIdentityAndValidation. No networking behavior changes were introduced.
+
+- 2026-08-07
+- Phase: Phase 2 - Extract config binding and workflow policy
+- Files changed: src/PeakLanMod/Lan/Services/LanPluginOptions.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: moving Config.Bind ownership and workflow policy evaluation into dedicated services is behavior-neutral when defaults, entry names, and Plugin compatibility wrappers remain unchanged.
+- Build result: dotnet build succeeded (netstandard2.1, local environment)
 - Runtime verification level (static/one-machine/two-machine/offline): static
 - First divergent callback/state observed (if any): none observed in static validation
 - Rollback applied (yes/no): no
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, interface ownership ledger, phase update log
-- Notes: Preserved Plugin helper method signatures as wrappers while extracting normalization, blocked-term checks, endpoint sanitization, fingerprinting, and user-id helper logic into LanIdentityAndValidation. No networking behavior changes were introduced.
+- Notes: Plugin now delegates configuration binding to LanPluginOptions and workflow preset/auto-lock behavior to LanWorkflowPolicyService. Existing static Plugin config accessors and callback patch call sites remain available for later phases. User confirmed post-change two-machine runtime test passed.

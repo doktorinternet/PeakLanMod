@@ -2,9 +2,9 @@
 
 Repository for developing and distributing a LAN multiplayer mod for PEAK.
 
-## Plugin separation migration status (Phases 0-1)
+## Plugin separation migration status (Phases 0-2)
 
-Phases 0-1 of the `Plugin.cs` separation plan are implemented with behavior-preserving scope.
+Phases 0-2 of the `Plugin.cs` separation plan are implemented with behavior-preserving scope.
 
 - Added transitional service contracts and plugin-backed compatibility adapters in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`.
 - Added composition wiring in `Plugin.Awake` through `Plugin.Services`.
@@ -13,13 +13,15 @@ Phases 0-1 of the `Plugin.cs` separation plan are implemented with behavior-pres
   - blocked-term checks,
   - endpoint sanitization for logs,
   - fingerprint and user-id helper logic.
+- Extracted config binding ownership to `src/PeakLanMod/Lan/Services/LanPluginOptions.cs`.
+- Extracted workflow preset and auto-lock policy logic to `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`.
 - Plugin helper method signatures remain available as wrappers for compatibility with existing call sites.
 - Runtime behavior is intended to remain unchanged in these phases; host/join/discovery/network callback flow was not redesigned.
 - No new user configuration keys were introduced in these phases.
 
 Rollback path:
 
-- Revert the Phase 0-1 migration commit(s) to return to the pre-separation single-class helper implementation.
+- Revert the Phase 0-2 migration commit(s) to return to the pre-separation single-class helper/config/workflow implementation.
 - Existing static Plugin wrapper call sites remain intact, so rollback is isolated to scaffolding files/wiring.
 
 ## LAN release packaging (offline distribution)

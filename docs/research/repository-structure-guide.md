@@ -20,12 +20,14 @@ Use it to route new implementations and updates to the most appropriate files an
 Phase state:
 - Phase 0 status: completed.
 - Phase 1 status: completed.
-- Phase 2-7 status: not started.
+- Phase 2 status: completed.
+- Phase 3-7 status: not started.
 
 Current reality summary:
-- Plugin root still contains lifecycle, config, workflow, discovery, local server runtime, direct connect orchestration, and UI.
+- Plugin root now delegates config binding to LanPluginOptions and workflow mode policy to LanWorkflowPolicyService, while still owning lifecycle, discovery, local server runtime, direct connect orchestration, and UI.
 - Phase 0 scaffolding now exists in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs` with plugin-backed adapters and placeholder interfaces for later extraction.
 - Phase 1 extracted deterministic identity/validation helpers into `src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs` with wrapper-preserving calls through `Plugin` methods.
+- Phase 2 extracted config entry ownership into `src/PeakLanMod/Lan/Services/LanPluginOptions.cs` and workflow preset/auto-lock policy into `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`.
 - External callers still use Plugin static wrappers; no behavior-routing migration occurred in this phase.
 
 Target direction summary:
@@ -77,6 +79,7 @@ Use this section to track temporary Plugin static wrappers and planned removal p
 | Wrapper/API | Current consumers | Planned removal phase | Notes |
 |---|---|---|---|
 | Plugin.ApplyConfiguredPhotonSettings | PhotonAppIdPatch | Phase 7 | Replace with LocalServerRuntimeService facade. |
+| Plugin.WorkflowMode and related config entry accessors | Patches + probes + Plugin runtime paths | Phase 7 | Accessors now delegate to LanPluginOptions-backed entries and remain as compatibility wrappers. |
 | Plugin.NotifyLocalServerDetected / NotDetected | PhotonCallbackProbe | Phase 7 | Move to LanErrorStateService facade. |
 | Plugin.ReportStructuredLanError / ClearStructuredLanError | PhotonCallbackProbe | Phase 7 | Move to LanErrorStateService facade. |
 | Plugin.RefreshLanDiscoveryBroadcast / StopLanDiscoveryBroadcast | PhotonCallbackProbe | Phase 7 | Move to LanDiscoveryRuntimeCoordinator facade. |
@@ -93,8 +96,8 @@ Add new interfaces here as they are introduced.
 | Interface | Owner class | Responsibility |
 |---|---|---|
 | IPluginCompatibilityServices | PluginCompatibilityServices | Transitional access to extracted-responsibility service contracts. |
-| ILanPluginOptions | PluginCompatibilityServices (placeholder) | Future config binding ownership contract. |
-| ILanWorkflowPolicyService | PluginCompatibilityServices (placeholder) | Future workflow preset/policy ownership contract. |
+| ILanPluginOptions | LanPluginOptions | Config binding ownership and typed ConfigEntry surface for LAN workflow and direct connect keys. |
+| ILanWorkflowPolicyService | LanWorkflowPolicyService | Workflow preset application and auto-lock policy behavior. |
 | IDirectConnectCoordinator | PluginCompatibilityServices (placeholder) | Future host/join orchestration ownership contract. |
 | ILanOverlayController | PluginCompatibilityServices (placeholder) | Future LAN UI ownership contract. |
 | ILanDiscoveryRuntimeCoordinator | PluginCompatibilityServices (plugin-backed) | Discovery broadcast compatibility surface. |
@@ -141,3 +144,11 @@ Append one entry whenever a migration phase is completed.
 - New interfaces introduced: none
 - Compatibility wrappers added/removed: no removals; helper wrappers now delegate to LanIdentityAndValidation
 - Notes for future agents: keep wrapper signatures stable while moving non-helper responsibilities in later phases.
+
+- 2026-08-07
+- Phase completed: Phase 2
+- Architecture snapshot updated sections: phase state, current reality summary
+- Routing table changes: no new responsibility categories; updated ownership reality for config/workflow implementation.
+- New interfaces introduced: none
+- Compatibility wrappers added/removed: no removals; Plugin config accessors now delegate to LanPluginOptions, and Plugin workflow policy calls delegate to LanWorkflowPolicyService.
+- Notes for future agents: keep existing Plugin static config accessors as compatibility wrappers until external callers are migrated in later phases. User confirmed post-change two-machine runtime verification passed.
