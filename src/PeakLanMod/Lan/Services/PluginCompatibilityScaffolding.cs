@@ -3,6 +3,7 @@ using System;
 using BepInEx.Configuration;
 using ExitGames.Client.Photon;
 using UnityEngine;
+using PeakLanMod.Lan.State;
 
 namespace PeakLanMod.Lan.Services;
 
@@ -58,17 +59,23 @@ internal interface ILanOverlayController
 
 internal interface ILanDiscoveryRuntimeCoordinator
 {
+    void SyncLanDiscoveryRuntime(string source);
     void RefreshLanDiscoveryBroadcast(string source);
     void StopLanDiscoveryBroadcast(string source);
+    void ShutdownLanDiscoveryRuntime(string source);
+    LanSessionInfo[] GetDiscoverySnapshot();
+    (string Phase, DateTime UpdatedAtUtc) GetConnectionPhaseSnapshot();
 }
 
 internal interface ILanErrorStateService
 {
+    void LogPhotonStateChanges();
     void NotifyLocalServerDetected();
     void NotifyLocalServerNotDetected(string reason);
     void ReportStructuredLanError(LanErrorCode code, string source, string message, string context);
     void ClearStructuredLanError(string source, string reason);
     void HandleLeftRoom();
+    LanErrorDetail? GetConnectionErrorSnapshot();
 }
 
 internal interface ILocalServerRuntimeService
@@ -108,12 +115,19 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         ILanPluginOptions options,
         ILanWorkflowPolicyService workflowPolicy)
     {
+        var connectionStateStore = new LanConnectionStateStore();
+
         Options = options;
         WorkflowPolicy = workflowPolicy;
         DirectConnect = new PlaceholderDirectConnectCoordinator();
         Overlay = new PlaceholderLanOverlayController();
-        DiscoveryRuntime = new PluginBackedLanDiscoveryRuntimeCoordinator();
-        ErrorState = new PluginBackedLanErrorStateService();
+        DiscoveryRuntime = new LanDiscoveryRuntimeCoordinator(
+            options,
+            connectionStateStore,
+            Plugin.PluginVersion);
+        ErrorState = new LanErrorStateService(
+            options,
+            connectionStateStore);
         LocalServerRuntime = new PluginBackedLocalServerRuntimeService();
         IdentityAndValidation = new LanIdentityAndValidation();
     }
@@ -209,44 +223,64 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
     {
     }
 
-    private sealed class PluginBackedLanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoordinator
+    private sealed class PlaceholderLanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoordinator
     {
+        public void SyncLanDiscoveryRuntime(string source)
+        {
+        }
+
         public void RefreshLanDiscoveryBroadcast(string source)
         {
-            Plugin.RefreshLanDiscoveryBroadcast(source);
         }
 
         public void StopLanDiscoveryBroadcast(string source)
         {
-            Plugin.StopLanDiscoveryBroadcast(source);
+        }
+
+        public void ShutdownLanDiscoveryRuntime(string source)
+        {
+        }
+
+        public LanSessionInfo[] GetDiscoverySnapshot()
+        {
+            return Array.Empty<LanSessionInfo>();
+        }
+
+        public (string Phase, DateTime UpdatedAtUtc) GetConnectionPhaseSnapshot()
+        {
+            return ("Idle", DateTime.UtcNow);
         }
     }
 
-    private sealed class PluginBackedLanErrorStateService : ILanErrorStateService
+    private sealed class PlaceholderLanErrorStateService : ILanErrorStateService
     {
+        public void LogPhotonStateChanges()
+        {
+        }
+
         public void NotifyLocalServerDetected()
         {
-            Plugin.NotifyLocalServerDetected();
         }
 
         public void NotifyLocalServerNotDetected(string reason)
         {
-            Plugin.NotifyLocalServerNotDetected(reason);
         }
 
         public void ReportStructuredLanError(LanErrorCode code, string source, string message, string context)
         {
-            Plugin.ReportStructuredLanError(code, source, message, context);
         }
 
         public void ClearStructuredLanError(string source, string reason)
         {
-            Plugin.ClearStructuredLanError(source, reason);
         }
 
         public void HandleLeftRoom()
         {
-            Plugin.HandleLeftRoom();
+        }
+
+        public LanErrorDetail? GetConnectionErrorSnapshot()
+        {
+            return null;
         }
     }
 

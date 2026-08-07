@@ -67,7 +67,6 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ManualLogSource Log { get; private set; } = null!;
 
     private Harmony? _harmony;
-    private ClientState? _previousState;
     private bool _pendingDirectHostStart;
     private bool _pendingDirectHostConnectRequested;
     private bool _queuedHostPreflightCompleted;
@@ -79,17 +78,8 @@ public sealed class Plugin : BaseUnityPlugin
     private string _pendingDirectJoinSource = string.Empty;
     private LocalServerEndpoint? _pendingDirectJoinEndpoint;
     private static LocalServerEndpoint? _transientJoinEndpointOverride;
-    private static readonly LanConnectionStateStore LanDiscoveryStateStore = new();
-    private static readonly UdpLanDiscoveryListener LanDiscoveryListener =
-        new(LanDiscoveryStateStore);
-    private static readonly UdpLanDiscoveryBroadcaster LanDiscoveryBroadcaster = new();
     private static readonly LanDiscoveredSessionsViewModel LanDiscoveredSessionsViewModel = new();
     private static readonly LanStatusPresenterBridge LanStatusPresenterBridge = new();
-    private static readonly string LanDiscoveryServerInstanceId =
-        Guid.NewGuid().ToString("N");
-    private static int _lastLanDiscoverySnapshotCount = -1;
-    private static bool? _lastLanDiscoveryListenerRunning;
-    private static bool? _lastLanDiscoveryBroadcasterRunning;
     private bool _isLanServerListCollapsed;
     private bool _lanPanelCollapsedBySettingsAutomation;
     private bool _allowLanPanelExpandedWhileSettingsVisible;
@@ -282,29 +272,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void LogPhotonStateChanges()
     {
-        ClientState currentState =
-            PhotonNetwork.NetworkClientState;
-
-        if (_previousState == currentState)
-        {
-            return;
-        }
-
-        Logger.LogInfo(
-            $"Photon state: " +
-            $"{_previousState?.ToString() ?? "<initial>"} " +
-            $"-> {currentState}; " +
-            $"connected={PhotonNetwork.IsConnected}; " +
-            $"ready={PhotonNetwork.IsConnectedAndReady}; " +
-            $"region={PhotonNetwork.CloudRegion}; " +
-            $"inLobby={PhotonNetwork.InLobby}; " +
-            $"inRoom={PhotonNetwork.InRoom}; " +
-            $"room={PhotonNetwork.CurrentRoom?.Name ?? "<none>"}; " +
-            $"players={PhotonNetwork.CurrentRoom?.PlayerCount ?? 0}");
-
-        LanDiscoveryStateStore.SetConnectionPhase(currentState.ToString());
-
-        _previousState = currentState;
+        Services.ErrorState.LogPhotonStateChanges();
     }
 
     private void OnDestroy()
@@ -343,192 +311,25 @@ public sealed class Plugin : BaseUnityPlugin
     private void SyncLanDiscoveryRuntime(
         string source)
     {
-        if (!IsLocalServerMode || !LanDiscoveryEnabled.Value)
-        {
-            if (LanDiscoveryBroadcaster.IsRunning)
-            {
-                LanDiscoveryBroadcaster.Stop($"{source}: mode/config disabled");
-            }
-
-            if (LanDiscoveryListener.IsRunning)
-            {
-                LanDiscoveryListener.Stop($"{source}: mode/config disabled");
-            }
-
-            return;
-        }
-
-        if (!LanDiscoveryListener.IsRunning)
-        {
-            if (!LanDiscoveryListener.TryStart(
-                    LanDiscoveryUdpPort.Value,
-                    LanDiscoveryEntryTtlMs.Value,
-                    EvaluateLanSessionCompatibility,
-                    out string listenerMessage))
-            {
-                Log.LogError(
-                    $"{source}: failed to start LAN discovery listener. " +
-                    $"Reason={listenerMessage}");
-            }
-            else
-            {
-                Log.LogInfo(
-                    $"{source}: LAN discovery listener active. " +
-                    $"Port={LanDiscoveryUdpPort.Value}; " +
-                    $"TtlMs={LanDiscoveryEntryTtlMs.Value}; " +
-                    $"Message={listenerMessage}");
-            }
-        }
-
-        int sessionCount = LanDiscoveryListener.GetSnapshot().Length;
-        bool listenerRunning = LanDiscoveryListener.IsRunning;
-        bool broadcasterRunning = LanDiscoveryBroadcaster.IsRunning;
-
-        bool changed = sessionCount != _lastLanDiscoverySnapshotCount
-            || listenerRunning != _lastLanDiscoveryListenerRunning
-            || broadcasterRunning != _lastLanDiscoveryBroadcasterRunning;
-
-        if (changed)
-        {
-            _lastLanDiscoverySnapshotCount = sessionCount;
-            _lastLanDiscoveryListenerRunning = listenerRunning;
-            _lastLanDiscoveryBroadcasterRunning = broadcasterRunning;
-
-            Log.LogInfo(
-                $"{source}: LAN discovery snapshot count={sessionCount}; " +
-                $"ListenerRunning={listenerRunning}; " +
-                $"BroadcasterRunning={broadcasterRunning}");
-        }
+        Services.DiscoveryRuntime.SyncLanDiscoveryRuntime(source);
     }
 
     internal static void RefreshLanDiscoveryBroadcast(
         string source)
     {
-        if (!IsLocalServerMode || !LanDiscoveryEnabled.Value)
-        {
-            return;
-        }
-
-        if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient)
-        {
-            if (LanDiscoveryBroadcaster.IsRunning)
-            {
-                LanDiscoveryBroadcaster.Stop($"{source}: not in master room");
-            }
-
-            return;
-        }
-
-        if (!LanDiscoveryBroadcaster.TryStart(
-                LanDiscoveryUdpPort.Value,
-                LanDiscoveryBroadcastIntervalMs.Value,
-                BuildLanDiscoveryAnnouncement,
-                out string startMessage))
-        {
-            Log.LogError(
-                $"{source}: failed to start LAN discovery broadcaster. " +
-                $"Reason={startMessage}");
-
-            return;
-        }
-
-        Log.LogInfo(
-            $"{source}: LAN discovery broadcaster active. " +
-            $"Port={LanDiscoveryUdpPort.Value}; " +
-            $"IntervalMs={LanDiscoveryBroadcastIntervalMs.Value}; " +
-            $"Message={startMessage}; " +
-            $"Room={PhotonNetwork.CurrentRoom?.Name ?? "<none>"}");
+        Services.DiscoveryRuntime.RefreshLanDiscoveryBroadcast(source);
     }
 
     internal static void StopLanDiscoveryBroadcast(
         string source)
     {
-        if (LanDiscoveryBroadcaster.IsRunning)
-        {
-            LanDiscoveryBroadcaster.Stop(source);
-        }
+        Services.DiscoveryRuntime.StopLanDiscoveryBroadcast(source);
     }
 
     private static void ShutdownLanDiscoveryRuntime(
         string source)
     {
-        StopLanDiscoveryBroadcast($"{source}: shutdown");
-
-        if (LanDiscoveryListener.IsRunning)
-        {
-            LanDiscoveryListener.Stop($"{source}: shutdown");
-        }
-    }
-
-    private static LanSessionCompatibility EvaluateLanSessionCompatibility(
-        LanDiscoveryAnnouncement announcement)
-    {
-        string expectedProtocol =
-            LanDiscoveryProtocolVersion.Value.Trim();
-
-        if (!string.Equals(
-                announcement.ProtocolVersion,
-                expectedProtocol,
-                StringComparison.Ordinal))
-        {
-            return new LanSessionCompatibility(
-                isCompatible: false,
-                reason: "IncompatibleProtocolVersion");
-        }
-
-        if (!LanDiscoveryRequireVersionMatch.Value)
-        {
-            return LanSessionCompatibility.Compatible;
-        }
-
-        string gameVersion = Application.version ?? string.Empty;
-
-        if (!string.Equals(
-                announcement.GameVersion,
-                gameVersion,
-                StringComparison.Ordinal))
-        {
-            return new LanSessionCompatibility(
-                isCompatible: false,
-                reason: "IncompatibleGameVersion");
-        }
-
-        if (!string.Equals(
-                announcement.ModVersion,
-                PluginVersion,
-                StringComparison.Ordinal))
-        {
-            return new LanSessionCompatibility(
-                isCompatible: false,
-                reason: "IncompatibleModVersion");
-        }
-
-        return LanSessionCompatibility.Compatible;
-    }
-
-    private static LanDiscoveryAnnouncement BuildLanDiscoveryAnnouncement()
-    {
-        string roomName = PhotonNetwork.CurrentRoom?.Name
-            ?? string.Empty;
-
-        string scene = UnityEngine.SceneManagement.SceneManager
-            .GetActiveScene()
-            .name;
-
-        return new LanDiscoveryAnnouncement(
-            type: LanDiscoveryMessageCodec.AnnouncementType,
-            schemaVersion: LanDiscoveryMessageCodec.SchemaVersionV1,
-            protocolVersion: LanDiscoveryProtocolVersion.Value.Trim(),
-            gameVersion: Application.version ?? string.Empty,
-            modVersion: PluginVersion,
-            roomName: roomName,
-            hostDisplayName: PhotonNetwork.NickName ?? string.Empty,
-            nameServerAddress: LocalServerAddress.Value.Trim(),
-            nameServerPort: LocalServerPort.Value,
-            transport: LocalServerProtocol.Value.ToString(),
-            scene: scene,
-            serverInstanceId: LanDiscoveryServerInstanceId,
-            sentAtUtc: DateTime.UtcNow);
+        Services.DiscoveryRuntime.ShutdownLanDiscoveryRuntime(source);
     }
 
     private void OnGUI()
@@ -566,7 +367,9 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void RefreshLanUiSessions()
     {
-        LanSessionInfo[] snapshot = LanDiscoveryListener.GetSnapshot();
+        LanSessionInfo[] snapshot = Services
+            .DiscoveryRuntime
+            .GetDiscoverySnapshot();
         LanDiscoveredSessionsViewModel.UpdateSessions(snapshot);
         _lastLanUiRefreshAtRealtime = Time.realtimeSinceStartup;
         _lastLanUiRefreshAtUtc = DateTime.UtcNow;
@@ -729,8 +532,12 @@ public sealed class Plugin : BaseUnityPlugin
 
         IReadOnlyList<LanSessionInfo> sessions = LanDiscoveredSessionsViewModel.Sessions;
         int selectedIndex = LanDiscoveredSessionsViewModel.SelectedIndex;
-        (string phase, DateTime _) = LanDiscoveryStateStore.GetConnectionPhaseSnapshot();
-        LanErrorDetail? connectionError = LanDiscoveryStateStore.GetConnectionErrorSnapshot();
+        (string phase, DateTime _) = Services
+            .DiscoveryRuntime
+            .GetConnectionPhaseSnapshot();
+        LanErrorDetail? connectionError = Services
+            .ErrorState
+            .GetConnectionErrorSnapshot();
         LanSessionInfo? selectedSession = LanDiscoveredSessionsViewModel.GetSelectedSessionOrNull();
 
         bool canJoinSelected = TryCanJoinSelectedSession(
@@ -2019,29 +1826,13 @@ public sealed class Plugin : BaseUnityPlugin
 
     internal static void NotifyLocalServerDetected()
     {
-        if (!IsLocalServerMode)
-        {
-            return;
-        }
-
-        ClearStructuredLanError(
-            source: "NotifyLocalServerDetected",
-            reason: "local server detected");
-
-        Log.LogInfo(
-            $"Local server detected at {GetEffectiveLocalEndpoint()}.");
+        Services.ErrorState.NotifyLocalServerDetected();
     }
 
     internal static void NotifyLocalServerNotDetected(
         string reason)
     {
-        if (!IsLocalServerMode)
-        {
-            return;
-        }
-
-        Log.LogInfo(
-            $"Local server not detected at {GetEffectiveLocalEndpoint()}: {reason}");
+        Services.ErrorState.NotifyLocalServerNotDetected(reason);
     }
 
     internal static void ReportStructuredLanError(
@@ -2050,68 +1841,29 @@ public sealed class Plugin : BaseUnityPlugin
         string message,
         string context)
     {
-        if (!IsLocalServerMode
-            || !EnableStructuredErrorMapping.Value
-            || code == LanErrorCode.None)
-        {
-            return;
-        }
-
-        string phase = PhotonNetwork.NetworkClientState.ToString();
-
-        var detail = new LanErrorDetail(
+        Services.ErrorState.ReportStructuredLanError(
             code,
             source,
-            phase,
             message,
-            context,
-            DateTime.UtcNow);
-
-        LanDiscoveryStateStore.SetConnectionError(detail);
-
-        Log.LogWarning(
-            "LAN structured error classified. " +
-            $"Code={detail.Code}; " +
-            $"Source={detail.Source}; " +
-            $"Phase={detail.Phase}; " +
-            $"Message={detail.Message}; " +
-            $"Context={detail.Context}");
+            context);
     }
 
     internal static void ClearStructuredLanError(
         string source,
         string reason)
     {
-        if (!IsLocalServerMode
-            || !EnableStructuredErrorMapping.Value)
-        {
-            return;
-        }
-
-        if (!LanDiscoveryStateStore.ClearConnectionError())
-        {
-            return;
-        }
-
-        Log.LogInfo(
-            "LAN structured error cleared. " +
-            $"Source={source}; " +
-            $"Reason={reason}");
+        Services.ErrorState.ClearStructuredLanError(source, reason);
     }
 
     internal static void HandleLeftRoom()
     {
-        if (!IsLocalServerMode)
-        {
-            return;
-        }
+        Services.ErrorState.HandleLeftRoom();
+    }
 
-        if (!AutoStopOwnedLocalServerOnLeaveRoom.Value)
-        {
-            return;
-        }
-
-        StopOwnedLocalServerProcessOnExit("PhotonCallbackProbe.OnLeftRoom");
+    internal static void StopOwnedLocalServerProcessForLeaveRoom(
+        string source)
+    {
+        StopOwnedLocalServerProcessOnExit(source);
     }
 
     private static string GetConfiguredLocalEndpoint()
@@ -2129,6 +1881,11 @@ public sealed class Plugin : BaseUnityPlugin
             GetEffectiveLocalServerEndpointForConnection();
 
         return $"{endpoint.Address}:{endpoint.Port} ({endpoint.Protocol})";
+    }
+
+    internal static string GetEffectiveLocalEndpointForLogging()
+    {
+        return GetEffectiveLocalEndpoint();
     }
 
     internal static void TryAutoLockWorkflowModeAfterSuccessfulHost(
