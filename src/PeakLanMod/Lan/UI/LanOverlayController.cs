@@ -4,7 +4,10 @@ using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.Services;
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace PeakLanMod.Lan.UI;
 
@@ -14,41 +17,85 @@ internal sealed class LanOverlayController : ILanOverlayController
     private readonly IDirectConnectCoordinator _directConnect;
     private readonly ILanDiscoveryRuntimeCoordinator _discoveryRuntime;
     private readonly ILanErrorStateService _errorState;
-    private readonly ILanServerRuntimeService _LanServerRuntime;
+    private readonly ILanServerRuntimeService _lanServerRuntime;
     private readonly ILanIdentityAndValidation _identityAndValidation;
     private readonly LanDiscoveredSessionsViewModel _discoveredSessionsViewModel = new();
     private readonly LanStatusPresenterBridge _statusPresenterBridge = new();
+    private readonly List<LanSessionRowUi> _sessionRows = new();
+
     private bool _isLanServerListCollapsed;
     private bool _lanPanelCollapsedBySettingsAutomation;
     private bool _allowLanPanelExpandedWhileSettingsVisible;
+    private bool _isSyncingRoomInput;
     private float _lastSettingsScreenProbeAt = -999f;
-    private Vector2 _lanServerListScroll = Vector2.zero;
-    private string _lanPreferredRoomNameInput = string.Empty;
     private float _lastLanUiRefreshAtRealtime = -999f;
     private DateTime _lastLanUiRefreshAtUtc;
-    private bool _lanUiStyleInitialized;
-    private GUIStyle? _lanUiPanelStyle;
-    private GUIStyle? _lanUiTitleStyle;
-    private GUIStyle? _lanUiLabelStyle;
-    private GUIStyle? _lanUiRightLabelStyle;
-    private GUIStyle? _lanUiButtonStyle;
-    private GUIStyle? _lanUiTextFieldStyle;
-    private GUIStyle? _lanUiRowStyle;
-    private GUIStyle? _lanUiSelectedRowStyle;
+    private string _lanPreferredRoomNameInput = string.Empty;
+
+    private GameObject? _overlayCanvasObject;
+    private TMP_Text? _templateText;
+    private Sprite? _solidSprite;
+
+    private RectTransform? _panelRect;
+    private Image? _panelImage;
+    private Button? _collapseButton;
+    private TMP_Text? _collapseButtonText;
+
+    private TMP_Text? _summaryText;
+    private TMP_Text? _roomNameLabelText;
+    private InputField? _roomNameInput;
+    private Text? _roomNameInputText;
+    private Text? _roomNameInputPlaceholder;
+
+    private Button? _hostButton;
+    private TMP_Text? _hostButtonText;
+    private Button? _joinButton;
+    private TMP_Text? _joinButtonText;
+    private Button? _refreshButton;
+    private TMP_Text? _refreshButtonText;
+
+    private TMP_Text? _hostUnavailableText;
+    private TMP_Text? _errorText;
+    private TMP_Text? _emptyText;
+    private string _pendingJoinUnavailableLog = string.Empty;
+
+    private ScrollRect? _sessionScrollRect;
+    private RectTransform? _sessionViewportRect;
+    private RectTransform? _sessionContentRect;
+
+    private TMP_Text? _lastRefreshText;
+    private TMP_Text? _modVersionText;
+
+    private RectTransform? _adminPanelRect;
+    private Image? _adminPanelImage;
+    private TMP_Text? _adminTitleText;
+    private TMP_Text? _adminBodyText;
+
+    private const float PanelMargin = 16f;
+    private const float RowHeight = 24f;
+    private static readonly Color UiTextColor = new(0.16f, 0.12f, 0.08f, 1f);
+    private static readonly Color UiPanelColor = new(0.9f, 0.81f, 0.66f, 0.96f);
+    private static readonly Color UiPanelSecondaryColor = new(0.87f, 0.78f, 0.63f, 0.96f);
+    private static readonly Color UiButtonColor = new(0.84f, 0.69f, 0.42f, 1f);
+    private static readonly Color UiButtonHoverColor = new(0.9f, 0.76f, 0.5f, 1f);
+    private static readonly Color UiButtonPressedColor = new(0.76f, 0.58f, 0.33f, 1f);
+    private static readonly Color UiDisabledColor = new(0.66f, 0.58f, 0.46f, 0.9f);
+    private static readonly Color UiFieldColor = new(0.95f, 0.87f, 0.74f, 1f);
+    private static readonly Color UiBorderColor = new(0.15f, 0.11f, 0.08f, 0.32f);
 
     internal LanOverlayController(
         ILanPluginOptions options,
         IDirectConnectCoordinator directConnect,
         ILanDiscoveryRuntimeCoordinator discoveryRuntime,
         ILanErrorStateService errorState,
-        ILanServerRuntimeService LanServerRuntime,
+        ILanServerRuntimeService lanServerRuntime,
         ILanIdentityAndValidation identityAndValidation)
     {
         _options = options;
         _directConnect = directConnect;
         _discoveryRuntime = discoveryRuntime;
         _errorState = errorState;
-        _LanServerRuntime = LanServerRuntime;
+        _lanServerRuntime = lanServerRuntime;
         _identityAndValidation = identityAndValidation;
         _lanPreferredRoomNameInput = _options.RoomName.Value;
     }
@@ -105,16 +152,23 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     public bool ShouldRenderLanUiOverlay()
     {
-        return LanRuntimeContext.IsLanServerMode
+        bool shouldRender = LanRuntimeContext.IsLanServerMode
             && _options.LanDiscoveryEnabled.Value
             && IsMainMenuScene();
+
+        if (!shouldRender)
+        {
+            SetOverlayActive(false);
+        }
+
+        return shouldRender;
     }
 
     public void RenderLanUiOverlay()
     {
-        EnsureLanUiStyles();
-
         EnsureLanUiSessionsRefreshed();
+        EnsureOverlayUi();
+        SetOverlayActive(true);
 
         _lanPreferredRoomNameInput = _identityAndValidation.NormalizeRoomNameInputForUi(
             _lanPreferredRoomNameInput);
@@ -136,9 +190,14 @@ internal sealed class LanOverlayController : ILanOverlayController
             selectedSession,
             out string joinUnavailableReason);
 
+        bool canHostFromInput = _identityAndValidation.TryGetValidatedHostRoomNameFromInput(
+            _lanPreferredRoomNameInput,
+            out string validatedHostRoomName,
+            out string hostUnavailableReason);
+
         string summaryLine = _statusPresenterBridge.BuildSummaryLine(
             phase,
-            _LanServerRuntime.GetConfiguredLocalEndpoint(),
+            _lanServerRuntime.GetConfiguredLocalEndpoint(),
             sessions.Count,
             connectionError);
 
@@ -150,119 +209,126 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         bool showServerRows = !_isLanServerListCollapsed;
         bool p0 = _identityAndValidation.IsCurrentUserInX7GateSet();
-        const float panelMargin = 16f;
+
         float panelWidth;
         float panelHeight;
 
         if (showServerRows)
         {
-            float maxPanelWidth = Math.Max(360f, Screen.width - (panelMargin * 2f));
-            panelWidth = Math.Min(960f, maxPanelWidth);
-            float desiredPanelHeight = 136f + (sessions.Count * 24f);
-            float maxPanelHeight = Math.Max(170f, Screen.height - (panelMargin * 2f));
+            float maxPanelWidth = Math.Max(700f, Screen.width - (PanelMargin * 2f));
+            panelWidth = Math.Min(1160f, maxPanelWidth);
+            float desiredPanelHeight = 152f + (sessions.Count * RowHeight);
+            float maxPanelHeight = Math.Max(170f, Screen.height - (PanelMargin * 2f));
             panelHeight = Mathf.Clamp(desiredPanelHeight, 170f, maxPanelHeight);
         }
         else
         {
-            panelWidth = 252f;
+            panelWidth = 380f;
             panelHeight = 72f;
         }
 
-        var panelRect = new Rect(
-            Screen.width - panelWidth - panelMargin,
-            panelMargin,
+        float panelX = Screen.width - panelWidth - PanelMargin;
+        float panelY = PanelMargin;
+        SetAbsoluteTopLeftRect(
+            _panelRect!,
+            panelX,
+            panelY,
             panelWidth,
             panelHeight);
-
-        Color previousPanelColor = GUI.color;
-        GUI.color = new Color(0.08f, 0.08f, 0.1f, 1f);
-        GUI.DrawTexture(panelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
-        GUI.color = previousPanelColor;
 
         string collapseToggleLabel = showServerRows
             ? "-"
             : "+";
 
-        if (GUI.Button(
-                new Rect(panelRect.x + panelRect.width - 24f, panelRect.y + 2f, 22f, 22f),
-                collapseToggleLabel,
-                _lanUiButtonStyle ?? GUI.skin.button))
-        {
-            bool nextCollapsed = !_isLanServerListCollapsed;
-            _isLanServerListCollapsed = nextCollapsed;
-
-            if (nextCollapsed)
-            {
-                _allowLanPanelExpandedWhileSettingsVisible = false;
-            }
-            else if (IsSettingsScreenVisible())
-            {
-                _allowLanPanelExpandedWhileSettingsVisible = true;
-                _lanPanelCollapsedBySettingsAutomation = false;
-
-                Plugin.Log.LogInfo(
-                    "LAN UI manually expanded while settings screen is visible; auto-collapse suspended until settings closes.");
-            }
-
-            Plugin.Log.LogInfo(
-                $"LAN UI server list toggled. Collapsed={_isLanServerListCollapsed}");
-        }
+        _collapseButtonText!.text = collapseToggleLabel;
+        SetLocalTopLeftRect(_collapseButton!.GetComponent<RectTransform>(), panelWidth - 24f, 2f, 22f, 22f);
 
         float actionButtonY = showServerRows
-            ? panelRect.y + 74f
-            : panelRect.y + 34f;
+            ? 80f
+            : 34f;
 
-        bool canHostFromInput = _identityAndValidation.TryGetValidatedHostRoomNameFromInput(
-            _lanPreferredRoomNameInput,
-            out string validatedHostRoomName,
-            out string hostUnavailableReason);
+        _hostButton!.interactable = canHostFromInput;
+        SetLocalTopLeftRect(_hostButton.GetComponent<RectTransform>(), 12f, actionButtonY, 150f, 26f);
 
         if (showServerRows)
         {
-            GUI.Label(
-                new Rect(panelRect.x + 12f, panelRect.y + 50f, 86f, 20f),
-                "Room Name:",
-                _lanUiLabelStyle ?? GUI.skin.label);
+            _roomNameLabelText!.gameObject.SetActive(true);
+            _roomNameInput!.gameObject.SetActive(true);
+            SetLocalTopLeftRect(_roomNameLabelText.GetComponent<RectTransform>(), 12f, 50f, 118f, 20f);
+            SetLocalTopLeftRect(_roomNameInput.GetComponent<RectTransform>(), 132f, 46f, panelWidth - 144f, 30f);
 
-            string updatedPreferredRoomName = GUI.TextField(
-                new Rect(panelRect.x + 98f, panelRect.y + 48f, panelRect.width - 110f, 22f),
-                _lanPreferredRoomNameInput,
-                _lanUiTextFieldStyle ?? GUI.skin.textField);
-
-            updatedPreferredRoomName = _identityAndValidation.NormalizeRoomNameInputForUi(
-                updatedPreferredRoomName);
-
-            if (!string.Equals(
-                    updatedPreferredRoomName,
-                    _lanPreferredRoomNameInput,
-                    StringComparison.Ordinal))
+            if (!_roomNameInput.isFocused
+                && !string.Equals(_roomNameInput.text, _lanPreferredRoomNameInput, StringComparison.Ordinal))
             {
-                _lanPreferredRoomNameInput = updatedPreferredRoomName;
-                _options.RoomName.Value = _lanPreferredRoomNameInput;
+                _isSyncingRoomInput = true;
+                _roomNameInput.text = _lanPreferredRoomNameInput;
+                _isSyncingRoomInput = false;
             }
         }
-
-        bool previousHostEnabled = GUI.enabled;
-        GUI.enabled = canHostFromInput;
-
-        if (GUI.Button(
-                new Rect(panelRect.x + 12f, actionButtonY, 120f, 26f),
-                "Host LAN",
-                _lanUiButtonStyle ?? GUI.skin.button))
+        else
         {
-            _options.RoomName.Value = validatedHostRoomName;
-            Plugin.Log.LogInfo("LAN UI host button clicked.");
-            _directConnect.RequestDirectHostStart("LanUiHostButton");
+            _roomNameLabelText!.gameObject.SetActive(false);
+            _roomNameInput!.gameObject.SetActive(false);
         }
 
-        GUI.enabled = previousHostEnabled;
+        _joinButton!.gameObject.SetActive(showServerRows);
+        _refreshButton!.gameObject.SetActive(showServerRows);
+        _joinButton.interactable = canJoinSelected;
 
-        if (!showServerRows)
+        if (showServerRows)
         {
-            return;
+            SetLocalTopLeftRect(_joinButton.GetComponent<RectTransform>(), 168f, actionButtonY, 170f, 26f);
+            SetLocalTopLeftRect(_refreshButton.GetComponent<RectTransform>(), 344f, actionButtonY, 130f, 26f);
         }
 
-        if (p0)
+        _summaryText!.gameObject.SetActive(showServerRows);
+        _summaryText.text = summaryLine;
+
+        if (showServerRows)
+        {
+            SetLocalTopLeftRect(_summaryText.GetComponent<RectTransform>(), 12f, 20f, panelWidth - 24f, 26f);
+        }
+
+        _lastRefreshText!.gameObject.SetActive(showServerRows);
+        _modVersionText!.gameObject.SetActive(showServerRows);
+
+        if (showServerRows)
+        {
+            float footerY = panelHeight - 24f;
+            float footerWidth = panelWidth - 24f;
+            float footerHalfWidth = footerWidth * 0.5f;
+
+            _lastRefreshText.text = lastRefreshLabel;
+            _modVersionText.text = modVersionLabel;
+            SetLocalTopLeftRect(_lastRefreshText.GetComponent<RectTransform>(), 12f, footerY, footerHalfWidth, 20f);
+            SetLocalTopLeftRect(_modVersionText.GetComponent<RectTransform>(), 12f + footerHalfWidth, footerY, footerHalfWidth, 20f);
+        }
+
+        _errorText!.gameObject.SetActive(showServerRows && connectionError is not null);
+
+        if (showServerRows && connectionError is not null)
+        {
+            _errorText.text = _statusPresenterBridge.BuildErrorLine(connectionError);
+            SetLocalTopLeftRect(_errorText.GetComponent<RectTransform>(), 12f, panelHeight - 44f, panelWidth - 24f, 20f);
+        }
+
+        _hostUnavailableText!.gameObject.SetActive(showServerRows && !canHostFromInput);
+
+        if (showServerRows && !canHostFromInput)
+        {
+            _hostUnavailableText.text = $"Cannot host: {hostUnavailableReason}";
+            SetLocalTopLeftRect(_hostUnavailableText.GetComponent<RectTransform>(), 490f, 74f, panelWidth - 502f, 20f);
+        }
+
+        // Keep for future dedicated in-game log surface; do not overlay on top of room input.
+        _pendingJoinUnavailableLog = canJoinSelected
+            ? string.Empty
+            : $"Join unavailable: {joinUnavailableReason}";
+
+        bool showAdmin = showServerRows && p0;
+        _adminPanelRect!.gameObject.SetActive(showAdmin);
+
+        if (showAdmin)
         {
             string adminLine = selectedSession is null
                 ? "Admin: select a session to view identity telemetry."
@@ -270,187 +336,810 @@ internal sealed class LanOverlayController : ILanOverlayController
                     selectedSession,
                     BuildSessionIdentitySignature(selectedSession));
 
-            const float adminPanelGap = 12f;
-            const float adminPanelWidth = 420f;
+            const float adminPanelGap = 24f;
+            const float adminPanelWidth = 460f;
             const float adminPanelHeight = 70f;
             float adminPanelX = Math.Max(
-                panelMargin,
-                panelRect.x - adminPanelGap - adminPanelWidth);
-            float adminPanelY = panelRect.y + 24f;
+                PanelMargin,
+                panelX - adminPanelGap - adminPanelWidth);
+            float adminPanelY = panelY;
 
-            var adminPanelRect = new Rect(
+            SetAbsoluteTopLeftRect(
+                _adminPanelRect,
                 adminPanelX,
                 adminPanelY,
                 adminPanelWidth,
                 adminPanelHeight);
 
-            Color previousAdminPanelColor = GUI.color;
-            GUI.color = new Color(0.08f, 0.08f, 0.1f, 1f);
-            GUI.DrawTexture(adminPanelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
-            GUI.color = previousAdminPanelColor;
-
-            GUI.Label(
-                new Rect(adminPanelRect.x + 10f, adminPanelRect.y + 8f, adminPanelRect.width - 20f, 20f),
-                "Admin Telemetry",
-                _lanUiTitleStyle ?? GUI.skin.label);
-
-            GUI.Label(
-                new Rect(adminPanelRect.x + 10f, adminPanelRect.y + 30f, adminPanelRect.width - 20f, 30f),
-                adminLine,
-                _lanUiLabelStyle ?? GUI.skin.label);
+            _adminBodyText!.text = adminLine;
         }
 
-        GUI.Label(
-            new Rect(panelRect.x + 12f, panelRect.y + 24f, panelRect.width - 24f, 22f),
-            summaryLine,
-            _lanUiTitleStyle ?? GUI.skin.label);
+        _emptyText!.gameObject.SetActive(false);
+        _sessionScrollRect!.gameObject.SetActive(false);
 
-        if (connectionError is not null)
+        if (showServerRows)
         {
-            GUI.Label(
-                new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 44f, panelRect.width - 24f, 20f),
-                _statusPresenterBridge.BuildErrorLine(connectionError),
-                _lanUiLabelStyle ?? GUI.skin.label);
+            float rowY = 106f;
+            float listViewportHeight = Math.Max(
+                24f,
+                panelHeight - 136f);
+
+            if (sessions.Count == 0)
+            {
+                _emptyText.gameObject.SetActive(true);
+                _emptyText.text = "No discovered sessions yet. Keep host in-room and click Refresh.";
+                SetLocalTopLeftRect(_emptyText.GetComponent<RectTransform>(), 12f, rowY, panelWidth - 24f, 22f);
+                HideUnusedRows(0);
+            }
+            else
+            {
+                _sessionScrollRect.gameObject.SetActive(true);
+                SetLocalTopLeftRect(_sessionScrollRect.GetComponent<RectTransform>(), 12f, rowY, panelWidth - 24f, listViewportHeight);
+                SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, panelWidth - 24f, listViewportHeight);
+
+                float contentHeight = Math.Max(listViewportHeight, sessions.Count * RowHeight);
+                _sessionContentRect!.sizeDelta = new Vector2(panelWidth - 42f, contentHeight);
+
+                for (int index = 0; index < sessions.Count; index++)
+                {
+                    LanSessionRowUi row = EnsureSessionRow(index);
+                    row.Root.gameObject.SetActive(true);
+                    SetLocalTopLeftRect(row.Root, 0f, index * RowHeight, _sessionContentRect.sizeDelta.x, 22f);
+                    row.Label.text = _statusPresenterBridge.BuildSessionRowLabel(
+                        sessions[index],
+                        index + 1);
+
+                    bool isSelected = index == selectedIndex;
+                    row.Background.color = isSelected
+                        ? new Color(0.78f, 0.64f, 0.4f, 1f)
+                        : new Color(0.91f, 0.8f, 0.62f, 1f);
+                    row.Label.color = isSelected
+                        ? new Color(0.13f, 0.1f, 0.07f, 1f)
+                        : UiTextColor;
+                }
+
+                HideUnusedRows(sessions.Count);
+            }
         }
 
-        float footerY = panelRect.y + panelRect.height - 24f;
-        float footerWidth = panelRect.width - 24f;
-        float footerHalfWidth = footerWidth * 0.5f;
-
-        GUI.Label(
-            new Rect(panelRect.x + 12f, footerY, footerHalfWidth, 20f),
-            lastRefreshLabel,
-            _lanUiLabelStyle ?? GUI.skin.label);
-
-        GUI.Label(
-            new Rect(panelRect.x + 12f + footerHalfWidth, footerY, footerHalfWidth, 20f),
-            modVersionLabel,
-            _lanUiRightLabelStyle ?? GUI.skin.label);
-
-        bool previousGuiEnabled = GUI.enabled;
-        GUI.enabled = canJoinSelected;
-
-        if (GUI.Button(
-                new Rect(panelRect.x + 138f, actionButtonY, 120f, 26f),
-                "Join Selected",
-                _lanUiButtonStyle ?? GUI.skin.button)
-            && canJoinSelected)
+        _hostButton.onClick.RemoveAllListeners();
+        _hostButton.onClick.AddListener(() =>
         {
+            _options.RoomName.Value = validatedHostRoomName;
+            Plugin.Log.LogInfo("LAN UI host button clicked.");
+            _directConnect.RequestDirectHostStart("LanUiHostButton");
+        });
+
+        _joinButton.onClick.RemoveAllListeners();
+        _joinButton.onClick.AddListener(() =>
+        {
+            if (!canJoinSelected)
+            {
+                return;
+            }
+
             Plugin.Log.LogInfo("LAN UI join-selected button clicked.");
             TryJoinSelectedLanSession();
-        }
+        });
+    }
 
-        GUI.enabled = previousGuiEnabled;
+    private void OnCollapseClicked()
+    {
+        bool nextCollapsed = !_isLanServerListCollapsed;
+        _isLanServerListCollapsed = nextCollapsed;
 
-        if (GUI.Button(
-                new Rect(panelRect.x + 264f, actionButtonY, 110f, 26f),
-                "Refresh",
-                _lanUiButtonStyle ?? GUI.skin.button))
+        if (nextCollapsed)
         {
-            RefreshLanUiSessions();
+            _allowLanPanelExpandedWhileSettingsVisible = false;
+        }
+        else if (IsSettingsScreenVisible())
+        {
+            _allowLanPanelExpandedWhileSettingsVisible = true;
+            _lanPanelCollapsedBySettingsAutomation = false;
+
             Plugin.Log.LogInfo(
-                $"LAN UI refresh clicked. SessionCount={_discoveredSessionsViewModel.SessionCount}; RefreshedAtUtc={_lastLanUiRefreshAtUtc:O}");
+                "LAN UI manually expanded while settings screen is visible; auto-collapse suspended until settings closes.");
         }
 
-        float rowY = panelRect.y + 106f;
+        Plugin.Log.LogInfo(
+            $"LAN UI server list toggled. Collapsed={_isLanServerListCollapsed}");
+    }
 
-        if (!canHostFromInput)
-        {
-            GUI.Label(
-                new Rect(panelRect.x + 390f, panelRect.y + 74f, panelRect.width - 402f, 20f),
-                $"Cannot host: {hostUnavailableReason}",
-                _lanUiLabelStyle ?? GUI.skin.label);
-        }
+    private void OnRefreshClicked()
+    {
+        RefreshLanUiSessions();
+        Plugin.Log.LogInfo(
+            $"LAN UI refresh clicked. SessionCount={_discoveredSessionsViewModel.SessionCount}; RefreshedAtUtc={_lastLanUiRefreshAtUtc:O}");
+    }
 
-        if (sessions.Count == 0)
+    private void OnRoomNameInputChanged(string value)
+    {
+        if (_isSyncingRoomInput)
         {
-            GUI.Label(
-                new Rect(panelRect.x + 12f, rowY, panelRect.width - 24f, 22f),
-                "No discovered sessions yet. Keep host in-room and click Refresh.",
-                _lanUiLabelStyle ?? GUI.skin.label);
             return;
         }
 
-        float listViewportHeight = Math.Max(
-            24f,
-            panelRect.height - 136f);
-
-        var listViewportRect = new Rect(
-            panelRect.x + 12f,
-            rowY,
-            panelRect.width - 24f,
-            listViewportHeight);
-
-        float rowHeight = 24f;
-        float listContentHeight = Math.Max(
-            listViewportHeight,
-            sessions.Count * rowHeight);
-
-        var listContentRect = new Rect(
-            0f,
-            0f,
-            Math.Max(120f, listViewportRect.width - 18f),
-            listContentHeight);
-
-        _lanServerListScroll = GUI.BeginScrollView(
-            listViewportRect,
-            _lanServerListScroll,
-            listContentRect,
-            false,
-            true);
-
-        for (int index = 0; index < sessions.Count; index++)
+        if (!string.Equals(value, _lanPreferredRoomNameInput, StringComparison.Ordinal))
         {
-            LanSessionInfo session = sessions[index];
-            bool isSelected = index == selectedIndex;
-            string rowLabel = _statusPresenterBridge.BuildSessionRowLabel(
-                session,
-                index + 1);
+            _lanPreferredRoomNameInput = value;
+            _options.RoomName.Value = value;
+        }
+    }
 
-            var rowRect = new Rect(
-                0f,
-                index * rowHeight,
-                listContentRect.width,
-                22f);
+    private void OnRoomNameInputEndEdit(string value)
+    {
+        string normalized = _identityAndValidation.NormalizeRoomNameInputForUi(value);
 
-            Color previousGuiColor = GUI.color;
+        _lanPreferredRoomNameInput = normalized;
+        _options.RoomName.Value = normalized;
 
-            if (isSelected)
+        if (_roomNameInput != null
+            && !string.Equals(_roomNameInput.text, normalized, StringComparison.Ordinal))
+        {
+            _isSyncingRoomInput = true;
+            _roomNameInput.text = normalized;
+            _isSyncingRoomInput = false;
+        }
+    }
+
+    private void OnSessionRowClicked(int index)
+    {
+        if (!_discoveredSessionsViewModel.TrySelectIndex(index))
+        {
+            return;
+        }
+
+        LanSessionInfo? selected = _discoveredSessionsViewModel.GetSelectedSessionOrNull();
+
+        if (selected is null)
+        {
+            return;
+        }
+
+        Plugin.Log.LogInfo(
+            "LAN UI selected discovered session from list. " +
+            $"Room={selected.RoomName}; " +
+            $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(selected.NameServerAddress)}:{selected.NameServerPort}; " +
+            $"Compatible={selected.IsCompatible}; " +
+            $"Reason={selected.IncompatibilityReason}");
+    }
+
+    private LanSessionRowUi EnsureSessionRow(int index)
+    {
+        while (_sessionRows.Count <= index)
+        {
+            int rowIndex = _sessionRows.Count;
+
+            RectTransform rowRoot = CreateUiRect(
+                $"LanSessionRow-{rowIndex}",
+                _sessionContentRect!);
+            Image rowImage = rowRoot.gameObject.AddComponent<Image>();
+            rowImage.sprite = EnsureRoundedSprite();
+            rowImage.type = Image.Type.Sliced;
+            AddFaintBorder(rowImage);
+
+            Button rowButton = rowRoot.gameObject.AddComponent<Button>();
+            ConfigureButtonColors(rowButton);
+            rowButton.onClick.AddListener(() => OnSessionRowClicked(rowIndex));
+
+            TMP_Text rowLabel = CreateTmpText(
+                "Label",
+                rowRoot,
+                string.Empty,
+                TextAlignmentOptions.MidlineLeft,
+                16f,
+                FontStyles.Normal);
+            rowLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            SetLocalTopLeftRect(rowLabel.GetComponent<RectTransform>(), 8f, 0f, 1000f, 22f);
+
+            _sessionRows.Add(new LanSessionRowUi(
+                rowRoot,
+                rowImage,
+                rowButton,
+                rowLabel));
+        }
+
+        return _sessionRows[index];
+    }
+
+    private void HideUnusedRows(int fromIndex)
+    {
+        for (int index = fromIndex; index < _sessionRows.Count; index++)
+        {
+            _sessionRows[index].Root.gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureOverlayUi()
+    {
+        EnsureEventSystemExists();
+        EnsureTemplateText();
+
+        Canvas canvas = LanOverlayGuiText.EnsureOverlayCanvas(
+            ref _overlayCanvasObject,
+            "PeakLanMod-LanOverlayCanvas",
+            sortingOrder: 4200);
+
+        if (_panelRect != null)
+        {
+            return;
+        }
+
+        _panelRect = CreateUiRect("LanPanel", canvas.transform);
+        _panelImage = _panelRect.gameObject.AddComponent<Image>();
+        _panelImage.sprite = EnsureRoundedSprite();
+        _panelImage.type = Image.Type.Sliced;
+        _panelImage.color = UiPanelColor;
+        AddFaintBorder(_panelImage);
+
+        (_collapseButton, _collapseButtonText) = CreateButton(
+            "CollapseButton",
+            _panelRect,
+            "-",
+            16f,
+            FontStyles.Normal,
+            OnCollapseClicked);
+
+        _summaryText = CreateTmpText(
+            "SummaryText",
+            _panelRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            20f,
+            FontStyles.Normal);
+
+        _roomNameLabelText = CreateTmpText(
+            "RoomNameLabel",
+            _panelRect,
+            "ROOM NAME:",
+            TextAlignmentOptions.TopLeft,
+            16f,
+            FontStyles.Normal);
+
+        _roomNameInput = CreateInputField(
+            "RoomNameInput",
+            _panelRect,
+            _lanPreferredRoomNameInput,
+            OnRoomNameInputChanged,
+            out _roomNameInputText,
+            out _roomNameInputPlaceholder);
+
+        (_hostButton, _hostButtonText) = CreateButton(
+            "HostButton",
+            _panelRect,
+            "HOST LAN",
+            20f,
+            FontStyles.Normal,
+            null);
+
+        (_joinButton, _joinButtonText) = CreateButton(
+            "JoinButton",
+            _panelRect,
+            "JOIN SELECTED",
+            20f,
+            FontStyles.Normal,
+            null);
+
+        (_refreshButton, _refreshButtonText) = CreateButton(
+            "RefreshButton",
+            _panelRect,
+            "REFRESH",
+            20f,
+            FontStyles.Normal,
+            OnRefreshClicked);
+
+        _hostUnavailableText = CreateTmpText(
+            "HostUnavailableText",
+            _panelRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            16f,
+            FontStyles.Normal);
+
+        _errorText = CreateTmpText(
+            "ErrorText",
+            _panelRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            16f,
+            FontStyles.Normal);
+
+        _emptyText = CreateTmpText(
+            "EmptyText",
+            _panelRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            18f,
+            FontStyles.Normal);
+
+        (_sessionScrollRect, _sessionViewportRect, _sessionContentRect) = CreateScrollRegion(
+            "SessionScroll",
+            _panelRect);
+
+        _lastRefreshText = CreateTmpText(
+            "LastRefreshText",
+            _panelRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            16f,
+            FontStyles.Normal);
+
+        _modVersionText = CreateTmpText(
+            "VersionText",
+            _panelRect,
+            string.Empty,
+            TextAlignmentOptions.TopRight,
+            16f,
+            FontStyles.Normal);
+
+        _adminPanelRect = CreateUiRect("AdminPanel", canvas.transform);
+        _adminPanelImage = _adminPanelRect.gameObject.AddComponent<Image>();
+        _adminPanelImage.sprite = EnsureRoundedSprite();
+        _adminPanelImage.type = Image.Type.Sliced;
+        _adminPanelImage.color = UiPanelSecondaryColor;
+        AddFaintBorder(_adminPanelImage);
+
+        _adminTitleText = CreateTmpText(
+            "AdminTitle",
+            _adminPanelRect,
+            "ADMIN TELEMETRY",
+            TextAlignmentOptions.TopLeft,
+            21f,
+            FontStyles.Normal);
+
+        _adminBodyText = CreateTmpText(
+            "AdminBody",
+            _adminPanelRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            18f,
+            FontStyles.Normal);
+
+        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), 10f, 8f, 400f, 20f);
+        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), 10f, 30f, 400f, 30f);
+    }
+
+    private void EnsureTemplateText()
+    {
+        if (_templateText != null)
+        {
+            return;
+        }
+
+        if (LanOverlayGuiText.TryFindExistingTmpText(
+                "Timer & Height UI",
+                out TMP_Text? template)
+            && template != null)
+        {
+            _templateText = template;
+            return;
+        }
+
+        TMP_Text[] texts = UnityEngine.Object.FindObjectsByType<TMP_Text>(
+            FindObjectsInactive.Exclude,
+            FindObjectsSortMode.None);
+
+        for (int index = 0; index < texts.Length; index++)
+        {
+            TMP_Text candidate = texts[index];
+
+            if (candidate == null
+                || !candidate.gameObject.activeInHierarchy
+                || candidate.font == null)
             {
-                GUI.color = new Color(0.78f, 0.93f, 0.78f, 1f);
+                continue;
             }
 
-            bool clicked = GUI.Button(
-                rowRect,
-                rowLabel,
-                isSelected
-                    ? (_lanUiSelectedRowStyle ?? GUI.skin.button)
-                    : (_lanUiRowStyle ?? GUI.skin.button));
+            _templateText = candidate;
+            return;
+        }
+    }
 
-            GUI.color = previousGuiColor;
+    private static void EnsureEventSystemExists()
+    {
+        EventSystem? existing = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
 
-            if (clicked)
+        if (existing != null)
+        {
+            return;
+        }
+
+        var go = new GameObject(
+            "LanOverlayEventSystem",
+            typeof(EventSystem),
+            typeof(StandaloneInputModule));
+        UnityEngine.Object.DontDestroyOnLoad(go);
+    }
+
+    private RectTransform CreateUiRect(
+        string name,
+        Transform parent)
+    {
+        var go = new GameObject(name, typeof(RectTransform));
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.SetParent(parent, false);
+        return rt;
+    }
+
+    private TMP_Text CreateTmpText(
+        string name,
+        Transform parent,
+        string initialText,
+        TextAlignmentOptions alignment,
+        float size,
+        FontStyles style)
+    {
+        var go = new GameObject(
+            name,
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(TextMeshProUGUI));
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.SetParent(parent, false);
+
+        TMP_Text text = go.GetComponent<TMP_Text>();
+
+        if (_templateText != null)
+        {
+            text.font = _templateText.font;
+        }
+
+        text.color = UiTextColor;
+
+        LanOverlayGuiText.ApplyTmpStyle(
+            text,
+            LanOverlayGuiText.CreateDefaultStyle(alignment));
+
+        text.fontSize = size;
+        text.fontStyle = style;
+        text.text = initialText;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+
+        return text;
+    }
+
+    private Text CreateLegacyUiText(
+        string name,
+        Transform parent,
+        string initialText,
+        Font font,
+        int fontSize,
+        FontStyle fontStyle,
+        TextAnchor alignment)
+    {
+        var go = new GameObject(
+            name,
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(Text));
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.SetParent(parent, false);
+
+        Text text = go.GetComponent<Text>();
+        text.font = font;
+        text.fontSize = fontSize;
+        text.fontStyle = fontStyle;
+        text.alignment = alignment;
+        text.color = UiTextColor;
+        text.text = initialText;
+
+        return text;
+    }
+
+    private Font ResolveLegacyInputFont()
+    {
+        TMP_Text? template = _templateText;
+
+        if (template?.font != null)
+        {
+            Font? source = template.font.sourceFontFile;
+
+            if (source != null)
             {
-                if (_discoveredSessionsViewModel.TrySelectIndex(index))
-                {
-                    Plugin.Log.LogInfo(
-                        "LAN UI selected discovered session from list. " +
-                        $"Room={session.RoomName}; " +
-                        $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(session.NameServerAddress)}:{session.NameServerPort}; " +
-                        $"Compatible={session.IsCompatible}; " +
-                        $"Reason={session.IncompatibilityReason}");
-                }
+                return source;
             }
         }
 
-        GUI.EndScrollView();
+        Font? arial = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-        if (!canJoinSelected)
+        if (arial != null)
         {
-            GUI.Label(
-                new Rect(panelRect.x + 390f, panelRect.y + 50f, panelRect.width - 402f, 26f),
-                $"Join unavailable: {joinUnavailableReason}",
-                _lanUiLabelStyle ?? GUI.skin.label);
+            return arial;
+        }
+
+        // Last-resort fallback for environments where Arial alias differs.
+        return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+    }
+
+    private InputField CreateInputField(
+        string name,
+        Transform parent,
+        string initialValue,
+        Action<string> onChanged,
+        out Text inputText,
+        out Text placeholder)
+    {
+        RectTransform root = CreateUiRect(name, parent);
+        Image bg = root.gameObject.AddComponent<Image>();
+        bg.sprite = EnsureRoundedSprite();
+        bg.type = Image.Type.Sliced;
+        bg.color = UiFieldColor;
+        AddFaintBorder(bg);
+
+        InputField input = root.gameObject.AddComponent<InputField>();
+        input.targetGraphic = bg;
+        input.lineType = InputField.LineType.SingleLine;
+        input.characterLimit = 64;
+        input.customCaretColor = true;
+        input.caretColor = new Color(0.08f, 0.05f, 0.03f, 1f);
+        input.selectionColor = new Color(0.22f, 0.14f, 0.07f, 0.8f);
+        input.caretWidth = 3;
+        input.caretBlinkRate = 0.85f;
+
+        RectTransform textViewport = CreateUiRect("TextViewport", root);
+        Image viewportImage = textViewport.gameObject.AddComponent<Image>();
+        viewportImage.color = new Color(0f, 0f, 0f, 0.002f);
+        textViewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+
+        // Fill full input width while keeping a small inset for text legibility.
+        textViewport.anchorMin = new Vector2(0f, 0f);
+        textViewport.anchorMax = new Vector2(1f, 1f);
+        textViewport.pivot = new Vector2(0.5f, 0.5f);
+        textViewport.offsetMin = new Vector2(6f, 3f);
+        textViewport.offsetMax = new Vector2(-6f, -3f);
+
+        Font textFont = ResolveLegacyInputFont();
+
+        inputText = CreateLegacyUiText(
+            "Text",
+            textViewport,
+            initialValue,
+            textFont,
+            20,
+            FontStyle.Normal,
+            TextAnchor.MiddleLeft);
+        inputText.raycastTarget = false;
+        inputText.supportRichText = false;
+        inputText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        inputText.verticalOverflow = VerticalWrapMode.Overflow;
+
+        placeholder = CreateLegacyUiText(
+            "Placeholder",
+            textViewport,
+            "Enter room name",
+            textFont,
+            20,
+            FontStyle.Italic,
+            TextAnchor.MiddleLeft);
+        placeholder.color = new Color(0.33f, 0.26f, 0.19f, 0.72f);
+        placeholder.raycastTarget = false;
+        placeholder.supportRichText = false;
+
+        SetFillRect(inputText.GetComponent<RectTransform>());
+        SetFillRect(placeholder.GetComponent<RectTransform>());
+
+        input.textComponent = inputText;
+        input.placeholder = placeholder;
+        input.text = initialValue;
+        input.onValueChanged.AddListener(value => onChanged(value));
+        input.onEndEdit.AddListener(value => OnRoomNameInputEndEdit(value));
+
+        return input;
+    }
+
+    private (Button button, TMP_Text label) CreateButton(
+        string name,
+        Transform parent,
+        string text,
+        float fontSize,
+        FontStyles style,
+        Action? onClick)
+    {
+        RectTransform root = CreateUiRect(name, parent);
+        Image bg = root.gameObject.AddComponent<Image>();
+        bg.sprite = EnsureRoundedSprite();
+        bg.type = Image.Type.Sliced;
+        bg.color = UiButtonColor;
+        AddFaintBorder(bg);
+
+        Button button = root.gameObject.AddComponent<Button>();
+        ConfigureButtonColors(button);
+
+        if (onClick != null)
+        {
+            button.onClick.AddListener(() => onClick());
+        }
+
+        TMP_Text label = CreateTmpText(
+            "Label",
+            root,
+            text,
+            TextAlignmentOptions.Center,
+            fontSize,
+            style);
+        label.color = new Color(0.17f, 0.13f, 0.08f, 1f);
+        SetFillRect(label.GetComponent<RectTransform>());
+        return (button, label);
+    }
+
+    private (ScrollRect scroll, RectTransform viewport, RectTransform content) CreateScrollRegion(
+        string name,
+        Transform parent)
+    {
+        RectTransform root = CreateUiRect(name, parent);
+
+        Image bg = root.gameObject.AddComponent<Image>();
+        bg.sprite = EnsureRoundedSprite();
+        bg.type = Image.Type.Sliced;
+        bg.color = UiPanelSecondaryColor;
+        AddFaintBorder(bg);
+
+        ScrollRect scroll = root.gameObject.AddComponent<ScrollRect>();
+        scroll.horizontal = false;
+
+        RectTransform viewport = CreateUiRect("Viewport", root);
+        Image viewportImage = viewport.gameObject.AddComponent<Image>();
+        viewportImage.sprite = EnsureRoundedSprite();
+        viewportImage.type = Image.Type.Sliced;
+        viewportImage.color = new Color(1f, 1f, 1f, 0.04f);
+        AddFaintBorder(viewportImage);
+        viewport.gameObject.AddComponent<RectMask2D>();
+
+        RectTransform content = CreateUiRect("Content", viewport);
+        content.anchorMin = new Vector2(0f, 1f);
+        content.anchorMax = new Vector2(1f, 1f);
+        content.pivot = new Vector2(0f, 1f);
+        content.anchoredPosition = Vector2.zero;
+        content.sizeDelta = new Vector2(0f, 0f);
+
+        scroll.viewport = viewport;
+        scroll.content = content;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+
+        SetLocalTopLeftRect(viewport, 0f, 0f, 100f, 100f);
+
+        return (scroll, viewport, content);
+    }
+
+    private void ConfigureButtonColors(Button button)
+    {
+        ColorBlock colors = button.colors;
+        colors.normalColor = UiButtonColor;
+        colors.highlightedColor = UiButtonHoverColor;
+        colors.pressedColor = UiButtonPressedColor;
+        colors.disabledColor = UiDisabledColor;
+        colors.selectedColor = colors.highlightedColor;
+        colors.fadeDuration = 0.1f;
+        button.colors = colors;
+    }
+
+    private Sprite EnsureRoundedSprite()
+    {
+        if (_solidSprite != null)
+        {
+            return _solidSprite;
+        }
+
+        const int size = 24;
+        const int radius = 5;
+
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                bool opaque = IsInsideRoundedRect(x, y, size, radius);
+                texture.SetPixel(x, y, opaque ? Color.white : Color.clear);
+            }
+        }
+
+        texture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+
+        _solidSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            new Vector4(radius, radius, radius, radius));
+
+        _solidSprite.hideFlags = HideFlags.HideAndDontSave;
+        return _solidSprite;
+    }
+
+    private static bool IsInsideRoundedRect(
+        int x,
+        int y,
+        int size,
+        int radius)
+    {
+        bool left = x < radius;
+        bool right = x >= size - radius;
+        bool bottom = y < radius;
+        bool top = y >= size - radius;
+
+        if ((!left && !right) || (!top && !bottom))
+        {
+            return true;
+        }
+
+        float centerX = left
+            ? radius - 1
+            : size - radius;
+        float centerY = bottom
+            ? radius - 1
+            : size - radius;
+
+        float dx = x - centerX;
+        float dy = y - centerY;
+        return (dx * dx) + (dy * dy) <= (radius * radius);
+    }
+
+    private static void AddFaintBorder(Graphic graphic)
+    {
+        Outline border = graphic.gameObject.GetComponent<Outline>()
+            ?? graphic.gameObject.AddComponent<Outline>();
+        border.effectColor = UiBorderColor;
+        border.effectDistance = new Vector2(1f, -1f);
+        border.useGraphicAlpha = true;
+    }
+
+    private static void SetAbsoluteTopLeftRect(
+        RectTransform rect,
+        float x,
+        float y,
+        float width,
+        float height)
+    {
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(x, -y);
+        rect.sizeDelta = new Vector2(width, height);
+    }
+
+    private static void SetLocalTopLeftRect(
+        RectTransform rect,
+        float x,
+        float y,
+        float width,
+        float height)
+    {
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(x, -y);
+        rect.sizeDelta = new Vector2(width, height);
+    }
+
+    private static void SetFillRect(RectTransform rect)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.anchoredPosition = Vector2.zero;
+    }
+
+    private void SetOverlayActive(bool active)
+    {
+        if (_overlayCanvasObject == null)
+        {
+            return;
+        }
+
+        _overlayCanvasObject.SetActive(active);
+
+        if (_adminPanelRect != null)
+        {
+            _adminPanelRect.gameObject.SetActive(active && _adminPanelRect.gameObject.activeSelf);
         }
     }
 
@@ -572,108 +1261,6 @@ internal sealed class LanOverlayController : ILanOverlayController
                 protocol));
     }
 
-    private void EnsureLanUiStyles()
-    {
-        if (_lanUiStyleInitialized)
-        {
-            return;
-        }
-
-        _lanUiStyleInitialized = true;
-        // Style with PEAK-like earthy tones while keeping Unity font handling untouched.
-        Texture2D panelTexture = CreateSolidTexture(new Color(0.13f, 0.11f, 0.09f, 0.96f));
-        Texture2D buttonNormalTexture = CreateSolidTexture(new Color(0.86f, 0.74f, 0.51f, 1f));
-        Texture2D buttonHoverTexture = CreateSolidTexture(new Color(0.94f, 0.82f, 0.6f, 1f));
-        Texture2D buttonActiveTexture = CreateSolidTexture(new Color(0.7f, 0.56f, 0.36f, 1f));
-        Texture2D fieldTexture = CreateSolidTexture(new Color(0.23f, 0.19f, 0.15f, 1f));
-        Texture2D selectedRowTexture = CreateSolidTexture(new Color(0.52f, 0.43f, 0.27f, 1f));
-
-        _lanUiPanelStyle = new GUIStyle(GUI.skin.box)
-        {
-            padding = new RectOffset(10, 10, 8, 8),
-            normal =
-            {
-                background = panelTexture,
-                textColor = new Color(0.98f, 0.92f, 0.8f, 1f)
-            }
-        };
-
-        _lanUiTitleStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontStyle = FontStyle.Bold,
-            normal =
-            {
-                textColor = new Color(0.98f, 0.9f, 0.74f, 1f)
-            }
-        };
-
-        _lanUiLabelStyle = new GUIStyle(GUI.skin.label)
-        {
-            normal =
-            {
-                textColor = new Color(0.95f, 0.9f, 0.82f, 1f)
-            }
-        };
-
-        _lanUiRightLabelStyle = new GUIStyle(_lanUiLabelStyle)
-        {
-            alignment = TextAnchor.UpperRight
-        };
-
-        _lanUiButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            fontStyle = FontStyle.Bold,
-            normal =
-            {
-                background = buttonNormalTexture,
-                textColor = new Color(0.17f, 0.13f, 0.08f, 1f)
-            },
-            hover =
-            {
-                background = buttonHoverTexture,
-                textColor = new Color(0.13f, 0.1f, 0.06f, 1f)
-            },
-            active =
-            {
-                background = buttonActiveTexture,
-                textColor = new Color(0.99f, 0.95f, 0.85f, 1f)
-            }
-        };
-
-        _lanUiTextFieldStyle = new GUIStyle(GUI.skin.textField)
-        {
-            normal =
-            {
-                background = fieldTexture,
-                textColor = new Color(0.98f, 0.92f, 0.8f, 1f)
-            },
-            focused =
-            {
-                background = buttonActiveTexture,
-                textColor = new Color(1f, 0.97f, 0.9f, 1f)
-            }
-        };
-
-        _lanUiRowStyle = new GUIStyle(_lanUiButtonStyle)
-        {
-            alignment = TextAnchor.MiddleLeft,
-            fontStyle = FontStyle.Normal,
-            padding = new RectOffset(8, 8, 2, 2)
-        };
-
-        _lanUiSelectedRowStyle = new GUIStyle(_lanUiRowStyle)
-        {
-            fontStyle = FontStyle.Bold
-        };
-
-        _lanUiSelectedRowStyle.normal.background = selectedRowTexture;
-        _lanUiSelectedRowStyle.hover.background = selectedRowTexture;
-        _lanUiSelectedRowStyle.active.background = buttonActiveTexture;
-        _lanUiSelectedRowStyle.normal.textColor = new Color(1f, 0.96f, 0.84f, 1f);
-        _lanUiSelectedRowStyle.hover.textColor = new Color(1f, 0.98f, 0.88f, 1f);
-        _lanUiSelectedRowStyle.active.textColor = new Color(1f, 1f, 0.9f, 1f);
-    }
-
     private static bool IsMainMenuScene()
     {
         UnityEngine.SceneManagement.Scene scene =
@@ -760,23 +1347,33 @@ internal sealed class LanOverlayController : ILanOverlayController
             out protocol);
     }
 
-    private static Texture2D CreateSolidTexture(
-        Color color)
-    {
-        var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
-        {
-            hideFlags = HideFlags.HideAndDontSave
-        };
-
-        texture.SetPixel(0, 0, color);
-        texture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
-        return texture;
-    }
-
     private string BuildSessionIdentitySignature(
         LanSessionInfo session)
     {
         return _identityAndValidation.Fingerprint(
             $"{session.SourceAddress}|{session.HostDisplayName}");
+    }
+
+    private sealed class LanSessionRowUi
+    {
+        internal LanSessionRowUi(
+            RectTransform root,
+            Image background,
+            Button button,
+            TMP_Text label)
+        {
+            Root = root;
+            Background = background;
+            Button = button;
+            Label = label;
+        }
+
+        internal RectTransform Root { get; }
+
+        internal Image Background { get; }
+
+        internal Button Button { get; }
+
+        internal TMP_Text Label { get; }
     }
 }
