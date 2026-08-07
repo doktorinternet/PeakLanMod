@@ -49,7 +49,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
 
     public void NotifyLocalServerDetected()
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
@@ -59,19 +59,19 @@ internal sealed class LanErrorStateService : ILanErrorStateService
             reason: "local server detected");
 
         Plugin.Log.LogInfo(
-            $"Local server detected at {Plugin.GetEffectiveLocalEndpointForLogging()}.");
+            $"Local server detected at {LanRuntimeContext.GetEffectiveLocalEndpointForLogging()}.");
     }
 
     public void NotifyLocalServerNotDetected(
         string reason)
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
 
         Plugin.Log.LogInfo(
-            $"Local server not detected at {Plugin.GetEffectiveLocalEndpointForLogging()}: {reason}");
+            $"Local server not detected at {LanRuntimeContext.GetEffectiveLocalEndpointForLogging()}: {reason}");
     }
 
     public void ReportStructuredLanError(
@@ -80,7 +80,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
         string message,
         string context)
     {
-        if (!Plugin.IsLocalServerMode
+        if (!LanRuntimeContext.IsLocalServerMode
             || !_options.EnableStructuredErrorMapping.Value
             || code == LanErrorCode.None)
         {
@@ -112,7 +112,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
         string source,
         string reason)
     {
-        if (!Plugin.IsLocalServerMode
+        if (!LanRuntimeContext.IsLocalServerMode
             || !_options.EnableStructuredErrorMapping.Value)
         {
             return;
@@ -131,7 +131,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
 
     public void HandleLeftRoom()
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
@@ -141,7 +141,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
             return;
         }
 
-        Plugin.StopOwnedLocalServerProcessForLeaveRoom(
+        LanRuntimeContext.Services.LocalServerRuntime.StopOwnedLocalServerProcessOnExit(
             "PhotonCallbackProbe.OnLeftRoom");
     }
 

@@ -1,4 +1,5 @@
 using HarmonyLib;
+using PeakLanMod.Lan.Services;
 using Photon.Pun;
 using Photon.Realtime;
 
@@ -14,8 +15,8 @@ internal static class NetworkConnectorDisconnectBypassPatch
     private static bool Prefix(
         DisconnectCause cause)
     {
-        if (!Plugin.IsLocalServerMode
-            || !Plugin.AutoSkipPhotonFailureDialog.Value)
+        if (!LanRuntimeContext.IsLocalServerMode
+            || !LanRuntimeContext.Options.AutoSkipPhotonFailureDialog.Value)
         {
             return true;
         }

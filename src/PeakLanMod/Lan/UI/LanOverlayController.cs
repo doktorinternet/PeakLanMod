@@ -55,7 +55,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     public void UpdateLanPanelCollapseForSettingsScreen()
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
@@ -105,7 +105,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     public bool ShouldRenderLanUiOverlay()
     {
-        return Plugin.IsLocalServerMode
+        return LanRuntimeContext.IsLocalServerMode
             && _options.LanDiscoveryEnabled.Value
             && IsMainMenuScene();
     }

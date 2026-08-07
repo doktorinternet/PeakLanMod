@@ -64,7 +64,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
     public void TryAutoLockWorkflowModeAfterSuccessfulHost(
         string source)
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
