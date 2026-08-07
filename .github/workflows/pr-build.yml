@@ -18,7 +18,12 @@ concurrency:
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: Build (self-hosted Windows)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
