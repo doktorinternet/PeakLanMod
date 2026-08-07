@@ -14,6 +14,15 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 - Improved launch-path intuition: relative `LocalServerExecutablePath` now resolves against `LocalServerWorkingDirectory` first when that setting is present.
 - LAN release package no longer ships a static `BadHorse.PeakLanMod.cfg.template`; config is generated from plugin defaults on first launch.
 
+## 2026-08-06
+
+- Implemented Milestone 7 structured connection error mapping behind `LanWorkflow.EnableStructuredErrorMapping` (default `false`) to preserve rollback safety.
+- Added deterministic LAN error classification for local server auto-start failures, readiness timeouts, Photon join/create/disconnect callback failures, and discovery incompatibility blocks.
+- Added LAN state/UI surfacing of the latest structured error code and context.
+- Updated release config template and troubleshooting docs for structured error diagnostics.
+- Reduced M7 false-positive startup errors: `DisconnectByClientLogic` is now treated as non-actionable and clears stale structured error state instead of surfacing `UnknownPhotonFailure`.
+- Reduced additional M7 startup noise: `OnDisconnected` classifications that remain `UnknownPhotonFailure` (for example `Exception` without deterministic routing context) are no longer surfaced as active structured UI errors.
+
 ## 2026-08-03
 
 - Release tag: `v0.4.0`.

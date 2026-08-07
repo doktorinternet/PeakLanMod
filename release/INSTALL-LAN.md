@@ -71,6 +71,10 @@ As with the host setup, this is optional but aimed towards users who want to run
   verify `DiscoveryEnabled = true` on both machines, ensure both use the same `DiscoveryUdpPort`, allow inbound/outbound UDP on that port in host/client firewalls.
 - Sessions appear but are marked incompatible:
   compare host/client `ProtocolVersion` and, when `RequireVersionMatch = true`, verify PEAK game version and mod version match exactly.
+- Structured error label shows `NameServerUnreachable`, `MasterServerRedirectFailed`, or `GameServerRedirectFailed`:
+  set `EnableStructuredErrorMapping = true` to expose deterministic classification, then validate endpoint/protocol config and local server/firewall reachability from the same machine where the error is shown.
+- Structured error label shows `LuxonNotRunning`:
+  verify local server executable path/working directory and whether `AutoStartLocalServerOnHost` is enabled when you expect plugin-managed startup.
 - UI server list panel is not visible:
   verify `DiscoveryEnabled = true` in the active `BepInEx/config/BadHorse.PeakLanMod.cfg` file (not only in the template file). Ensure the mod DLL is correctly installed in the proper BepInEx folder, and that BepInEx is actually loaded when launching PEAK.
 - Airport loaded but not in room:

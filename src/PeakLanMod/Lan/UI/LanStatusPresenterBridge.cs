@@ -8,9 +8,24 @@ internal sealed class LanStatusPresenterBridge
     internal string BuildSummaryLine(
         string connectionPhase,
         string configuredEndpoint,
-        int sessionCount)
+        int sessionCount,
+        LanErrorDetail? error)
     {
-        return $"Endpoint={configuredEndpoint} | Sessions={sessionCount}";
+        string errorToken = error is null
+            ? "None"
+            : error.Code.ToString();
+
+        return $"Phase={connectionPhase} | Endpoint={configuredEndpoint} | Sessions={sessionCount} | Error={errorToken}";
+    }
+
+    internal string BuildErrorLine(
+        LanErrorDetail error)
+    {
+        string context = string.IsNullOrWhiteSpace(error.Context)
+            ? "<none>"
+            : error.Context;
+
+        return $"Last error: {error.Code} ({error.Message}) Source={error.Source} Context={context} At={error.OccurredAtUtc:HH:mm:ss} UTC";
     }
 
     internal string BuildSessionRowLabel(

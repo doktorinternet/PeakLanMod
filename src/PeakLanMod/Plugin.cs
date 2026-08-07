@@ -15,6 +15,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using PeakLanMod.Lan.Discovery;
+using PeakLanMod.Lan.Diagnostics;
 using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.State;
 using PeakLanMod.Lan.Services;
@@ -540,6 +541,11 @@ public sealed class Plugin : BaseUnityPlugin
             true,
             "Require exact game/mod version match for discovery session compatibility.");
 
+        EnableStructuredErrorMapping = Config.Bind(
+            "LanWorkflow",
+            "EnableStructuredErrorMapping",
+            true,
+            "Enable deterministic LAN error classification and UI/status surfacing.");
     }
 
     private void ApplyLanWorkflowMode(
@@ -931,6 +937,17 @@ public sealed class Plugin : BaseUnityPlugin
 
         if (!selected.IsCompatible)
         {
+            if (LanErrorClassifier.TryClassifyDiscoveryIncompatibility(
+                    selected.IncompatibilityReason,
+                    out LanErrorCode incompatibilityCode))
+            {
+                ReportStructuredLanError(
+                    incompatibilityCode,
+                    source: "TryJoinSelectedLanSession",
+                    message: "Selected discovered session is incompatible.",
+                    context: selected.IncompatibilityReason);
+            }
+
             Log.LogWarning(
                 "LAN UI join-selected blocked due to incompatible session. " +
                 $"Room={selected.RoomName}; " +
@@ -1005,6 +1022,7 @@ public sealed class Plugin : BaseUnityPlugin
         IReadOnlyList<LanSessionInfo> sessions = LanDiscoveredSessionsViewModel.Sessions;
         int selectedIndex = LanDiscoveredSessionsViewModel.SelectedIndex;
         (string phase, DateTime _) = LanDiscoveryStateStore.GetConnectionPhaseSnapshot();
+        LanErrorDetail? connectionError = LanDiscoveryStateStore.GetConnectionErrorSnapshot();
         LanSessionInfo? selectedSession = LanDiscoveredSessionsViewModel.GetSelectedSessionOrNull();
 
         bool canJoinSelected = TryCanJoinSelectedSession(
@@ -1014,7 +1032,8 @@ public sealed class Plugin : BaseUnityPlugin
         string summaryLine = LanStatusPresenterBridge.BuildSummaryLine(
             phase,
             GetConfiguredLocalEndpoint(),
-            sessions.Count);
+            sessions.Count,
+            connectionError);
 
         string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
             ? "Last refresh: never"
@@ -1141,6 +1160,14 @@ public sealed class Plugin : BaseUnityPlugin
             new Rect(panelRect.x + 12f, panelRect.y + 24f, panelRect.width - 24f, 22f),
             summaryLine,
             _lanUiTitleStyle ?? GUI.skin.label);
+
+        if (connectionError is not null)
+        {
+            GUI.Label(
+                new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 44f, panelRect.width - 24f, 20f),
+                LanStatusPresenterBridge.BuildErrorLine(connectionError),
+                _lanUiLabelStyle ?? GUI.skin.label);
+        }
 
         GUI.Label(
             new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 24f, panelRect.width - 24f, 20f),
@@ -1632,6 +1659,12 @@ public sealed class Plugin : BaseUnityPlugin
                 startArguments,
                 out LuxonProcessEnsureResult result))
         {
+            ReportStructuredLanError(
+                LanErrorClassifier.ClassifyAutoStartFailure(),
+                source: "EnsureHostLocalServerProcess",
+                message: "Local server process start/attach failed.",
+                context: result.Message);
+
             Log.LogError(
                 "Local server host auto-start failed. " +
                 $"Executable={result.ExecutablePathForLog}; " +
@@ -1878,6 +1911,12 @@ public sealed class Plugin : BaseUnityPlugin
                 pollIntervalMs,
                 out LocalServerReadinessResult result))
         {
+            ReportStructuredLanError(
+                LanErrorClassifier.ClassifyReadinessTimeout(),
+                source,
+                "Local NameServer readiness timed out.",
+                result.LastFailureMessage);
+
             Log.LogError(
                 $"{source}: local NameServer readiness timed out. " +
                 $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
@@ -1897,6 +1936,10 @@ public sealed class Plugin : BaseUnityPlugin
             $"ElapsedMs={result.ElapsedMilliseconds}; " +
             $"Attempts={result.AttemptCount}; " +
             $"Message={result.SuccessMessage}");
+
+        ClearStructuredLanError(
+            source,
+            "name server readiness confirmed");
 
         return true;
     }
@@ -1981,6 +2024,12 @@ public sealed class Plugin : BaseUnityPlugin
             $"ElapsedMs={elapsedSinceStartMs}; " +
             $"Attempts={_queuedHostReadinessAttempts}; " +
             $"LastFailure={probeMessage}");
+
+        ReportStructuredLanError(
+            LanErrorClassifier.ClassifyReadinessTimeout(),
+            source,
+            "Queued host readiness timed out.",
+            probeMessage);
 
         NotifyLocalServerNotDetected("readiness timeout");
 
@@ -2369,6 +2418,7 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<int> LanDiscoveryEntryTtlMs = null!;
     internal static ConfigEntry<string> LanDiscoveryProtocolVersion = null!;
     internal static ConfigEntry<bool> LanDiscoveryRequireVersionMatch = null!;
+    internal static ConfigEntry<bool> EnableStructuredErrorMapping = null!;
 
     internal static bool IsLocalServerMode =>
         true;
@@ -2387,6 +2437,10 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
+        ClearStructuredLanError(
+            source: "NotifyLocalServerDetected",
+            reason: "local server detected");
+
         Log.LogInfo(
             $"Local server detected at {GetEffectiveLocalEndpoint()}.");
     }
@@ -2401,6 +2455,61 @@ public sealed class Plugin : BaseUnityPlugin
 
         Log.LogInfo(
             $"Local server not detected at {GetEffectiveLocalEndpoint()}: {reason}");
+    }
+
+    internal static void ReportStructuredLanError(
+        LanErrorCode code,
+        string source,
+        string message,
+        string context)
+    {
+        if (!IsLocalServerMode
+            || !EnableStructuredErrorMapping.Value
+            || code == LanErrorCode.None)
+        {
+            return;
+        }
+
+        string phase = PhotonNetwork.NetworkClientState.ToString();
+
+        var detail = new LanErrorDetail(
+            code,
+            source,
+            phase,
+            message,
+            context,
+            DateTime.UtcNow);
+
+        LanDiscoveryStateStore.SetConnectionError(detail);
+
+        Log.LogWarning(
+            "LAN structured error classified. " +
+            $"Code={detail.Code}; " +
+            $"Source={detail.Source}; " +
+            $"Phase={detail.Phase}; " +
+            $"Message={detail.Message}; " +
+            $"Context={detail.Context}");
+    }
+
+    internal static void ClearStructuredLanError(
+        string source,
+        string reason)
+    {
+        if (!IsLocalServerMode
+            || !EnableStructuredErrorMapping.Value)
+        {
+            return;
+        }
+
+        if (!LanDiscoveryStateStore.ClearConnectionError())
+        {
+            return;
+        }
+
+        Log.LogInfo(
+            "LAN structured error cleared. " +
+            $"Source={source}; " +
+            $"Reason={reason}");
     }
 
     internal static void HandleLeftRoom()

@@ -19,6 +19,7 @@ internal sealed class LanConnectionStateStore
         new(StringComparer.OrdinalIgnoreCase);
     private string _connectionPhase = "Idle";
     private DateTime _connectionPhaseUpdatedAtUtc = DateTime.UtcNow;
+    private LanErrorDetail? _connectionError;
 
     internal LanSessionUpdateKind UpsertDiscoveredSession(LanSessionInfo session)
     {
@@ -134,6 +135,37 @@ internal sealed class LanConnectionStateStore
         lock (_sync)
         {
             return (_connectionPhase, _connectionPhaseUpdatedAtUtc);
+        }
+    }
+
+    internal void SetConnectionError(
+        LanErrorDetail detail)
+    {
+        lock (_sync)
+        {
+            _connectionError = detail;
+        }
+    }
+
+    internal bool ClearConnectionError()
+    {
+        lock (_sync)
+        {
+            if (_connectionError is null)
+            {
+                return false;
+            }
+
+            _connectionError = null;
+            return true;
+        }
+    }
+
+    internal LanErrorDetail? GetConnectionErrorSnapshot()
+    {
+        lock (_sync)
+        {
+            return _connectionError;
         }
     }
 
