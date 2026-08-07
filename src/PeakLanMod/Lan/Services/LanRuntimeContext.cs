@@ -19,7 +19,7 @@ internal static class LanRuntimeContext
         _services.Options;
 
     internal static bool IsLocalServerMode =>
-        true;
+        _services.ModePolicy.IsLocalServerModeEnabled;
 
     internal static string Fingerprint(string value)
     {

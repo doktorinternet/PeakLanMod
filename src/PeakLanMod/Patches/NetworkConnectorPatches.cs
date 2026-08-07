@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Peak.Network;
+using PeakLanMod.Lan.Services;
 using Photon.Realtime;
 
 namespace PeakLanMod.Patches;
@@ -12,7 +13,7 @@ internal static class NetworkConnectorPatches
     private static void BeforeStart()
     {
         Plugin.Log.LogInfo("NetworkConnector.Start: PREFIX");
-        Plugin.DumpPhotonSettings("before NetworkConnector.Start");
+        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings("before NetworkConnector.Start");
     }
 
     [HarmonyPatch(nameof(NetworkConnector.Start))]
@@ -20,7 +21,7 @@ internal static class NetworkConnectorPatches
     private static void AfterStart()
     {
         Plugin.Log.LogInfo("NetworkConnector.Start: POSTFIX");
-        Plugin.DumpPhotonSettings("after NetworkConnector.Start");
+        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings("after NetworkConnector.Start");
     }
 }
 

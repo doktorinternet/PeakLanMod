@@ -48,7 +48,7 @@ internal static class PhotonCallTracePatches
             LogJoinContext(__originalMethod.Name);
         }
 
-        Plugin.DumpPhotonSettings(
+        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings(
             $"before PhotonNetwork.{__originalMethod.Name}");
     }
 

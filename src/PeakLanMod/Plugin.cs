@@ -2,7 +2,6 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using Photon.Pun;
 using UnityEngine;
 using Zorro.Core;
 using PeakLanMod.Lan.Services;
@@ -15,13 +14,6 @@ namespace PeakLanMod;
     PluginVersion)]
 public sealed class Plugin : BaseUnityPlugin
 {
-    internal enum LanWorkflowMode
-    {
-        AutoSetup,
-        LockedRuntime,
-        Advanced
-    }
-
     public const string PluginGuid = "BadHorse.PeakLanMod";
     public const string PluginName = "PEAK LAN Mod";
     public const string PluginVersion = "0.5.0";
@@ -54,7 +46,7 @@ public sealed class Plugin : BaseUnityPlugin
 
         Logger.LogInfo("PEAK LAN Mod loaded.");
         Logger.LogInfo("Phase 7 compatibility wrapper cleanup active.");
-        DumpPhotonSettings("Plugin.Awake");
+        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings("Plugin.Awake");
     }
 
     private void Update()
@@ -111,17 +103,4 @@ public sealed class Plugin : BaseUnityPlugin
         }
     }
 
-    internal static void DumpPhotonSettings(string source)
-    {
-        var settings = PhotonNetwork.PhotonServerSettings.AppSettings;
-
-        Log.LogInfo(
-            $"Photon settings [{source}]: " +
-            $"UseNameServer={settings.UseNameServer}; " +
-            $"Server={settings.Server ?? "<null>"}; " +
-            $"Port={settings.Port}; " +
-            $"Protocol={settings.Protocol}; " +
-            $"FixedRegion={settings.FixedRegion ?? "<null>"}; " +
-            $"AppVersion={settings.AppVersion ?? "<null>"}");
-    }
 }

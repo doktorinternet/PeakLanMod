@@ -1,5 +1,6 @@
 using BepInEx.Configuration;
 using ExitGames.Client.Photon;
+using PeakLanMod.Lan.Model;
 using UnityEngine;
 
 namespace PeakLanMod.Lan.Services;
@@ -48,7 +49,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
         WorkflowMode = config.Bind(
             "LanWorkflow",
             "WorkflowMode",
-            Plugin.LanWorkflowMode.AutoSetup,
+            LanWorkflowMode.AutoSetup,
             "High-level LAN workflow mode: AutoSetup (auto host endpoint/luxon updates), LockedRuntime (stable host endpoint, no host endpoint rewrites), or Advanced (manual control of all LAN workflow settings).");
 
         AutoLockWorkflowModeAfterSuccessfulHost = config.Bind(
@@ -205,7 +206,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<string> RoomName { get; }
     public ConfigEntry<KeyboardShortcut> HostKey { get; }
     public ConfigEntry<KeyboardShortcut> JoinKey { get; }
-    public ConfigEntry<Plugin.LanWorkflowMode> WorkflowMode { get; }
+    public ConfigEntry<LanWorkflowMode> WorkflowMode { get; }
     public ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost { get; }
     public ConfigEntry<string> LocalServerAddress { get; }
     public ConfigEntry<int> LocalServerPort { get; }

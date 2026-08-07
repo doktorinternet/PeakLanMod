@@ -13,7 +13,7 @@ internal interface ILanPluginOptions
     ConfigEntry<string> RoomName { get; }
     ConfigEntry<KeyboardShortcut> HostKey { get; }
     ConfigEntry<KeyboardShortcut> JoinKey { get; }
-    ConfigEntry<Plugin.LanWorkflowMode> WorkflowMode { get; }
+    ConfigEntry<LanWorkflowMode> WorkflowMode { get; }
     ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost { get; }
     ConfigEntry<string> LocalServerAddress { get; }
     ConfigEntry<int> LocalServerPort { get; }
@@ -104,6 +104,12 @@ internal interface ILocalServerRuntimeService
     void ApplyTransientJoinEndpointOverride(LocalServerEndpoint endpoint, string source);
     void ClearTransientJoinEndpointOverride(string source);
     void ApplyConfiguredPhotonSettings();
+    void DumpPhotonSettings(string source);
+}
+
+internal interface ILanModePolicyService
+{
+    bool IsLocalServerModeEnabled { get; }
 }
 
 internal interface ILanIdentityAndValidation
@@ -123,6 +129,7 @@ internal interface ILanIdentityAndValidation
 internal interface IPluginCompatibilityServices
 {
     ILanPluginOptions Options { get; }
+    ILanModePolicyService ModePolicy { get; }
     ILanWorkflowPolicyService WorkflowPolicy { get; }
     IDirectConnectCoordinator DirectConnect { get; }
     ILanOverlayController Overlay { get; }
@@ -141,6 +148,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         var connectionStateStore = new LanConnectionStateStore();
 
         Options = options;
+        ModePolicy = new LanModePolicyService();
         WorkflowPolicy = workflowPolicy;
         DiscoveryRuntime = new LanDiscoveryRuntimeCoordinator(
             options,
@@ -192,6 +200,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
     }
 
     public ILanPluginOptions Options { get; }
+    public ILanModePolicyService ModePolicy { get; }
     public ILanWorkflowPolicyService WorkflowPolicy { get; }
     public IDirectConnectCoordinator DirectConnect { get; }
     public ILanOverlayController Overlay { get; }
@@ -211,7 +220,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public ConfigEntry<string> RoomName => NotReady<string>();
         public ConfigEntry<KeyboardShortcut> HostKey => NotReady<KeyboardShortcut>();
         public ConfigEntry<KeyboardShortcut> JoinKey => NotReady<KeyboardShortcut>();
-        public ConfigEntry<Plugin.LanWorkflowMode> WorkflowMode => NotReady<Plugin.LanWorkflowMode>();
+        public ConfigEntry<LanWorkflowMode> WorkflowMode => NotReady<LanWorkflowMode>();
         public ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost => NotReady<bool>();
         public ConfigEntry<string> LocalServerAddress => NotReady<string>();
         public ConfigEntry<int> LocalServerPort => NotReady<int>();
@@ -295,67 +304,6 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         }
     }
 
-    private sealed class PlaceholderLanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoordinator
-    {
-        public void SyncLanDiscoveryRuntime(string source)
-        {
-        }
-
-        public void RefreshLanDiscoveryBroadcast(string source)
-        {
-        }
-
-        public void StopLanDiscoveryBroadcast(string source)
-        {
-        }
-
-        public void ShutdownLanDiscoveryRuntime(string source)
-        {
-        }
-
-        public LanSessionInfo[] GetDiscoverySnapshot()
-        {
-            return Array.Empty<LanSessionInfo>();
-        }
-
-        public (string Phase, DateTime UpdatedAtUtc) GetConnectionPhaseSnapshot()
-        {
-            return ("Idle", DateTime.UtcNow);
-        }
-    }
-
-    private sealed class PlaceholderLanErrorStateService : ILanErrorStateService
-    {
-        public void LogPhotonStateChanges()
-        {
-        }
-
-        public void NotifyLocalServerDetected()
-        {
-        }
-
-        public void NotifyLocalServerNotDetected(string reason)
-        {
-        }
-
-        public void ReportStructuredLanError(LanErrorCode code, string source, string message, string context)
-        {
-        }
-
-        public void ClearStructuredLanError(string source, string reason)
-        {
-        }
-
-        public void HandleLeftRoom()
-        {
-        }
-
-        public LanErrorDetail? GetConnectionErrorSnapshot()
-        {
-            return null;
-        }
-    }
-
     private sealed class PlaceholderLocalServerRuntimeService : ILocalServerRuntimeService
     {
         public bool EnsureHostLocalServerProcess()
@@ -423,6 +371,10 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         }
 
         public void ApplyConfiguredPhotonSettings()
+        {
+        }
+
+        public void DumpPhotonSettings(string source)
         {
         }
     }

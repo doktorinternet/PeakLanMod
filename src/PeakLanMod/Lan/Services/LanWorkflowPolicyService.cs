@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PeakLanMod.Lan.Model;
 using Photon.Pun;
 
 namespace PeakLanMod.Lan.Services;
@@ -6,7 +7,7 @@ namespace PeakLanMod.Lan.Services;
 internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
 {
     private readonly ILanPluginOptions _options;
-    private Plugin.LanWorkflowMode? _lastAppliedLanWorkflowMode;
+    private LanWorkflowMode? _lastAppliedLanWorkflowMode;
 
     internal LanWorkflowPolicyService(
         ILanPluginOptions options)
@@ -18,7 +19,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
         bool force,
         string source)
     {
-        Plugin.LanWorkflowMode mode = _options.WorkflowMode.Value;
+        LanWorkflowMode mode = _options.WorkflowMode.Value;
 
         if (!force && _lastAppliedLanWorkflowMode == mode)
         {
@@ -27,7 +28,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
 
         switch (mode)
         {
-            case Plugin.LanWorkflowMode.AutoSetup:
+            case LanWorkflowMode.AutoSetup:
                 ApplyLanWorkflowPreset(
                     source,
                     mode,
@@ -35,7 +36,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
                     autoUpdateLuxonConfigOnHost: true);
                 break;
 
-            case Plugin.LanWorkflowMode.LockedRuntime:
+            case LanWorkflowMode.LockedRuntime:
                 ApplyLanWorkflowPreset(
                     source,
                     mode,
@@ -43,7 +44,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
                     autoUpdateLuxonConfigOnHost: false);
                 break;
 
-            case Plugin.LanWorkflowMode.Advanced:
+            case LanWorkflowMode.Advanced:
                 Plugin.Log.LogInfo(
                     $"{source}: LanWorkflow mode Advanced active. " +
                     $"Using explicit settings: " +
@@ -74,7 +75,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
             return;
         }
 
-        if (_options.WorkflowMode.Value != Plugin.LanWorkflowMode.AutoSetup)
+        if (_options.WorkflowMode.Value != LanWorkflowMode.AutoSetup)
         {
             return;
         }
@@ -84,7 +85,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
             return;
         }
 
-        _options.WorkflowMode.Value = Plugin.LanWorkflowMode.LockedRuntime;
+        _options.WorkflowMode.Value = LanWorkflowMode.LockedRuntime;
         _options.AutoLockWorkflowModeAfterSuccessfulHost.Value = false;
 
         Plugin.Log.LogInfo(
@@ -94,7 +95,7 @@ internal sealed class LanWorkflowPolicyService : ILanWorkflowPolicyService
 
     private void ApplyLanWorkflowPreset(
         string source,
-        Plugin.LanWorkflowMode mode,
+        LanWorkflowMode mode,
         bool autoDetectHostIpv4,
         bool autoUpdateLuxonConfigOnHost)
     {

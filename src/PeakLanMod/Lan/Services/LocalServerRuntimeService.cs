@@ -359,6 +359,20 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
         ApplyLocalServerSettings(settings);
     }
 
+    public void DumpPhotonSettings(string source)
+    {
+        var settings = PhotonNetwork.PhotonServerSettings.AppSettings;
+
+        Plugin.Log.LogInfo(
+            $"Photon settings [{source}]: " +
+            $"UseNameServer={settings.UseNameServer}; " +
+            $"Server={settings.Server ?? "<null>"}; " +
+            $"Port={settings.Port}; " +
+            $"Protocol={settings.Protocol}; " +
+            $"FixedRegion={settings.FixedRegion ?? "<null>"}; " +
+            $"AppVersion={settings.AppVersion ?? "<null>"}");
+    }
+
     private bool EnsureQueuedHostReadinessBeforeConnect(
         string source,
         string host,

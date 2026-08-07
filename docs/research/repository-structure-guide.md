@@ -29,7 +29,7 @@ Phase state:
 
 Current reality summary:
 - Plugin root now delegates config binding to LanPluginOptions, workflow mode policy to LanWorkflowPolicyService, discovery runtime coordination to LanDiscoveryRuntimeCoordinator, and structured error/local-server state handling to LanErrorStateService.
-- Phase 0 scaffolding now exists in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs` with real service wiring for completed phases and placeholders for later extraction.
+- Phase 0 scaffolding remains in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs` with real service wiring and only startup-safe placeholders used before runtime initialization.
 - Phase 1 extracted deterministic identity/validation helpers into `src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs` with wrapper-preserving calls through `Plugin` methods.
 - Phase 2 extracted config entry ownership into `src/PeakLanMod/Lan/Services/LanPluginOptions.cs` and workflow preset/auto-lock policy into `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`.
 - Phase 3 extracted listener/broadcaster lifecycle and compatibility evaluation into `src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs`, and extracted photon state transition logging plus structured LAN error state handling into `src/PeakLanMod/Lan/Services/LanErrorStateService.cs`.
@@ -37,7 +37,8 @@ Current reality summary:
 - Phase 5 extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and host/join state transitions into `src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs`.
 - Phase 6 extracted LAN overlay rendering/state/style ownership and settings-screen auto-collapse behavior into `src/PeakLanMod/Lan/UI/LanOverlayController.cs` and wired it through `ILanOverlayController` in `PluginCompatibilityServices`.
 - Phase 7 migrated remaining external callers away from Plugin static wrappers to service facades through `src/PeakLanMod/Lan/Services/LanRuntimeContext.cs`.
-- Plugin is now a thin composition root plus metadata/logging and Photon settings diagnostics (`DumpPhotonSettings`).
+- Post-migration cleanup moved workflow mode typing to `src/PeakLanMod/Lan/Model/LanWorkflowMode.cs`, moved Photon settings diagnostics ownership to `LocalServerRuntimeService`, and centralized mode-gate semantics behind `ILanModePolicyService`.
+- Plugin is now a thin composition root plus metadata/logging.
 
 Target direction summary:
 - Plugin remains composition root with no feature-level static compatibility wrappers.
@@ -94,7 +95,6 @@ Removed wrapper groups:
 Retained intentionally in Plugin:
 - Plugin metadata constants (`PluginGuid`, `PluginName`, `PluginVersion`).
 - shared logger (`Plugin.Log`).
-- Photon settings diagnostics (`Plugin.DumpPhotonSettings`).
 
 ## Interface ownership ledger
 
@@ -104,6 +104,7 @@ Add new interfaces here as they are introduced.
 |---|---|---|
 | IPluginCompatibilityServices | PluginCompatibilityServices | Transitional access to extracted-responsibility service contracts. |
 | ILanPluginOptions | LanPluginOptions | Config binding ownership and typed ConfigEntry surface for LAN workflow and direct connect keys. |
+| ILanModePolicyService | LanModePolicyService | Authoritative LAN mode-gate semantics for runtime checks. |
 | ILanWorkflowPolicyService | LanWorkflowPolicyService | Workflow preset application and auto-lock policy behavior. |
 | IDirectConnectCoordinator | DirectConnectCoordinator | Host/join queue orchestration, readiness/connect gating, reconnect throttling, and state-machine transitions. |
 | ILanOverlayController | LanOverlayController | LAN overlay rendering, UI view state, settings-screen collapse policy, and UI intent dispatch. |
@@ -199,3 +200,11 @@ Append one entry whenever a migration phase is completed.
 - New interfaces introduced: none
 - Compatibility wrappers added/removed: removed remaining Plugin static compatibility wrappers (settings/callback/config/helper/direct-connect wrappers); retained Plugin metadata/log/diagnostics only.
 - Notes for future agents: route patch/probe access through LanRuntimeContext and keep new feature logic in domain services, not in Plugin. User confirmed physically offline LAN validation passed after Phase 7.
+
+- 2026-08-07
+- Phase completed: Post-migration cleanup - deviations backlog closure
+- Architecture snapshot updated sections: current reality summary, transition compatibility wrappers
+- Routing table changes: no new responsibility categories; diagnostics ownership normalized to LocalServerRuntimeService.
+- New interfaces introduced: ILanModePolicyService
+- Compatibility wrappers added/removed: removed unused placeholder types in PluginCompatibilityScaffolding; retained startup-safe placeholders required before LanRuntimeContext.Initialize.
+- Notes for future agents: workflow mode typing is now service/model-owned and mode-gating has a single authoritative policy source. Runtime behavior for this refactor was validated by static build only.
