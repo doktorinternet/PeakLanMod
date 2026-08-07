@@ -122,7 +122,6 @@ internal sealed class PhotonCallbackProbe :
             $"message={message}; " +
             $"state={PhotonNetwork.NetworkClientState}; " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
-            $"localMode={Plugin.PhotonMode.Value}; " +
             $"server={Plugin.LocalServerAddress.Value}:{Plugin.LocalServerPort.Value}; " +
             $"protocol={Plugin.LocalServerProtocol.Value}");
 

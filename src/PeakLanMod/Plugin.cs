@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Text;
 using System.Security.Cryptography;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
@@ -64,15 +63,6 @@ public sealed class Plugin : BaseUnityPlugin
         AutoSetup,
         LockedRuntime,
         Advanced
-    }
-
-    internal enum PhotonConnectionMode
-    {
-        CustomCloud,
-        LocalServer,
-
-        [Obsolete("Use LocalServer.")]
-        LocalPhotonServer = LocalServer
     }
 
     public const string PluginGuid = "BadHorse.PeakLanMod";
@@ -158,8 +148,6 @@ public sealed class Plugin : BaseUnityPlugin
     {
         Log = Logger;
 
-        MigrateLegacyPhotonModeNameInConfig();
-
         ConfigureDirectConnect();
         ApplyLanWorkflowMode(force: true, source: "Awake");
         SyncLanDiscoveryRuntime("Awake");
@@ -180,11 +168,6 @@ public sealed class Plugin : BaseUnityPlugin
         LogPhotonStateChanges();
         SyncLanDiscoveryRuntime("Update");
         UpdateLanPanelCollapseForSettingsScreen();
-
-        if (!DirectConnectEnabled.Value)
-        {
-            return;
-        }
 
         if (_hostKey.Value.IsDown())
         {
@@ -209,8 +192,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void UpdateLanPanelCollapseForSettingsScreen()
     {
-        if (!IsLocalServerMode
-            || !_enableLanUiActions.Value)
+        if (!IsLocalServerMode)
         {
             return;
         }
@@ -362,40 +344,19 @@ public sealed class Plugin : BaseUnityPlugin
             $"Port={settings.Port}; " +
             $"Protocol={settings.Protocol}; " +
             $"FixedRegion={settings.FixedRegion ?? "<null>"}; " +
-            $"AppVersion={settings.AppVersion ?? "<null>"}; " +
-            $"RealtimeFingerprint=" +
-                $"{Fingerprint(settings.AppIdRealtime)}; " +
-            $"VoiceFingerprint=" +
-                $"{Fingerprint(settings.AppIdVoice)}");
+            $"AppVersion={settings.AppVersion ?? "<null>"}");
     }
-    internal static ConfigEntry<bool> DirectConnectEnabled =
-        null!;
-
     private ConfigEntry<string> _roomName = null!;
-    private ConfigEntry<string> _region = null!;
     private ConfigEntry<KeyboardShortcut> _hostKey = null!;
     private ConfigEntry<KeyboardShortcut> _joinKey = null!;
-    private ConfigEntry<bool> _enableLanUiActions = null!;
 
     private void ConfigureDirectConnect()
     {
-        DirectConnectEnabled = Config.Bind(
-            "Direct Connect",
-            "Enabled",
-            true,
-            "Enable the experimental direct-connect flow.");
-
         _roomName = Config.Bind(
             "Direct Connect",
             "RoomName",
             "badhorse-lan-mod-room_" + Guid.NewGuid().ToString("N")[..8],
             "Host room name.");
-
-        _region = Config.Bind(
-            "Direct Connect",
-            "Region",
-            "",
-            "Photon Cloud region. Leave blank for local server mode.");
 
         _hostKey = Config.Bind(
             "Direct Connect",
@@ -411,41 +372,23 @@ public sealed class Plugin : BaseUnityPlugin
 
         _lanPreferredRoomNameInput = _roomName.Value;
 
-        PhotonMode = Config.Bind(
-            "Photon",
-            "Mode",
-            PhotonConnectionMode.LocalServer,
-            "Photon endpoint mode: CustomCloud or LocalServer (default). Legacy LocalPhotonServer is auto-migrated.");
-
-        AppIdRealtime = Config.Bind(
-            "Photon",
-            "AppIdRealtime",
-            string.Empty,
-            "Custom Photon PUN application ID. Photon Cloud only.");
-
-        AppIdVoice = Config.Bind(
-            "Photon",
-            "AppIdVoice",
-            string.Empty,
-            "Custom Photon Voice application ID. Photon Cloud only.");
-
         LocalServerAddress = Config.Bind(
-            "Photon",
+            "Hosting",
             "LocalServerAddress",
             "127.0.0.1",
-            "Local Photon Server hostname or IP. Swap with LAN host address.");
+            "Local Luxon server hostname or IP. Swap with LAN host address.");
 
         LocalServerPort = Config.Bind(
-            "Photon",
+            "Hosting",
             "LocalServerPort",
             5058,
             "Port of Local Luxon Name Server UDP/TCP port.");
 
         LocalServerProtocol = Config.Bind(
-            "Photon",
+            "Hosting",
             "LocalServerProtocol",
             ConnectionProtocol.Udp,
-            "Photon transport protocol for local server mode.");
+            "Local server transport protocol.");
 
         WorkflowMode = Config.Bind(
             "LanWorkflow",
@@ -464,12 +407,6 @@ public sealed class Plugin : BaseUnityPlugin
             "AutoDetectHostIPv4",
             true,
             "Auto-detect host LAN IPv4 during direct host in LocalServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
-
-        PreferredHostIpv4 = Config.Bind(
-            "LanWorkflow",
-            "PreferredHostIPv4",
-            string.Empty,
-            "Optional manual host LAN IPv4 override. When set, this value is used instead of interface auto-detection.");
 
         AllowedHostInterfaces = Config.Bind(
             "LanWorkflow",
@@ -542,7 +479,7 @@ public sealed class Plugin : BaseUnityPlugin
             "LanWorkflow",
             "AutoRetryDirectHostUntilReady",
             true,
-            "Queue host intent on HostKey and auto-complete when Photon becomes connected and ready.");
+            "Queue host intent on HostKey and auto-complete when the server becomes connected and ready.");
 
         EnableLocalServerReadinessCheck = Config.Bind(
             "LanWorkflow",
@@ -550,11 +487,11 @@ public sealed class Plugin : BaseUnityPlugin
             true,
             "Wait for local NameServer readiness before direct host/join connect attempts in LocalServer mode.");
 
-        AutoSkipPhotonFailureDialogInLocalMode = Config.Bind(
+        AutoSkipPhotonFailureDialog = Config.Bind(
             "LanWorkflow",
-            "AutoSkipPhotonFailureDialogInLocalMode",
+            "AutoSkipPhotonFailureDialog",
             true,
-            "Auto-apply offline fallback in LocalServer mode to bypass the default Photon retry/offline popup on menu entry and post-room return.");
+            "Auto-apply offline fallback to bypass the default Photon retry/offline popup on menu entry and post-room return.");
 
         LocalServerReadinessTimeoutMs = Config.Bind(
             "LanWorkflow",
@@ -604,16 +541,10 @@ public sealed class Plugin : BaseUnityPlugin
             true,
             "Require exact game/mod version match for discovery session compatibility.");
 
-        _enableLanUiActions = Config.Bind(
-            "LanWorkflow",
-            "EnableLanUiActions",
-            false,
-            "Enable server list UI actions and discovered-session overlay in LocalServer mode.");
-
         EnableStructuredErrorMapping = Config.Bind(
             "LanWorkflow",
             "EnableStructuredErrorMapping",
-            false,
+            true,
             "Enable deterministic LAN error classification and UI/status surfacing.");
     }
 
@@ -899,8 +830,7 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        if (_enableLanUiActions.Value
-            && LanDiscoveryEnabled.Value
+        if (LanDiscoveryEnabled.Value
             && IsMainMenuScene())
         {
             RenderLanUiOverlay();
@@ -1805,11 +1735,7 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        string preferredHostIpv4 =
-            PreferredHostIpv4.Value.Trim();
-
         if (!LanEndpointResolver.TryResolveHostLanIpv4(
-                preferredHostIpv4,
                 AllowedHostInterfaces.Value,
                 out string selectedIpv4,
                 out string reason))
@@ -1919,8 +1845,7 @@ public sealed class Plugin : BaseUnityPlugin
             return false;
         }
 
-        string region =
-            _region.Value.Trim().ToLowerInvariant();
+        const string region = "";
 
         var connectionService =
             GameHandler.GetService<ConnectionService>();
@@ -2465,16 +2390,12 @@ public sealed class Plugin : BaseUnityPlugin
                 yieldForCharacterSpawn: true));
     }
 
-    internal static ConfigEntry<PhotonConnectionMode> PhotonMode = null!;
     internal static ConfigEntry<LanWorkflowMode> WorkflowMode = null!;
     internal static ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost = null!;
-    internal static ConfigEntry<string> AppIdRealtime = null!;
-    internal static ConfigEntry<string> AppIdVoice = null!;
     internal static ConfigEntry<string> LocalServerAddress = null!;
     internal static ConfigEntry<int> LocalServerPort = null!;
     internal static ConfigEntry<ConnectionProtocol> LocalServerProtocol = null!;
     internal static ConfigEntry<bool> AutoDetectHostLanIpv4 = null!;
-    internal static ConfigEntry<string> PreferredHostIpv4 = null!;
     internal static ConfigEntry<string> AllowedHostInterfaces = null!;
     internal static ConfigEntry<bool> AutoUpdateLuxonConfigOnHost = null!;
     internal static ConfigEntry<string> LuxonConfigPath = null!;
@@ -2487,7 +2408,7 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<bool> ForceKillOwnedLocalServerOnExit = null!;
     internal static ConfigEntry<int> OwnedLocalServerStopTimeoutMs = null!;
     internal static ConfigEntry<bool> AutoRetryDirectHostUntilReady = null!;
-    internal static ConfigEntry<bool> AutoSkipPhotonFailureDialogInLocalMode = null!;
+    internal static ConfigEntry<bool> AutoSkipPhotonFailureDialog = null!;
     internal static ConfigEntry<bool> EnableLocalServerReadinessCheck = null!;
     internal static ConfigEntry<int> LocalServerReadinessTimeoutMs = null!;
     internal static ConfigEntry<int> LocalServerReadinessPollIntervalMs = null!;
@@ -2500,31 +2421,13 @@ public sealed class Plugin : BaseUnityPlugin
     internal static ConfigEntry<bool> EnableStructuredErrorMapping = null!;
 
     internal static bool IsLocalServerMode =>
-        PhotonMode.Value == PhotonConnectionMode.LocalServer;
+        true;
 
     internal static void ApplyConfiguredPhotonSettings()
     {
-        PhotonConnectionMode mode = PhotonMode.Value;
-
         var settings = PhotonNetwork.PhotonServerSettings.AppSettings;
 
-        switch (mode)
-        {
-            case PhotonConnectionMode.CustomCloud:
-                ApplyCustomCloudSettings(settings);
-                return;
-
-            case PhotonConnectionMode.LocalServer:
-                ApplyLocalServerSettings(settings);
-                return;
-
-            default:
-                Log.LogError(
-                    $"Unknown Photon mode '{mode}'. " +
-                    "Falling back to CustomCloud.");
-                ApplyCustomCloudSettings(settings);
-                return;
-        }
+        ApplyLocalServerSettings(settings);
     }
 
     internal static void NotifyLocalServerDetected()
@@ -2639,40 +2542,6 @@ public sealed class Plugin : BaseUnityPlugin
             GetEffectiveLocalServerEndpointForConnection();
 
         return $"{endpoint.Address}:{endpoint.Port} ({endpoint.Protocol})";
-    }
-
-    private static void ApplyCustomCloudSettings(
-        AppSettings settings)
-    {
-        string realtimeId = AppIdRealtime.Value.Trim();
-        string voiceId = AppIdVoice.Value.Trim();
-
-        if (string.IsNullOrWhiteSpace(realtimeId))
-        {
-            Log.LogError(
-                "Custom AppIdRealtime is empty. " +
-                "Refusing to use PEAK's official Photon application.");
-
-            return;
-        }
-
-        settings.UseNameServer = true;
-        settings.Server = string.Empty;
-        settings.Port = 0;
-        settings.FixedRegion = string.Empty;
-
-        settings.AppIdRealtime = realtimeId;
-
-        if (!string.IsNullOrWhiteSpace(voiceId))
-        {
-            settings.AppIdVoice = voiceId;
-        }
-
-        Log.LogInfo(
-            "Applied Photon mode CustomCloud: " +
-            $"UseNameServer={settings.UseNameServer}; " +
-            $"Realtime={Fingerprint(realtimeId)}; " +
-            $"Voice={Fingerprint(voiceId)}");
     }
 
     internal static void TryAutoLockWorkflowModeAfterSuccessfulHost(
@@ -2791,53 +2660,6 @@ public sealed class Plugin : BaseUnityPlugin
 
         Log.LogInfo(
             $"{source}: cleared runtime join endpoint override.");
-    }
-
-    private static void MigrateLegacyPhotonModeNameInConfig()
-    {
-        try
-        {
-            string configPath = Path.Combine(
-                Paths.ConfigPath,
-                PluginGuid + ".cfg");
-
-            if (!File.Exists(configPath))
-            {
-                return;
-            }
-
-            string existing = File.ReadAllText(configPath);
-
-            if (existing.IndexOf(
-                    "LocalPhotonServer",
-                    StringComparison.Ordinal) < 0)
-            {
-                return;
-            }
-
-            string updated = Regex.Replace(
-                existing,
-                @"^(\s*Mode\s*=\s*)LocalPhotonServer(\s*)$",
-                "$1LocalServer$2",
-                RegexOptions.Multiline);
-
-            if (string.Equals(existing, updated, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            File.WriteAllText(configPath, updated);
-
-            Log.LogInfo(
-                "Config migration: Mode LocalPhotonServer -> LocalServer completed.");
-        }
-        catch (Exception ex)
-        {
-            Log.LogWarning(
-                "Config migration skipped after failure. " +
-                $"Error={ex.GetType().Name}; " +
-                $"Message={ex.Message}");
-        }
     }
 
     internal static string Fingerprint(string value)

@@ -15,7 +15,7 @@ internal static class NetworkConnectorDisconnectBypassPatch
         DisconnectCause cause)
     {
         if (!Plugin.IsLocalServerMode
-            || !Plugin.AutoSkipPhotonFailureDialogInLocalMode.Value)
+            || !Plugin.AutoSkipPhotonFailureDialog.Value)
         {
             return true;
         }
@@ -33,7 +33,7 @@ internal static class NetworkConnectorDisconnectBypassPatch
             PhotonNetwork.OfflineMode = true;
         }
 
-        // Skip game's default disconnect modal path in local mode.
+        // Skip game's default disconnect modal path in local-server mode.
         return false;
     }
 }

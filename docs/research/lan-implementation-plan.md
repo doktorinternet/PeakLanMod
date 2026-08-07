@@ -331,7 +331,7 @@ Status enum:
 | M5 | UDP LAN session discovery | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-05 | 2026-08-02 |
 | M6 | UI actions for host/join/sessions/status | M4, M5 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-06 | 2026-08-02 |
 | M7 | Structured connection errors and mapping | M6 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-07 | 2026-08-06 |
-| M8 | Final mode isolation and rollback hardening | M7 | Planned | Not started | Not started | TBD | PR-08 | 2026-08-02 |
+| M8 | Final mode isolation and rollback hardening | M7 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-08 | 2026-08-07 |
 
 ## Acceptance criteria per milestone
 
@@ -541,7 +541,21 @@ M7 validation update (2026-08-07):
 - Manual local server mode remains functional and unaffected.
 - Auto local host mode functions with process/readiness workflow.
 - LAN discovery/join mode functions end to end.
-- Mode switching does not leak process/discovery state.
+- LocalServer-only runtime behavior is preserved (no runtime endpoint mode switching path).
+
+M8 implementation notes (2026-08-07):
+
+- Removed runtime endpoint mode-transition handling after confirming the operational model does not switch endpoint modes during runtime.
+- Removed CustomCloud endpoint mode and related configuration parameters from plugin runtime config.
+- LocalServer endpoint settings are now the only applied connection settings path for both host and join flows.
+- Preserved ownership rules: externally managed local server processes remain unowned and are never stopped by plugin-controlled shutdown paths.
+- Rollback path remains configuration-based for local-server lifecycle/readiness/discovery/UI features; no runtime endpoint mode toggle is required.
+
+M8 validation update (2026-08-07):
+
+- Validation type: static analysis and local compile.
+- Runtime outcome: pending manual two-machine verification.
+- Remaining scope: execute manual two-machine LocalServer host/join runtime verification.
 
 ## Unresolved questions
 
@@ -579,6 +593,7 @@ M7 validation update (2026-08-07):
 | 2026-08-06 | M7 structured error mapping ships as opt-in and local-server scoped | Accepted | Keeps pre-M7 behavior as default rollback path while enabling deterministic diagnostics when explicitly requested. |
 | 2026-08-06 | M7 status/UI integration reuses existing state store and overlay rather than introducing a new coordinator in this milestone | Accepted | Minimizes behavioral risk and keeps M8 isolation/refactor scope intact. |
 | 2026-08-07 | M7 disconnect-path startup noise suppression keeps low-confidence unknown disconnects out of user-facing error state | Accepted | Preserves actionable diagnostics by logging raw callbacks while avoiding false-positive startup banners. |
+| 2026-08-07 | M8 runtime behavior remains LocalServer-only; runtime endpoint mode switching is removed | Accepted | Removes unused transition complexity and aligns implementation with intended host-create/client-join LocalServer-only LAN operation. |
 
 ## Deviation record
 
@@ -590,6 +605,7 @@ M7 validation update (2026-08-07):
 - 2026-08-02: No deviation from M5 scope. Implemented transport/listener/session-store only; no UI wiring added before M6.
 - 2026-08-02: Minor M6 architectural deviation from long-term plan shape: connection intent execution remains in `Plugin` with `LanStatusPresenterBridge`/view-model presentation helpers. Dedicated coordinator extraction remains deferred to a later refactor milestone.
 - 2026-08-06: No deviation from M7 scope. Implemented structured mapping and UI/state surfacing only; M8 rollback hardening and deeper mode isolation remain unchanged.
+- 2026-08-07: M8 scope clarification applied. Runtime endpoint mode-switch handling was removed to match the intended LocalServer-only operational model.
 
 ## Recommended small PR sequence
 

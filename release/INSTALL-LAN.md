@@ -11,9 +11,8 @@ This guide installs a full LAN package without Thunderstore.
 ## Package layout
 
 - `mod/BepInEx/plugins/BadHorse.PeakLanMod.dll`
-- `mod/BepInEx/config/BadHorse.PeakLanMod.cfg`
 - `server/luxon_server.msvc.release.exe`
-- `server/config.example.yml`
+- `server/config.yml`
 - `dependencies/README.md`
 - `dependencies/BepInEx/`
 
@@ -28,10 +27,11 @@ This guide installs a full LAN package without Thunderstore.
 This section is required if you intend to play the game using the mod. If you only intend to run a server, go straight to the `Server Setup` section
 
 1. Install BepInEx for PEAK found in the `dependencies/` folder. (TODO ADD bepinex install instructions in dependencies folder).
-2. Copy the content of `mod/BepInEx/` into your PEAK `BepInEx/` folder. Make sure the mod dll and config files are present in `BepInEx/plugins/` and `BepInEx/config/`.
-3. The config file should be plug and play if all instructions are been followed. If you use any other paths than recommended, you likely have to include those changes in the config file. You might also want to set the `LocalServerAddress` to the IP of your primary network adapter to avoid some warnings.
-4. Install any packaged dependency mods from `dependencies/`. 
-5. Start PEAK and verify that the mod is loaded by the new main menu server list.
+2. Copy the content of `mod/BepInEx/` into your PEAK `BepInEx/` folder. Make sure the mod dll is present in `BepInEx/plugins/`.
+3. Launch PEAK once to let BepInEx generate `BepInEx/config/BadHorse.PeakLanMod.cfg`, then close PEAK.
+4. The generated config should be near plug-and-play for default layout. If you use custom paths, update the generated config accordingly. You might also want to set `LocalServerAddress` to the IP of your primary network adapter to avoid warnings.
+5. Install any packaged dependency mods from `dependencies/`. 
+6. Start PEAK and verify that the mod is loaded by the new main menu server list.
 
 ## Host setup 
 
@@ -51,7 +51,7 @@ As with the host setup, this is optional but aimed towards users who want to run
 1. Copy the folder `server/` into wherever you intend to run the server from.
 2. Adjust each entry of `external_address` in `config.yml` to the host machine IP. 
 3. Run the luxon executable with the config file as the only argument.
-4. PEAK instances that want to host on your server has to turn off any automatic IP identification and set the IP of your server in the mod config parameter `PreferredHostIPv4`, and possibly also `LocalServerAddress`. I have not tested this too much :D
+4. PEAK instances that want to host on your server should turn off automatic host IP detection and set `LocalServerAddress` to your server IP.
 
 ## Troubleshooting
 
@@ -60,7 +60,7 @@ As with the host setup, this is optional but aimed towards users who want to run
 - `ExceptionOnConnect` or `ClientTimeout`:
   endpoint/port/protocol mismatch, server not running, or firewall block.
 - Host LAN IPv4 detection selected an unexpected adapter:
-  set `PreferredHostIPv4` for manual override, or set `AllowedHostInterfaces` to filter interfaces.
+  set `AutoDetectHostIPv4 = false` and configure `LocalServerAddress` manually, or keep auto-detect enabled and set `AllowedHostInterfaces` to filter interfaces.
 - Luxon config was not rewritten on host start:
   verify `AutoUpdateLuxonConfigOnHost = true`, ensure `LuxonConfigPath` points to the active `config.yml`, and confirm `LocalServerAddress` is a non-loopback IPv4.
 - Host key pressed but local server did not auto-start:
@@ -76,6 +76,6 @@ As with the host setup, this is optional but aimed towards users who want to run
 - Structured error label shows `LuxonNotRunning`:
   verify local server executable path/working directory and whether `AutoStartLocalServerOnHost` is enabled when you expect plugin-managed startup.
 - UI server list panel is not visible:
-  verify `EnableLanUiActions = true` and `DiscoveryEnabled = true` in the active `BepInEx/config/BadHorse.PeakLanMod.cfg` file (not only in the template file). Ensure the mod DLL is correctly installed in the proper BepInEx folder, and that BepInEx is actually loaded when launching PEAK.
+  verify `DiscoveryEnabled = true` in the active `BepInEx/config/BadHorse.PeakLanMod.cfg` file (not only in the template file). Ensure the mod DLL is correctly installed in the proper BepInEx folder, and that BepInEx is actually loaded when launching PEAK.
 - Airport loaded but not in room:
   room creation/join did not complete. Check host/client callbacks and disconnect logs.

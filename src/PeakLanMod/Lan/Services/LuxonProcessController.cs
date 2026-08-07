@@ -103,7 +103,8 @@ internal static class LuxonProcessController
 
         string resolvedExecutablePath = ResolveExecutablePath(
             executablePath.Trim(),
-            executableResolveBaseDirectory);
+            executableResolveBaseDirectory,
+            workingDirectory);
 
         if (!File.Exists(resolvedExecutablePath))
         {
@@ -340,7 +341,8 @@ internal static class LuxonProcessController
 
     private static string ResolveExecutablePath(
         string configuredPath,
-        string resolveBaseDirectory)
+        string resolveBaseDirectory,
+        string configuredWorkingDirectory)
     {
         if (Path.IsPathRooted(configuredPath))
         {
@@ -348,6 +350,26 @@ internal static class LuxonProcessController
         }
 
         string relativePath = configuredPath;
+
+        string candidateFromWorkingDirectory = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(configuredWorkingDirectory))
+        {
+            string trimmedWorkingDirectory = configuredWorkingDirectory.Trim();
+
+            string resolvedWorkingDirectory = Path.IsPathRooted(trimmedWorkingDirectory)
+                ? trimmedWorkingDirectory
+                : Path.GetFullPath(
+                    Path.Combine(Environment.CurrentDirectory, trimmedWorkingDirectory));
+
+            candidateFromWorkingDirectory = Path.GetFullPath(
+                Path.Combine(resolvedWorkingDirectory, relativePath));
+
+            if (File.Exists(candidateFromWorkingDirectory))
+            {
+                return candidateFromWorkingDirectory;
+            }
+        }
 
         string candidateFromCurrentDirectory = Path.GetFullPath(
             Path.Combine(Environment.CurrentDirectory, relativePath));
@@ -379,6 +401,11 @@ internal static class LuxonProcessController
 
                 currentBase = parent.FullName;
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(candidateFromWorkingDirectory))
+        {
+            return candidateFromWorkingDirectory;
         }
 
         return candidateFromCurrentDirectory;

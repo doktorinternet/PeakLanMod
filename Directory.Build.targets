@@ -118,7 +118,6 @@
       <_LanReleaseExternalZipPath Condition="'$(LanReleaseCopyOutputDir)' != ''">$(_LanReleaseExternalRoot)$(_LanReleaseName).zip</_LanReleaseExternalZipPath>
       <_LanReleaseChecksumPath>$(_LanReleaseStageDir)metadata\CHECKSUMS.sha256</_LanReleaseChecksumPath>
       <_LanReleaseBuildInfoPath>$(_LanReleaseStageDir)metadata\BUILD_INFO.txt</_LanReleaseBuildInfoPath>
-      <_LanReleaseModConfigTemplate>$(SolutionRoot)release\BadHorse.PeakLanMod.cfg.template</_LanReleaseModConfigTemplate>
       <_LanReleaseInstallGuide>$(SolutionRoot)release\INSTALL-LAN.md</_LanReleaseInstallGuide>
       <_LanReleaseDependenciesGuide>$(SolutionRoot)release\DEPENDENCIES-README.md</_LanReleaseDependenciesGuide>
       <_LanReleaseServerDir>$(SolutionRoot)server\</_LanReleaseServerDir>
@@ -127,7 +126,6 @@
 
     <ItemGroup>
       <_LanReleaseRequiredFile Include="$(TargetPath)" />
-      <_LanReleaseRequiredFile Include="$(_LanReleaseModConfigTemplate)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseInstallGuide)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseDependenciesGuide)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)luxon_server.msvc.release.exe" />
@@ -164,11 +162,6 @@
     />
 
     <Copy
-      SourceFiles="$(_LanReleaseModConfigTemplate)"
-      DestinationFiles="$(_LanReleaseStageDir)mod\BepInEx\config\BadHorse.PeakLanMod.cfg"
-    />
-
-    <Copy
       SourceFiles="$(_LanReleaseDependenciesGuide)"
       DestinationFiles="$(_LanReleaseStageDir)dependencies\README.md"
     />
@@ -196,7 +189,7 @@
 
     <Copy
       SourceFiles="$(_LanReleaseServerDir)config.example.yml"
-      DestinationFiles="$(_LanReleaseStageDir)server\config.example.yml"
+      DestinationFiles="$(_LanReleaseStageDir)server\config.yml"
     />
 
     <WriteLinesToFile

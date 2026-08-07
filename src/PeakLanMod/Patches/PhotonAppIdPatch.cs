@@ -11,11 +11,6 @@ internal static class PhotonAppIdPatch
     [HarmonyPrefix]
     private static void Prefix()
     {
-        if (!Plugin.DirectConnectEnabled.Value)
-        {
-            return;
-        }
-
         Plugin.ApplyConfiguredPhotonSettings();
     }
 }
