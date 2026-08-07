@@ -80,6 +80,20 @@ internal interface ILanErrorStateService
 
 internal interface ILocalServerRuntimeService
 {
+    bool EnsureHostLocalServerProcess();
+    void StopOwnedLocalServerProcessOnExit(string source);
+    void ApplyHostLanIpv4Selection();
+    void ApplyHostLuxonConfigAutomation();
+    bool EnsureLocalServerReadinessBeforeConnect(string source, bool queuedHostFlow, LocalServerEndpoint? endpointOverride = null);
+    bool WasLastQueuedHostReadinessTimeout { get; }
+    void ResetQueuedHostReadinessWindow();
+    string GetConfiguredLocalEndpoint();
+    string GetEffectiveLocalEndpoint();
+    LocalServerEndpoint GetConfiguredLocalServerEndpoint();
+    LocalServerEndpoint GetEffectiveLocalServerEndpointForConnection();
+    bool IsJoinEndpointOverrideActive { get; }
+    void ApplyTransientJoinEndpointOverride(LocalServerEndpoint endpoint, string source);
+    void ClearTransientJoinEndpointOverride(string source);
     void ApplyConfiguredPhotonSettings();
 }
 
@@ -128,8 +142,13 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         ErrorState = new LanErrorStateService(
             options,
             connectionStateStore);
-        LocalServerRuntime = new PluginBackedLocalServerRuntimeService();
         IdentityAndValidation = new LanIdentityAndValidation();
+        LocalServerRuntime = options is PlaceholderLanPluginOptions
+            ? new PlaceholderLocalServerRuntimeService()
+            : new LocalServerRuntimeService(
+                options,
+                ErrorState,
+                IdentityAndValidation);
     }
 
     internal static IPluginCompatibilityServices CreateDefault()
@@ -284,11 +303,74 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         }
     }
 
-    private sealed class PluginBackedLocalServerRuntimeService : ILocalServerRuntimeService
+    private sealed class PlaceholderLocalServerRuntimeService : ILocalServerRuntimeService
     {
+        public bool EnsureHostLocalServerProcess()
+        {
+            return false;
+        }
+
+        public void StopOwnedLocalServerProcessOnExit(string source)
+        {
+        }
+
+        public void ApplyHostLanIpv4Selection()
+        {
+        }
+
+        public void ApplyHostLuxonConfigAutomation()
+        {
+        }
+
+        public bool EnsureLocalServerReadinessBeforeConnect(
+            string source,
+            bool queuedHostFlow,
+            LocalServerEndpoint? endpointOverride = null)
+        {
+            return false;
+        }
+
+        public void ResetQueuedHostReadinessWindow()
+        {
+        }
+
+        public bool WasLastQueuedHostReadinessTimeout => false;
+
+        public string GetConfiguredLocalEndpoint()
+        {
+            return "<not-initialized>";
+        }
+
+        public string GetEffectiveLocalEndpoint()
+        {
+            return "<not-initialized>";
+        }
+
+        public LocalServerEndpoint GetConfiguredLocalServerEndpoint()
+        {
+            return new LocalServerEndpoint(string.Empty, 0, ConnectionProtocol.Udp);
+        }
+
+        public LocalServerEndpoint GetEffectiveLocalServerEndpointForConnection()
+        {
+            return new LocalServerEndpoint(string.Empty, 0, ConnectionProtocol.Udp);
+        }
+
+        public bool IsJoinEndpointOverrideActive => false;
+
+        public void ApplyTransientJoinEndpointOverride(
+            LocalServerEndpoint endpoint,
+            string source)
+        {
+        }
+
+        public void ClearTransientJoinEndpointOverride(
+            string source)
+        {
+        }
+
         public void ApplyConfiguredPhotonSettings()
         {
-            Plugin.ApplyConfiguredPhotonSettings();
         }
     }
 }

@@ -36,23 +36,6 @@ namespace PeakLanMod;
     PluginVersion)]
 public sealed class Plugin : BaseUnityPlugin
 {
-    private readonly struct LocalServerEndpoint
-    {
-        internal LocalServerEndpoint(
-            string address,
-            int port,
-            ConnectionProtocol protocol)
-        {
-            Address = address;
-            Port = port;
-            Protocol = protocol;
-        }
-
-        internal string Address { get; }
-        internal int Port { get; }
-        internal ConnectionProtocol Protocol { get; }
-    }
-
     internal enum LanWorkflowMode
     {
         AutoSetup,
@@ -70,14 +53,11 @@ public sealed class Plugin : BaseUnityPlugin
     private bool _pendingDirectHostStart;
     private bool _pendingDirectHostConnectRequested;
     private bool _queuedHostPreflightCompleted;
-    private DateTime _queuedHostReadinessStartedAtUtc;
-    private int _queuedHostReadinessAttempts;
     private bool _pendingDirectJoinStart;
     private bool _pendingDirectJoinConnectRequested;
     private string _pendingDirectJoinRoomName = string.Empty;
     private string _pendingDirectJoinSource = string.Empty;
     private LocalServerEndpoint? _pendingDirectJoinEndpoint;
-    private static LocalServerEndpoint? _transientJoinEndpointOverride;
     private static readonly LanDiscoveredSessionsViewModel LanDiscoveredSessionsViewModel = new();
     private static readonly LanStatusPresenterBridge LanStatusPresenterBridge = new();
     private bool _isLanServerListCollapsed;
@@ -1153,178 +1133,31 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static bool EnsureHostLocalServerProcess()
     {
-        if (!IsLocalServerMode)
-        {
-            return true;
-        }
-
-        if (!AutoStartLocalServerOnHost.Value)
-        {
-            return true;
-        }
-
-        string executablePath = LocalServerExecutablePath.Value.Trim();
-        string workingDirectory = LocalServerWorkingDirectory.Value.Trim();
-        string startArguments = LocalServerStartArguments.Value;
-
-        if (!LuxonProcessController.TryEnsureRunning(
-                executablePath,
-            Paths.ConfigPath,
-                workingDirectory,
-                startArguments,
-                out LuxonProcessEnsureResult result))
-        {
-            ReportStructuredLanError(
-                LanErrorClassifier.ClassifyAutoStartFailure(),
-                source: "EnsureHostLocalServerProcess",
-                message: "Local server process start/attach failed.",
-                context: result.Message);
-
-            Log.LogError(
-                "Local server host auto-start failed. " +
-                $"Executable={result.ExecutablePathForLog}; " +
-                $"WorkingDirectory={result.WorkingDirectoryForLog}; " +
-                $"Reason={result.Message}");
-
-            NotifyLocalServerNotDetected("auto-start failed");
-            return false;
-        }
-
-        Log.LogInfo(
-            "Local server host process check succeeded. " +
-            $"Ownership={LuxonProcessController.OwnershipState}; " +
-            $"StartedByPlugin={result.StartedByPlugin}; " +
-            $"ExternalProcessDetected={result.ExternalProcessDetected}; " +
-            $"Pid={result.ProcessId}; " +
-            $"Executable={result.ExecutablePathForLog}; " +
-            $"WorkingDirectory={result.WorkingDirectoryForLog}; " +
-            $"Message={result.Message}");
-
-        return true;
+        return Services
+            .LocalServerRuntime
+            .EnsureHostLocalServerProcess();
     }
 
     private static void StopOwnedLocalServerProcessOnExit(
         string source)
     {
-        if (!IsLocalServerMode)
-        {
-            return;
-        }
-
-        if (!AutoStopOwnedLocalServerOnExit.Value)
-        {
-            Log.LogInfo(
-                $"{source}: owned local server stop on exit is disabled.");
-            return;
-        }
-
-        int timeoutMs = Math.Max(0, OwnedLocalServerStopTimeoutMs.Value);
-        bool forceKill = ForceKillOwnedLocalServerOnExit.Value;
-
-        if (LuxonProcessController.TryStopOwnedProcess(
-                timeoutMs,
-                forceKill,
-                out string resultMessage))
-        {
-            Log.LogInfo(
-                $"{source}: local server process stop succeeded. " +
-                $"{resultMessage}");
-            return;
-        }
-
-        Log.LogInfo(
-            $"{source}: local server process stop skipped or incomplete. " +
-            $"{resultMessage}; " +
-            $"Ownership={LuxonProcessController.OwnershipState}");
+        Services
+            .LocalServerRuntime
+            .StopOwnedLocalServerProcessOnExit(source);
     }
 
     private static void ApplyHostLanIpv4Selection()
     {
-        if (!IsLocalServerMode)
-        {
-            return;
-        }
-
-        if (!AutoDetectHostLanIpv4.Value)
-        {
-            return;
-        }
-
-        if (!LanEndpointResolver.TryResolveHostLanIpv4(
-                AllowedHostInterfaces.Value,
-                out string selectedIpv4,
-                out string reason))
-        {
-            Log.LogWarning(
-                "Host LAN IPv4 selection failed. " +
-                $"Reason={reason}; " +
-                $"KeepingLocalServerAddress={SanitizeEndpointForLog(LocalServerAddress.Value)}");
-
-            return;
-        }
-
-        string previousAddress =
-            LocalServerAddress.Value.Trim();
-
-        if (string.Equals(
-                previousAddress,
-                selectedIpv4,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Log.LogInfo(
-                "Host LAN IPv4 selection kept existing LocalServerAddress. " +
-                $"Selected={SanitizeEndpointForLog(selectedIpv4)}; " +
-                $"SelectionReason={reason}");
-
-            return;
-        }
-
-        LocalServerAddress.Value = selectedIpv4;
-
-        Log.LogInfo(
-            "Host LAN IPv4 selection updated LocalServerAddress. " +
-            $"Previous={SanitizeEndpointForLog(previousAddress)}; " +
-            $"Selected={SanitizeEndpointForLog(selectedIpv4)}; " +
-            $"SelectedFingerprint={Fingerprint(selectedIpv4)}; " +
-            $"SelectionReason={reason}");
+        Services
+            .LocalServerRuntime
+            .ApplyHostLanIpv4Selection();
     }
 
     private static void ApplyHostLuxonConfigAutomation()
     {
-        if (!IsLocalServerMode)
-        {
-            return;
-        }
-
-        if (!AutoUpdateLuxonConfigOnHost.Value)
-        {
-            return;
-        }
-
-        string endpointHost = LocalServerAddress.Value.Trim();
-        string configPath = LuxonConfigPath.Value.Trim();
-
-        if (!LuxonConfigManager.TryUpdateExternalAddresses(
-                endpointHost,
-                configPath,
-                out LuxonConfigUpdateResult result))
-        {
-            Log.LogWarning(
-                "Luxon config host automation failed. " +
-                $"Host={SanitizeEndpointForLog(endpointHost)}; " +
-                $"ConfigPath={result.ConfigPathForLog}; " +
-                $"Reason={result.Message}");
-
-            return;
-        }
-
-        Log.LogInfo(
-            "Luxon config host automation succeeded. " +
-            $"Host={SanitizeEndpointForLog(endpointHost)}; " +
-            $"ConfigPath={result.ConfigPathForLog}; " +
-            $"UpdatedEntries={result.UpdatedEntryCount}; " +
-            $"MatchedEntries={result.MatchedEntryCount}; " +
-            $"Changed={result.WasChanged}");
+        Services
+            .LocalServerRuntime
+            .ApplyHostLuxonConfigAutomation();
     }
 
     private void StartDirectJoin()
@@ -1387,177 +1220,28 @@ public sealed class Plugin : BaseUnityPlugin
         bool queuedHostFlow,
         LocalServerEndpoint? endpointOverride = null)
     {
-        if (!IsLocalServerMode)
-        {
-            return true;
-        }
-
-        if (!EnableLocalServerReadinessCheck.Value)
-        {
-            return true;
-        }
-
-        int timeoutMs = Math.Max(0, LocalServerReadinessTimeoutMs.Value);
-        int pollIntervalMs = Math.Max(50, LocalServerReadinessPollIntervalMs.Value);
-
-        LocalServerEndpoint endpoint = endpointOverride
-            ?? GetConfiguredLocalServerEndpoint();
-
-        string host = endpoint.Address.Trim();
-        int port = endpoint.Port;
-        ConnectionProtocol protocol = endpoint.Protocol;
-
-        if (queuedHostFlow)
-        {
-            return EnsureQueuedHostReadinessBeforeConnect(
+        bool ready = Services
+            .LocalServerRuntime
+            .EnsureLocalServerReadinessBeforeConnect(
                 source,
-                host,
-                port,
-                protocol,
-                timeoutMs,
-                pollIntervalMs);
-        }
+                queuedHostFlow,
+                endpointOverride);
 
-        if (!LuxonReadinessProbe.TryWaitForNameServerReady(
-                host,
-                port,
-                protocol,
-                timeoutMs,
-                pollIntervalMs,
-                out LocalServerReadinessResult result))
+        if (!ready
+            && queuedHostFlow
+            && Services.LocalServerRuntime.WasLastQueuedHostReadinessTimeout)
         {
-            ReportStructuredLanError(
-                LanErrorClassifier.ClassifyReadinessTimeout(),
-                source,
-                "Local NameServer readiness timed out.",
-                result.LastFailureMessage);
-
-            Log.LogError(
-                $"{source}: local NameServer readiness timed out. " +
-                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
-                $"Protocol={protocol}; " +
-                $"ElapsedMs={result.ElapsedMilliseconds}; " +
-                $"Attempts={result.AttemptCount}; " +
-                $"LastFailure={result.LastFailureMessage}");
-
-            NotifyLocalServerNotDetected("readiness timeout");
-            return false;
+            _pendingDirectHostStart = false;
         }
 
-        Log.LogInfo(
-            $"{source}: local NameServer readiness confirmed. " +
-            $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
-            $"Protocol={protocol}; " +
-            $"ElapsedMs={result.ElapsedMilliseconds}; " +
-            $"Attempts={result.AttemptCount}; " +
-            $"Message={result.SuccessMessage}");
-
-        ClearStructuredLanError(
-            source,
-            "name server readiness confirmed");
-
-        return true;
-    }
-
-    private bool EnsureQueuedHostReadinessBeforeConnect(
-        string source,
-        string host,
-        int port,
-        ConnectionProtocol protocol,
-        int timeoutMs,
-        int pollIntervalMs)
-    {
-        DateTime now = DateTime.UtcNow;
-
-        if (_queuedHostReadinessStartedAtUtc == default)
-        {
-            _queuedHostReadinessStartedAtUtc = now;
-            _queuedHostReadinessAttempts = 0;
-
-            Log.LogInfo(
-                $"{source}: queued host readiness wait started. " +
-                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
-                $"Protocol={protocol}; " +
-                $"TimeoutMs={timeoutMs}; " +
-                $"PollIntervalMs={pollIntervalMs}");
-        }
-
-        _queuedHostReadinessAttempts++;
-
-        int perAttemptTimeoutMs = Math.Max(
-            100,
-            Math.Min(pollIntervalMs, 1000));
-
-        if (LuxonReadinessProbe.TryProbeNameServer(
-                host,
-                port,
-                protocol,
-                perAttemptTimeoutMs,
-                out string probeMessage))
-        {
-            int elapsedMs = (int)Math.Max(
-                0,
-                (now - _queuedHostReadinessStartedAtUtc).TotalMilliseconds);
-
-            Log.LogInfo(
-                $"{source}: queued host readiness confirmed. " +
-                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
-                $"Protocol={protocol}; " +
-                $"ElapsedMs={elapsedMs}; " +
-                $"Attempts={_queuedHostReadinessAttempts}; " +
-                $"Message={probeMessage}");
-
-            ResetQueuedHostReadinessWindow();
-            return true;
-        }
-
-        int elapsedSinceStartMs = (int)Math.Max(
-            0,
-            (now - _queuedHostReadinessStartedAtUtc).TotalMilliseconds);
-
-        if (_queuedHostReadinessAttempts == 1
-            || _queuedHostReadinessAttempts % 5 == 0)
-        {
-            Log.LogInfo(
-                $"{source}: queued host readiness pending. " +
-                $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
-                $"Protocol={protocol}; " +
-                $"ElapsedMs={elapsedSinceStartMs}; " +
-                $"Attempts={_queuedHostReadinessAttempts}; " +
-                $"LastFailure={probeMessage}");
-        }
-
-        if (elapsedSinceStartMs < timeoutMs)
-        {
-            return false;
-        }
-
-        Log.LogError(
-            $"{source}: queued host readiness timed out. " +
-            $"Endpoint={SanitizeEndpointForLog(host)}:{port}; " +
-            $"Protocol={protocol}; " +
-            $"ElapsedMs={elapsedSinceStartMs}; " +
-            $"Attempts={_queuedHostReadinessAttempts}; " +
-            $"LastFailure={probeMessage}");
-
-        ReportStructuredLanError(
-            LanErrorClassifier.ClassifyReadinessTimeout(),
-            source,
-            "Queued host readiness timed out.",
-            probeMessage);
-
-        NotifyLocalServerNotDetected("readiness timeout");
-
-        _pendingDirectHostStart = false;
-        ResetQueuedHostReadinessWindow();
-
-        return false;
+        return ready;
     }
 
     private void ResetQueuedHostReadinessWindow()
     {
-        _queuedHostReadinessStartedAtUtc = default;
-        _queuedHostReadinessAttempts = 0;
+        Services
+            .LocalServerRuntime
+            .ResetQueuedHostReadinessWindow();
     }
 
     private bool CanStartDirectConnection(
@@ -1819,9 +1503,9 @@ public sealed class Plugin : BaseUnityPlugin
 
     internal static void ApplyConfiguredPhotonSettings()
     {
-        var settings = PhotonNetwork.PhotonServerSettings.AppSettings;
-
-        ApplyLocalServerSettings(settings);
+        Services
+            .LocalServerRuntime
+            .ApplyConfiguredPhotonSettings();
     }
 
     internal static void NotifyLocalServerDetected()
@@ -1868,19 +1552,16 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static string GetConfiguredLocalEndpoint()
     {
-        string address = LocalServerAddress.Value.Trim();
-        int port = LocalServerPort.Value;
-        ConnectionProtocol protocol = LocalServerProtocol.Value;
-
-        return $"{address}:{port} ({protocol})";
+        return Services
+            .LocalServerRuntime
+            .GetConfiguredLocalEndpoint();
     }
 
     private static string GetEffectiveLocalEndpoint()
     {
-        LocalServerEndpoint endpoint =
-            GetEffectiveLocalServerEndpointForConnection();
-
-        return $"{endpoint.Address}:{endpoint.Port} ({endpoint.Protocol})";
+        return Services
+            .LocalServerRuntime
+            .GetEffectiveLocalEndpoint();
     }
 
     internal static string GetEffectiveLocalEndpointForLogging()
@@ -1894,91 +1575,38 @@ public sealed class Plugin : BaseUnityPlugin
         Services.WorkflowPolicy.TryAutoLockWorkflowModeAfterSuccessfulHost(source);
     }
 
-    private static void ApplyLocalServerSettings(
-        AppSettings settings)
-    {
-        LocalServerEndpoint endpoint =
-            GetEffectiveLocalServerEndpointForConnection();
-
-        string serverAddress = endpoint.Address.Trim();
-
-        if (string.IsNullOrWhiteSpace(serverAddress))
-        {
-            Log.LogError(
-                "LocalServerAddress is empty. " +
-                "Cannot apply LocalServer mode.");
-
-            return;
-        }
-
-        int configuredPort = endpoint.Port;
-
-        if (configuredPort is < 1 or > 65535)
-        {
-            Log.LogError(
-                $"LocalServerPort '{configuredPort}' is invalid. " +
-                "Expected range 1-65535.");
-
-            return;
-        }
-
-        settings.UseNameServer = true;
-        settings.Server = serverAddress;
-        settings.Port = (ushort)configuredPort;
-        settings.Protocol = endpoint.Protocol;
-        settings.FixedRegion = string.Empty;
-
-        Log.LogInfo(
-            "Applied Photon mode LocalServer: " +
-            $"Server={serverAddress}; " +
-            $"Port={settings.Port}; " +
-            $"Protocol={settings.Protocol}; " +
-            $"UseNameServer={settings.UseNameServer}; " +
-            $"EndpointSource={(IsJoinEndpointOverrideActive ? "join-runtime" : "config")}");
-    }
-
     private static bool IsJoinEndpointOverrideActive =>
-        _transientJoinEndpointOverride is not null;
+        Services.LocalServerRuntime.IsJoinEndpointOverrideActive;
 
     private static LocalServerEndpoint GetConfiguredLocalServerEndpoint()
     {
-        string address = LocalServerAddress.Value.Trim();
-        int port = LocalServerPort.Value;
-        ConnectionProtocol protocol = LocalServerProtocol.Value;
-
-        return new LocalServerEndpoint(address, port, protocol);
+        return Services
+            .LocalServerRuntime
+            .GetConfiguredLocalServerEndpoint();
     }
 
     private static LocalServerEndpoint GetEffectiveLocalServerEndpointForConnection()
     {
-        return _transientJoinEndpointOverride
-            ?? GetConfiguredLocalServerEndpoint();
+        return Services
+            .LocalServerRuntime
+            .GetEffectiveLocalServerEndpointForConnection();
     }
 
     private static void ApplyTransientJoinEndpointOverride(
         LocalServerEndpoint endpoint,
         string source)
     {
-        _transientJoinEndpointOverride = endpoint;
-
-        Log.LogInfo(
-            $"{source}: runtime join endpoint override applied. " +
-            $"Endpoint={SanitizeEndpointForLog(endpoint.Address)}:{endpoint.Port}; " +
-            $"Protocol={endpoint.Protocol}");
+        Services
+            .LocalServerRuntime
+            .ApplyTransientJoinEndpointOverride(endpoint, source);
     }
 
     private static void ClearTransientJoinEndpointOverride(
         string source)
     {
-        if (_transientJoinEndpointOverride is null)
-        {
-            return;
-        }
-
-        _transientJoinEndpointOverride = null;
-
-        Log.LogInfo(
-            $"{source}: cleared runtime join endpoint override.");
+        Services
+            .LocalServerRuntime
+            .ClearTransientJoinEndpointOverride(source);
     }
 
     internal static string Fingerprint(string value)
