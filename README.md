@@ -39,8 +39,8 @@ The package staging layout is:
 
 - `mod/BepInEx/plugins/BadHorse.PeakLanMod.dll`
 - `server/luxon_server.msvc.release.exe`
-- `server/config.example.yml`
 - `dependencies/README.md`
+- `server/config.yml`
 - `docs/INSTALL-LAN.md`
 - `metadata/BUILD_INFO.txt`
 - `metadata/CHECKSUMS.sha256`

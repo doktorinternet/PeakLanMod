@@ -12,7 +12,7 @@ This guide installs a full LAN package without Thunderstore.
 
 - `mod/BepInEx/plugins/BadHorse.PeakLanMod.dll`
 - `server/luxon_server.msvc.release.exe`
-- `server/config.example.yml`
+- `server/config.yml`
 - `dependencies/README.md`
 - `dependencies/BepInEx/`
 

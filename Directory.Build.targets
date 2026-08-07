@@ -129,7 +129,7 @@
       <_LanReleaseRequiredFile Include="$(_LanReleaseInstallGuide)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseDependenciesGuide)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)luxon_server.msvc.release.exe" />
-      <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)config.exampleyml" />
+      <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)config.example.yml" />
     </ItemGroup>
 
     <Error
@@ -189,7 +189,7 @@
 
     <Copy
       SourceFiles="$(_LanReleaseServerDir)config.example.yml"
-      DestinationFiles="$(_LanReleaseStageDir)server\config.example.yml"
+      DestinationFiles="$(_LanReleaseStageDir)server\config.yml"
     />
 
     <WriteLinesToFile
