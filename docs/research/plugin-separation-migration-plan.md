@@ -529,3 +529,15 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, interface ownership ledger, phase update log
 - Notes: Plugin now delegates configuration binding to LanPluginOptions and workflow preset/auto-lock behavior to LanWorkflowPolicyService. Existing static Plugin config accessors and callback patch call sites remain available for later phases. User confirmed post-change two-machine runtime test passed.
+
+- 2026-08-07
+- Phase: Phase 3 - Extract discovery runtime and error state services
+- Files changed: src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs; src/PeakLanMod/Lan/Services/LanErrorStateService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: moving discovery lifecycle/compatibility evaluation and structured error/local-server state handling behind dedicated services is behavior-neutral when Plugin static wrappers and callback call paths are preserved.
+- Build result: dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): two-machine (user confirmed)
+- First divergent callback/state observed (if any): none observed in user-confirmed two-machine validation
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, compatibility wrappers, interface ownership ledger, phase update log
+- Notes: Discovery listener/broadcaster runtime and structured LAN error state are now owned by concrete Phase 3 services while Plugin wrappers remain intact for PhotonCallbackProbe and later-phase migration safety. User confirmed two-machine host/join validation passed.
