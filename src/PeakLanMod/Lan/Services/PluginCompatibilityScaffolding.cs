@@ -51,6 +51,11 @@ internal interface ILanWorkflowPolicyService
 
 internal interface IDirectConnectCoordinator
 {
+    void RequestDirectHostStart(string source);
+    void TryProcessQueuedDirectHostStart(string source);
+    void StartDirectJoin();
+    void RequestDirectJoinStart(string roomName, string source, LocalServerEndpoint endpoint);
+    void TryProcessQueuedDirectJoinStart(string source);
 }
 
 internal interface ILanOverlayController
@@ -133,7 +138,6 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
         Options = options;
         WorkflowPolicy = workflowPolicy;
-        DirectConnect = new PlaceholderDirectConnectCoordinator();
         Overlay = new PlaceholderLanOverlayController();
         DiscoveryRuntime = new LanDiscoveryRuntimeCoordinator(
             options,
@@ -148,6 +152,12 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
             : new LocalServerRuntimeService(
                 options,
                 ErrorState,
+                IdentityAndValidation);
+        DirectConnect = options is PlaceholderLanPluginOptions
+            ? new PlaceholderDirectConnectCoordinator()
+            : new DirectConnectCoordinator(
+                options,
+                LocalServerRuntime,
                 IdentityAndValidation);
     }
 
@@ -236,6 +246,25 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
     private sealed class PlaceholderDirectConnectCoordinator : IDirectConnectCoordinator
     {
+        public void RequestDirectHostStart(string source)
+        {
+        }
+
+        public void TryProcessQueuedDirectHostStart(string source)
+        {
+        }
+
+        public void StartDirectJoin()
+        {
+        }
+
+        public void RequestDirectJoinStart(string roomName, string source, LocalServerEndpoint endpoint)
+        {
+        }
+
+        public void TryProcessQueuedDirectJoinStart(string source)
+        {
+        }
     }
 
     private sealed class PlaceholderLanOverlayController : ILanOverlayController

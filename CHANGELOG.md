@@ -4,6 +4,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-07
 
+- Completed Plugin separation migration Phase 5: extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and host/join state transitions to `Lan/Services/DirectConnectCoordinator.cs` while preserving Plugin compatibility wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
 - Completed Plugin separation migration Phase 4: extracted LocalServer endpoint override management, readiness checks, host process lifecycle control, host endpoint/Luxon automation, and Photon AppSettings application to `Lan/Services/LocalServerRuntimeService.cs` while preserving Plugin compatibility wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
 - Completed Plugin separation migration Phase 3: extracted LAN discovery runtime coordination to `LanDiscoveryRuntimeCoordinator` and structured error/local-server state handling to `LanErrorStateService`, while preserving Plugin callback wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
 - Completed Plugin separation migration Phase 2: extracted Config.Bind ownership to `LanPluginOptions` and workflow preset/auto-lock policy logic to `LanWorkflowPolicyService`, while preserving Plugin compatibility accessors and intended runtime behavior.

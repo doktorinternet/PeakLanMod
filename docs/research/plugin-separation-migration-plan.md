@@ -553,3 +553,15 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, compatibility wrappers, interface ownership ledger, phase update log
 - Notes: Plugin local-server method bodies now delegate to LocalServerRuntimeService while preserving existing wrapper call sites and queued-host timeout semantics. User confirmed two-machine host/join runtime validation passed.
+
+- 2026-08-07
+- Phase: Phase 5 - Extract direct connect coordinator
+- Files changed: src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: moving host/join queue orchestration, readiness gating, reconnect throttling, and host/join state transitions into a dedicated coordinator is behavior-neutral when Plugin call sites and service dependencies remain identical.
+- Build result: dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): two-machine (user confirmed)
+- First divergent callback/state observed (if any): none observed in user-confirmed two-machine validation
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, routing table notes, compatibility wrappers, interface ownership ledger, phase update log
+- Notes: Plugin direct host/join wrappers now delegate to DirectConnectCoordinator while preserving direct-connect baseline behavior and existing service-backed compatibility surface. User confirmed two-machine host/join runtime validation passed.
