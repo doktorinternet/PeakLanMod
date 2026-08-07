@@ -143,10 +143,16 @@ public sealed class Plugin : BaseUnityPlugin
     private GUIStyle? _lanUiTextFieldStyle;
     private GUIStyle? _lanUiRowStyle;
     private GUIStyle? _lanUiSelectedRowStyle;
+    private static IPluginCompatibilityServices CompatibilityServices { get; set; } =
+        PluginCompatibilityServices.CreateDefault();
+
+    internal static IPluginCompatibilityServices Services =>
+        CompatibilityServices;
 
     private void Awake()
     {
         Log = Logger;
+        CompatibilityServices = PluginCompatibilityServices.CreateDefault();
 
         ConfigureDirectConnect();
         ApplyLanWorkflowMode(force: true, source: "Awake");
@@ -158,6 +164,7 @@ public sealed class Plugin : BaseUnityPlugin
         _harmony.PatchAll();
 
         Logger.LogInfo("PEAK LAN Mod loaded.");
+        Logger.LogInfo("Phase 0 scaffolding active: plugin-backed compatibility services wired.");
         DumpPhotonSettings("Plugin.Awake");
     }
 

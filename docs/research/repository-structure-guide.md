@@ -18,11 +18,13 @@ Use it to route new implementations and updates to the most appropriate files an
 ## Current architecture snapshot (phase tracking)
 
 Phase state:
-- Phase 0-7 status: not started (planning baseline).
+- Phase 0 status: completed.
+- Phase 1-7 status: not started.
 
 Current reality summary:
-- Plugin root currently contains lifecycle, config, workflow, discovery, local server runtime, direct connect orchestration, UI, and shared helpers.
-- Several patches and support classes call Plugin static methods directly.
+- Plugin root still contains lifecycle, config, workflow, discovery, local server runtime, direct connect orchestration, UI, and shared helpers.
+- Phase 0 scaffolding now exists in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs` with plugin-backed adapters and placeholder interfaces for later extraction.
+- External callers still use Plugin static wrappers; no behavior-routing migration occurred in this phase.
 
 Target direction summary:
 - Plugin becomes composition root plus temporary compatibility facade.
@@ -41,6 +43,7 @@ Target direction summary:
 | LAN overlay rendering and input state | LanOverlayController | Networking services |
 | Structured LAN error set/clear | LanErrorStateService | UI view models |
 | Validation/sanitization/fingerprinting | LanIdentityAndValidation | Patches |
+| Transitional service adapter ownership | PluginCompatibilityServices | Plugin feature methods |
 
 ## Placement rules for new work
 
@@ -75,6 +78,7 @@ Use this section to track temporary Plugin static wrappers and planned removal p
 | Plugin.ReportStructuredLanError / ClearStructuredLanError | PhotonCallbackProbe | Phase 7 | Move to LanErrorStateService facade. |
 | Plugin.RefreshLanDiscoveryBroadcast / StopLanDiscoveryBroadcast | PhotonCallbackProbe | Phase 7 | Move to LanDiscoveryRuntimeCoordinator facade. |
 | Plugin.Fingerprint | Discovery + process helpers + probes | Phase 7 | Move to LanIdentityAndValidation utility. |
+| Plugin.Services | none (Phase 0 only) | Phase 7 | Transitional composition access point for plugin-backed adapters. |
 
 ## Interface ownership ledger
 
@@ -82,7 +86,15 @@ Add new interfaces here as they are introduced.
 
 | Interface | Owner class | Responsibility |
 |---|---|---|
-| (pending) | (pending) | (pending) |
+| IPluginCompatibilityServices | PluginCompatibilityServices | Transitional access to extracted-responsibility service contracts. |
+| ILanPluginOptions | PluginCompatibilityServices (placeholder) | Future config binding ownership contract. |
+| ILanWorkflowPolicyService | PluginCompatibilityServices (placeholder) | Future workflow preset/policy ownership contract. |
+| IDirectConnectCoordinator | PluginCompatibilityServices (placeholder) | Future host/join orchestration ownership contract. |
+| ILanOverlayController | PluginCompatibilityServices (placeholder) | Future LAN UI ownership contract. |
+| ILanDiscoveryRuntimeCoordinator | PluginCompatibilityServices (plugin-backed) | Discovery broadcast compatibility surface. |
+| ILanErrorStateService | PluginCompatibilityServices (plugin-backed) | Structured LAN error and local-server state compatibility surface. |
+| ILocalServerRuntimeService | PluginCompatibilityServices (plugin-backed) | Photon app-settings compatibility surface. |
+| ILanIdentityAndValidation | PluginCompatibilityServices (plugin-backed) | Fingerprint compatibility surface. |
 
 ## Phase update log
 
@@ -107,3 +119,11 @@ Append one entry whenever a migration phase is completed.
 - New interfaces introduced: none
 - Compatibility wrappers added/removed: initial tracking table added
 - Notes for future agents: use this file as the first stop before adding new behavior during migration.
+
+- 2026-08-07
+- Phase completed: Phase 0
+- Architecture snapshot updated sections: phase state and current reality summary
+- Routing table changes: added transitional service adapter routing row
+- New interfaces introduced: IPluginCompatibilityServices, ILanPluginOptions, ILanWorkflowPolicyService, IDirectConnectCoordinator, ILanOverlayController, ILanDiscoveryRuntimeCoordinator, ILanErrorStateService, ILocalServerRuntimeService, ILanIdentityAndValidation
+- Compatibility wrappers added/removed: added Plugin.Services transitional wrapper surface; no removals
+- Notes for future agents: keep Plugin static wrapper call sites unchanged until Phase 1+ implementation extraction starts.
