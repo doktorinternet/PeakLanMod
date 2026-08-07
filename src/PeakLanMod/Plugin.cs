@@ -2,6 +2,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using System.Reflection;
 using UnityEngine;
 using Zorro.Core;
 using PeakLanMod.Lan.Services;
@@ -16,7 +17,15 @@ public sealed class Plugin : BaseUnityPlugin
 {
     public const string PluginGuid = "BadHorse.PeakLanMod";
     public const string PluginName = "PEAK LAN Mod";
-    public const string PluginVersion = "0.6.0-preview";
+    public const string PluginVersion = PluginBuildInfo.BepInPluginVersion;
+
+    internal static string DisplayVersion =>
+        typeof(Plugin)
+            .Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            ?.Split('+')[0]
+        ?? PluginVersion;
 
     internal static ManualLogSource Log { get; private set; } = null!;
 
@@ -44,7 +53,7 @@ public sealed class Plugin : BaseUnityPlugin
         _harmony = new Harmony(PluginGuid);
         _harmony.PatchAll();
 
-        Logger.LogInfo("PEAK LAN Mod loaded.");
+        Logger.LogInfo($"{PluginName} loaded. DisplayVersion={DisplayVersion}; PluginVersion={PluginVersion}");
         Logger.LogInfo("Phase 7 compatibility wrapper cleanup active.");
         LanRuntimeContext.Services.LanServerRuntime.DumpPhotonSettings("Plugin.Awake");
     }

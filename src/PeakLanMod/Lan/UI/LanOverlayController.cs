@@ -146,7 +146,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             ? "Last refresh: never"
             : $"Last refresh: {_lastLanUiRefreshAtUtc:HH:mm:ss} UTC";
 
-        string modVersionLabel = $"{Plugin.PluginName}: {Plugin.PluginVersion}";
+        string modVersionLabel = $"{Plugin.PluginName}: {Plugin.DisplayVersion}";
 
         bool showServerRows = !_isLanServerListCollapsed;
         bool p0 = _identityAndValidation.IsCurrentUserInX7GateSet();

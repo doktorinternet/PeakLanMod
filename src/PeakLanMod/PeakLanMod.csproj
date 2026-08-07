@@ -7,9 +7,39 @@
     <AssemblyName>BadHorse.PeakLanMod</AssemblyName>
     <!-- This is the display name of your mod. -->
     <AssemblyTitle>PeakLanMod</AssemblyTitle>
-    <!-- The version number for your assembly, BepInEx plugin, and Thunderstore package. -->
+    <!-- Full SemVer for package/release/display (may include prerelease suffixes). -->
     <Version>0.6.0-preview</Version>
+    <!-- Keep informational version equal to Version so UI/log display is deterministic. -->
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- BepInEx metadata must stay numeric-only (major.minor.patch). -->
+    <BepInPluginVersionCore>$([System.Text.RegularExpressions.Regex]::Match('$(Version)', '^[0-9]+\.[0-9]+\.[0-9]+').Value)</BepInPluginVersionCore>
+    <BepInPluginVersionCore Condition="'$(BepInPluginVersionCore)' == ''">0.0.0</BepInPluginVersionCore>
   </PropertyGroup>
+
+  <Target Name="GeneratePluginBuildInfo" BeforeTargets="BeforeCompile">
+    <PropertyGroup>
+      <_PluginBuildInfoFile>$(IntermediateOutputPath)PluginBuildInfo.g.cs</_PluginBuildInfoFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_PluginBuildInfoLine Include="namespace PeakLanMod%3B" />
+      <_PluginBuildInfoLine Include="internal static class PluginBuildInfo" />
+      <_PluginBuildInfoLine Include="{" />
+      <_PluginBuildInfoLine Include="    internal const string BepInPluginVersion = &quot;$(BepInPluginVersionCore)&quot;%3B" />
+      <_PluginBuildInfoLine Include="}" />
+    </ItemGroup>
+
+    <WriteLinesToFile
+      File="$(_PluginBuildInfoFile)"
+      Overwrite="true"
+      Lines="@(_PluginBuildInfoLine)"
+    />
+
+    <ItemGroup>
+      <Compile Include="$(_PluginBuildInfoFile)" Visible="false" AutoGen="true" />
+    </ItemGroup>
+  </Target>
 
   <!-- ThunderPipe properties -->
   <PropertyGroup>
