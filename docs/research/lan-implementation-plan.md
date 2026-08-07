@@ -330,7 +330,7 @@ Status enum:
 | M4 | Server-readiness check before PEAK connects | M3 | VerifiedOffline | Physically offline two-machine runtime validation passed (host and client on separate machines/accounts); rollback path retained | Yes (config rollback) | TBD | PR-04 | 2026-08-02 |
 | M5 | UDP LAN session discovery | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-05 | 2026-08-02 |
 | M6 | UI actions for host/join/sessions/status | M4, M5 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-06 | 2026-08-02 |
-| M7 | Structured connection errors and mapping | M6 | Planned | Not started | Not started | TBD | PR-07 | 2026-08-02 |
+| M7 | Structured connection errors and mapping | M6 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-07 | 2026-08-06 |
 | M8 | Final mode isolation and rollback hardening | M7 | Planned | Not started | Not started | TBD | PR-08 | 2026-08-02 |
 
 ## Acceptance criteria per milestone
@@ -492,6 +492,50 @@ M6 validation update (2026-08-02):
   - incompatible game/mod/protocol versions
 - Mapping is deterministic and logged with context.
 
+M7 implementation notes (2026-08-06):
+
+- Added typed error model and diagnostics classifier:
+  - `LanErrorCode`
+  - `LanErrorDetail`
+  - `Lan/Diagnostics/LanErrorClassifier`
+- Added M7 config guard `LanWorkflow.EnableStructuredErrorMapping` (default `false`) to preserve pre-M7 behavior unless explicitly enabled.
+- Extended `LanConnectionStateStore` with last-structured-error snapshot storage and clearing.
+- Wired deterministic classification to existing failure points without changing host/join flow:
+  - local server auto-start failure -> `LuxonNotRunning`
+  - local NameServer readiness timeout -> `NameServerUnreachable`
+  - join/create/disconnect callback failures -> deterministic code mapping including `RoomDoesNotExist`, `Timeout`, redirect categories, fallback `UnknownPhotonFailure`
+  - join-selected discovery incompatibility block -> `IncompatibleProtocolVersion` / `IncompatibleGameVersion` / `IncompatibleModVersion`
+- Updated M6 overlay summary to include active structured error code plus last-error context line.
+- Rollback path confirmed in config: set `LanWorkflow.EnableStructuredErrorMapping = false`.
+
+M7 integration notes for future milestones (2026-08-07):
+
+- Classifier ownership and call sites:
+  - `Lan/Diagnostics/LanErrorClassifier` is the only place where error-code mapping rules should be added or changed.
+  - `PhotonCallbackProbe.OnJoinRoomFailed`, `OnCreateRoomFailed`, and `OnDisconnected` are the callback entry points that feed classifier outputs into state.
+  - `Plugin.EnsureHostLocalServerProcess` and readiness-gate paths (`EnsureLocalServerReadinessBeforeConnect`, `EnsureQueuedHostReadinessBeforeConnect`) are the pre-Photon host/join entry points that must keep using structured mapping.
+- State and UI flow:
+  - `LanConnectionStateStore.SetConnectionError` / `ClearConnectionError` hold the single latest structured error snapshot.
+  - `LanStatusPresenterBridge.BuildSummaryLine` and `BuildErrorLine` are the intended M6+ rendering surfaces; new UI surfaces should consume the same state snapshot instead of creating parallel error state.
+- Guarding and rollback:
+  - Structured mapping is opt-in via `LanWorkflow.EnableStructuredErrorMapping` and must remain fully bypassed when disabled.
+  - Future M8 isolation/hardening should preserve this guard as the immediate rollback path.
+- Startup-noise handling rule:
+  - `OnDisconnected` classifications of `None` and low-confidence `UnknownPhotonFailure` are treated as non-actionable for UI/state surfacing and clear stale error state instead of showing startup false positives.
+  - Keep callback diagnostics logs intact even when UI/state surfacing is suppressed, so runtime investigations retain raw evidence.
+- Extension rule for M8+:
+  - Prefer adding deterministic mapping for specific causes/states over broad unknown buckets.
+  - Do not promote new disconnect classifications to user-facing UI unless they are actionable and reproduce deterministically across host/client logs.
+
+M7 validation update (2026-08-07):
+
+- Validation type: static analysis, local compile, and targeted one-machine runtime checks.
+- Runtime outcome:
+  - startup false-positive structured error banner removed,
+  - intentional missing-local-server test (renamed server folder) correctly surfaced `LuxonNotRunning`.
+- Remaining runtime validation: manual two-machine structured-error matrix remains pending.
+- Remaining scope outside M7: M8 mode isolation and rollback hardening unchanged.
+
 ### M8: Rollback hardening and mode isolation
 
 - Manual local server mode remains functional and unaffected.
@@ -504,8 +548,11 @@ M6 validation update (2026-08-02):
 - Which PEAK UI surface should become primary for discovered sessions list in the first release?
 - Should discovery announcements include optional host capacity and current player count now or later?
 - Should protocol compatibility permit patch-level mod version drift at launch, or exact-only?
+  - Yes permit patch-level mod version drift
 - Is Photon Voice always required for acceptance in LAN mode, or can voice be a separate readiness gate?
+  - Photon voice is automatically handled by Luxon thankfully
 - Which adapter precedence rule is preferred when both Ethernet and Wi-Fi are active?
+  - Ethernet for sure
 
 ## Decision log
 
@@ -529,6 +576,9 @@ M6 validation update (2026-08-02):
 | 2026-08-02 | M6 first-release UI surface uses config-gated overlay + action keys wired to existing host/join flows | Accepted | Minimizes risk to proven networking path while exposing session selection/status without introducing new Photon call sites in UI helpers. |
 | 2026-08-02 | M6 interaction model uses clickable overlay controls instead of M6-specific shortcuts | Accepted | Improves discoverability and avoids hidden keybind UX on first release while preserving existing F6/F7 baseline controls. |
 | 2026-08-02 | M6 UX Part 2 requires disabled join affordance and inline reason before join-selected | Accepted | Prevents no-op clicks and makes incompatibility/selection state obvious without changing host/join network orchestration. |
+| 2026-08-06 | M7 structured error mapping ships as opt-in and local-server scoped | Accepted | Keeps pre-M7 behavior as default rollback path while enabling deterministic diagnostics when explicitly requested. |
+| 2026-08-06 | M7 status/UI integration reuses existing state store and overlay rather than introducing a new coordinator in this milestone | Accepted | Minimizes behavioral risk and keeps M8 isolation/refactor scope intact. |
+| 2026-08-07 | M7 disconnect-path startup noise suppression keeps low-confidence unknown disconnects out of user-facing error state | Accepted | Preserves actionable diagnostics by logging raw callbacks while avoiding false-positive startup banners. |
 
 ## Deviation record
 
@@ -539,6 +589,7 @@ M6 validation update (2026-08-02):
 - 2026-08-02: No deviation from M4 validation scope. Validation executed as physically offline LAN two-machine runtime with separate accounts.
 - 2026-08-02: No deviation from M5 scope. Implemented transport/listener/session-store only; no UI wiring added before M6.
 - 2026-08-02: Minor M6 architectural deviation from long-term plan shape: connection intent execution remains in `Plugin` with `LanStatusPresenterBridge`/view-model presentation helpers. Dedicated coordinator extraction remains deferred to a later refactor milestone.
+- 2026-08-06: No deviation from M7 scope. Implemented structured mapping and UI/state surfacing only; M8 rollback hardening and deeper mode isolation remain unchanged.
 
 ## Recommended small PR sequence
 

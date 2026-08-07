@@ -1,6 +1,8 @@
 using System;
 using Photon.Pun;
 using Photon.Realtime;
+using PeakLanMod.Lan.Diagnostics;
+using PeakLanMod.Lan.Model;
 using PhotonPlayer = Photon.Realtime.Player;
 
 namespace PeakLanMod;
@@ -36,6 +38,9 @@ internal sealed class PhotonCallbackProbe :
             else
             {
                 Plugin.NotifyLocalServerDetected();
+                Plugin.ClearStructuredLanError(
+                    source: "OnConnectedToMaster",
+                    reason: "connected to master");
             }
         }
     }
@@ -80,6 +85,10 @@ internal sealed class PhotonCallbackProbe :
             $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
 
+            Plugin.ClearStructuredLanError(
+                source: "OnJoinedRoom",
+                reason: "joined room");
+
             Plugin.RefreshLanDiscoveryBroadcast("OnJoinedRoom");
     }
 
@@ -91,6 +100,16 @@ internal sealed class PhotonCallbackProbe :
             $"[{Time}] CALLBACK OnJoinRoomFailed: " +
             $"code={returnCode}; " +
             $"message={message}");
+
+        LanErrorCode code = LanErrorClassifier.ClassifyJoinRoomFailure(
+            returnCode,
+            message);
+
+        Plugin.ReportStructuredLanError(
+            code,
+            source: "OnJoinRoomFailed",
+            message: message,
+            context: $"returnCode={returnCode}");
     }
 
     public override void OnCreateRoomFailed(
@@ -112,6 +131,16 @@ internal sealed class PhotonCallbackProbe :
             Plugin.NotifyLocalServerNotDetected(
                 $"create room failed {returnCode}");
         }
+
+        LanErrorCode code = LanErrorClassifier.ClassifyCreateRoomFailure(
+            returnCode,
+            message);
+
+        Plugin.ReportStructuredLanError(
+            code,
+            source: "OnCreateRoomFailed",
+            message: message,
+            context: $"returnCode={returnCode}");
     }
 
     public override void OnDisconnected(
@@ -137,6 +166,32 @@ internal sealed class PhotonCallbackProbe :
             Plugin.NotifyLocalServerNotDetected(
                 $"disconnect cause {cause}");
         }
+
+        LanErrorCode code = LanErrorClassifier.ClassifyDisconnect(
+            cause,
+            client?.State.ToString() ?? string.Empty);
+
+        if (code == LanErrorCode.None)
+        {
+            Plugin.ClearStructuredLanError(
+                source: "OnDisconnected",
+                reason: $"non-actionable disconnect cause {cause}");
+            return;
+        }
+
+        if (code == LanErrorCode.UnknownPhotonFailure)
+        {
+            Plugin.ClearStructuredLanError(
+                source: "OnDisconnected",
+                reason: $"low-confidence disconnect classification {cause}");
+            return;
+        }
+
+        Plugin.ReportStructuredLanError(
+            code,
+            source: "OnDisconnected",
+            message: cause.ToString(),
+            context: $"clientState={client?.State.ToString() ?? "<null>"}");
     }
 
     public override void OnLeftRoom()
@@ -145,6 +200,10 @@ internal sealed class PhotonCallbackProbe :
             $"[{Time}] CALLBACK OnLeftRoom: " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
             $"offlineMode={PhotonNetwork.OfflineMode}");
+
+        Plugin.ClearStructuredLanError(
+            source: "OnLeftRoom",
+            reason: "left room");
 
         Plugin.HandleLeftRoom();
     }
