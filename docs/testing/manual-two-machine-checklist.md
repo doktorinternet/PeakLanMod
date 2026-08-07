@@ -30,6 +30,15 @@
 - [ ] Incompatible game version is classified as `IncompatibleGameVersion` when `LanWorkflow.RequireVersionMatch = true`.
 - [ ] Incompatible mod version is classified as `IncompatibleModVersion` when `LanWorkflow.RequireVersionMatch = true`.
 
+## M7 structured error checks (when `LanWorkflow.EnableStructuredErrorMapping = true`)
+
+- [ ] NameServer readiness timeout is surfaced as `NameServerUnreachable`.
+- [ ] Local server auto-start failure is surfaced as `LuxonNotRunning`.
+- [ ] Join attempt to a missing room is surfaced as `RoomDoesNotExist`.
+- [ ] Timeout-style disconnect/join failure is surfaced as `Timeout`.
+- [ ] Discovery incompatibility block surfaces one of `IncompatibleProtocolVersion`, `IncompatibleGameVersion`, or `IncompatibleModVersion`.
+- [ ] Successful connect/join clears the prior structured error state.
+
 ## Host
 
 - [ ] Trigger host once.

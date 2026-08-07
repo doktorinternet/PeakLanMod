@@ -171,6 +171,22 @@ Rollback path:
 
 - Set `LanWorkflow.EnableLanUiActions = false` to restore pre-M6 controls and overlay behavior.
 
+## Structured connection error mapping (M7)
+
+Milestone 7 adds optional deterministic error classification for local-server connect failures and incompatibility reasons.
+
+- `LanWorkflow.EnableStructuredErrorMapping = true` enables M7 classification and state/UI surfacing (disabled by default).
+- LAN status summary now includes the last structured error code when one is active.
+- Classification is currently wired to:
+  - local server auto-start failure (`LuxonNotRunning`),
+  - NameServer readiness timeout (`NameServerUnreachable`),
+  - join/create/disconnect Photon callbacks (`RoomDoesNotExist`, `Timeout`, redirect categories, `UnknownPhotonFailure`),
+  - join-selected blocks for discovered session incompatibility (`IncompatibleGameVersion`, `IncompatibleModVersion`, `IncompatibleProtocolVersion`).
+
+Rollback path:
+
+- Set `LanWorkflow.EnableStructuredErrorMapping = false` to disable M7 behavior and return to pre-M7 free-form failure surfacing.
+
 ## Release branch guidance
 
 Using a dedicated `release` branch is optional and depends on your team workflow.
