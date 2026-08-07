@@ -541,3 +541,15 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, compatibility wrappers, interface ownership ledger, phase update log
 - Notes: Discovery listener/broadcaster runtime and structured LAN error state are now owned by concrete Phase 3 services while Plugin wrappers remain intact for PhotonCallbackProbe and later-phase migration safety. User confirmed two-machine host/join validation passed.
+
+- 2026-08-07
+- Phase: Phase 4 - Extract LocalServer runtime service
+- Files changed: src/PeakLanMod/Lan/Model/LocalServerEndpoint.cs; src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: moving local server endpoint overrides, readiness checks, process lifecycle, host endpoint/Luxon automation, and Photon local-server AppSettings application into a dedicated service is behavior-neutral when Plugin wrapper signatures and call ordering are preserved.
+- Build result: dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): two-machine (user confirmed)
+- First divergent callback/state observed (if any): none observed in user-confirmed two-machine validation
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, compatibility wrappers, interface ownership ledger, phase update log
+- Notes: Plugin local-server method bodies now delegate to LocalServerRuntimeService while preserving existing wrapper call sites and queued-host timeout semantics. User confirmed two-machine host/join runtime validation passed.

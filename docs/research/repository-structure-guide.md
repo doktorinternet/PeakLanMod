@@ -22,7 +22,8 @@ Phase state:
 - Phase 1 status: completed.
 - Phase 2 status: completed.
 - Phase 3 status: completed.
-- Phase 4-7 status: not started.
+- Phase 4 status: completed.
+- Phase 5-7 status: not started.
 
 Current reality summary:
 - Plugin root now delegates config binding to LanPluginOptions, workflow mode policy to LanWorkflowPolicyService, discovery runtime coordination to LanDiscoveryRuntimeCoordinator, and structured error/local-server state handling to LanErrorStateService.
@@ -30,6 +31,7 @@ Current reality summary:
 - Phase 1 extracted deterministic identity/validation helpers into `src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs` with wrapper-preserving calls through `Plugin` methods.
 - Phase 2 extracted config entry ownership into `src/PeakLanMod/Lan/Services/LanPluginOptions.cs` and workflow preset/auto-lock policy into `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`.
 - Phase 3 extracted listener/broadcaster lifecycle and compatibility evaluation into `src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs`, and extracted photon state transition logging plus structured LAN error state handling into `src/PeakLanMod/Lan/Services/LanErrorStateService.cs`.
+- Phase 4 extracted local server endpoint override management, host LAN endpoint/Luxon automation, local process ensure/stop, readiness probes (including queued-host readiness window state), and Photon local-server AppSettings application into `src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs`.
 - External callers still use Plugin static wrappers; callback call paths remain stable by design.
 
 Target direction summary:
@@ -81,6 +83,7 @@ Use this section to track temporary Plugin static wrappers and planned removal p
 | Wrapper/API | Current consumers | Planned removal phase | Notes |
 |---|---|---|---|
 | Plugin.ApplyConfiguredPhotonSettings | PhotonAppIdPatch | Phase 7 | Replace with LocalServerRuntimeService facade. |
+| Plugin.GetEffectiveLocalEndpointForLogging / StopOwnedLocalServerProcessForLeaveRoom | LanErrorStateService | Phase 7 | Wrappers retained while callback-oriented error service still routes through Plugin static surface. |
 | Plugin.WorkflowMode and related config entry accessors | Patches + probes + Plugin runtime paths | Phase 7 | Accessors now delegate to LanPluginOptions-backed entries and remain as compatibility wrappers. |
 | Plugin.NotifyLocalServerDetected / NotDetected | PhotonCallbackProbe | Phase 7 | Move to LanErrorStateService facade. |
 | Plugin.ReportStructuredLanError / ClearStructuredLanError | PhotonCallbackProbe | Phase 7 | Wrappers now delegate to LanErrorStateService (Phase 3). |
@@ -104,7 +107,7 @@ Add new interfaces here as they are introduced.
 | ILanOverlayController | PluginCompatibilityServices (placeholder) | Future LAN UI ownership contract. |
 | ILanDiscoveryRuntimeCoordinator | LanDiscoveryRuntimeCoordinator | Discovery runtime lifecycle, host announce broadcast, and compatibility evaluation surface. |
 | ILanErrorStateService | LanErrorStateService | Photon state transition tracking and structured LAN error/local-server state surface. |
-| ILocalServerRuntimeService | PluginCompatibilityServices (plugin-backed) | Photon app-settings compatibility surface. |
+| ILocalServerRuntimeService | LocalServerRuntimeService | Local server endpoint overrides, readiness probes, local process lifecycle, host endpoint/Luxon automation, and Photon app-settings application. |
 | ILanIdentityAndValidation | LanIdentityAndValidation | Normalization, host room-name validation, endpoint sanitization, fingerprint, and identity helper compatibility surface. |
 
 ## Phase update log
@@ -162,3 +165,11 @@ Append one entry whenever a migration phase is completed.
 - New interfaces introduced: none
 - Compatibility wrappers added/removed: no removals; Plugin discovery and structured-error wrappers now delegate to LanDiscoveryRuntimeCoordinator and LanErrorStateService.
 - Notes for future agents: keep Plugin static wrapper signatures and call paths for PhotonCallbackProbe and patches until wrapper removal phase. User confirmed Phase 3 two-machine host/join runtime verification passed.
+
+- 2026-08-07
+- Phase completed: Phase 4
+- Architecture snapshot updated sections: phase state, current reality summary
+- Routing table changes: local server runtime ownership now implemented in LocalServerRuntimeService instead of Plugin method bodies.
+- New interfaces introduced: none
+- Compatibility wrappers added/removed: no removals; Plugin local-server wrappers now delegate to LocalServerRuntimeService.
+- Notes for future agents: keep Plugin wrapper signatures stable for callback/patch compatibility while Phase 5 extracts direct host/join orchestration. User confirmed Phase 4 two-machine host/join runtime verification passed.
