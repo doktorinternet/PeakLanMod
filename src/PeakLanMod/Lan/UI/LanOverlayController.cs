@@ -146,6 +146,8 @@ internal sealed class LanOverlayController : ILanOverlayController
             ? "Last refresh: never"
             : $"Last refresh: {_lastLanUiRefreshAtUtc:HH:mm:ss} UTC";
 
+        string modVersionLabel = $"{Plugin.PluginName}: {Plugin.PluginVersion}";
+
         bool showServerRows = !_isLanServerListCollapsed;
         bool p0 = _identityAndValidation.IsCurrentUserInX7GateSet();
         float adminPanelExtraHeight = p0
@@ -276,9 +278,18 @@ internal sealed class LanOverlayController : ILanOverlayController
                 _lanUiLabelStyle ?? GUI.skin.label);
         }
 
+        float footerY = panelRect.y + panelRect.height - 24f;
+        float footerWidth = panelRect.width - 24f;
+        float footerHalfWidth = footerWidth * 0.5f;
+
         GUI.Label(
-            new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 24f, panelRect.width - 24f, 20f),
+            new Rect(panelRect.x + 12f, footerY, footerHalfWidth, 20f),
             lastRefreshLabel,
+            _lanUiLabelStyle ?? GUI.skin.label);
+
+        GUI.Label(
+            new Rect(panelRect.x + 12f + footerHalfWidth, footerY, footerHalfWidth, 20f),
+            modVersionLabel,
             _lanUiRightLabelStyle ?? GUI.skin.label);
 
         bool previousGuiEnabled = GUI.enabled;

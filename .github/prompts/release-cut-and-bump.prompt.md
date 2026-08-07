@@ -1,5 +1,5 @@
 ---
-description: Build-check, cut release version, package LAN release, then bump to next -prel version
+description: Build-check, cut release version, package LAN release, then bump to next -preview version
 ---
 
 Run the PEAK LAN release flow.
@@ -17,24 +17,24 @@ Requirements:
 
 2. Compute and set the version to be released now:
    - Edit only `src/PeakLanMod/PeakLanMod.csproj` `<Version>`.
-   - Accept either `X.Y.Z-prel` or `X.Y.Z` as input state, normalizing to base `X.Y.Z` first.
+   - Accept either `X.Y.Z-preview` or `X.Y.Z` as input state, normalizing to base `X.Y.Z` first.
    - Determine release bump mode from `${input:releaseBump}`. If omitted/invalid, use `patch`.
    - Compute release version from base `X.Y.Z`:
      - `patch`: `X.Y.(Z+1)`
      - `minor`: `X.(Y+1).0`
      - `major`: `(X+1).0.0`
-   - Write release version as plain `X.Y.Z` (without `-prel`).
+   - Write release version as plain `X.Y.Z` (without `-preview`).
 
 3. Build the release package with the release version:
    - Run:
      - `dotnet build -c Release -t:LanRelease -p:RunThunderPipePackAfterBuild=false`
    - Report generated output paths from the build log.
 
-4. Bump to next development version and append `-prel`:
+4. Bump to next development version and append `-preview`:
    - Parse the release version as `major.minor.patch`.
     - Always apply a `patch` bump for post-release development:
        - `major.minor.(patch+1)`
-   - Write back `nextVersion-prel` to `src/PeakLanMod/PeakLanMod.csproj` `<Version>`.
+   - Write back `nextVersion-preview` to `src/PeakLanMod/PeakLanMod.csproj` `<Version>`.
 
 Behavioral constraints:
 
