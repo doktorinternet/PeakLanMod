@@ -508,10 +508,32 @@ M7 implementation notes (2026-08-06):
 - Updated M6 overlay summary to include active structured error code plus last-error context line.
 - Rollback path confirmed in config: set `LanWorkflow.EnableStructuredErrorMapping = false`.
 
-M7 validation update (2026-08-06):
+M7 integration notes for future milestones (2026-08-07):
 
-- Validation type: static analysis and local compile.
-- Runtime outcome: pending manual two-machine verification.
+- Classifier ownership and call sites:
+  - `Lan/Diagnostics/LanErrorClassifier` is the only place where error-code mapping rules should be added or changed.
+  - `PhotonCallbackProbe.OnJoinRoomFailed`, `OnCreateRoomFailed`, and `OnDisconnected` are the callback entry points that feed classifier outputs into state.
+  - `Plugin.EnsureHostLocalServerProcess` and readiness-gate paths (`EnsureLocalServerReadinessBeforeConnect`, `EnsureQueuedHostReadinessBeforeConnect`) are the pre-Photon host/join entry points that must keep using structured mapping.
+- State and UI flow:
+  - `LanConnectionStateStore.SetConnectionError` / `ClearConnectionError` hold the single latest structured error snapshot.
+  - `LanStatusPresenterBridge.BuildSummaryLine` and `BuildErrorLine` are the intended M6+ rendering surfaces; new UI surfaces should consume the same state snapshot instead of creating parallel error state.
+- Guarding and rollback:
+  - Structured mapping is opt-in via `LanWorkflow.EnableStructuredErrorMapping` and must remain fully bypassed when disabled.
+  - Future M8 isolation/hardening should preserve this guard as the immediate rollback path.
+- Startup-noise handling rule:
+  - `OnDisconnected` classifications of `None` and low-confidence `UnknownPhotonFailure` are treated as non-actionable for UI/state surfacing and clear stale error state instead of showing startup false positives.
+  - Keep callback diagnostics logs intact even when UI/state surfacing is suppressed, so runtime investigations retain raw evidence.
+- Extension rule for M8+:
+  - Prefer adding deterministic mapping for specific causes/states over broad unknown buckets.
+  - Do not promote new disconnect classifications to user-facing UI unless they are actionable and reproduce deterministically across host/client logs.
+
+M7 validation update (2026-08-07):
+
+- Validation type: static analysis, local compile, and targeted one-machine runtime checks.
+- Runtime outcome:
+  - startup false-positive structured error banner removed,
+  - intentional missing-local-server test (renamed server folder) correctly surfaced `LuxonNotRunning`.
+- Remaining runtime validation: manual two-machine structured-error matrix remains pending.
 - Remaining scope outside M7: M8 mode isolation and rollback hardening unchanged.
 
 ### M8: Rollback hardening and mode isolation
@@ -556,6 +578,7 @@ M7 validation update (2026-08-06):
 | 2026-08-02 | M6 UX Part 2 requires disabled join affordance and inline reason before join-selected | Accepted | Prevents no-op clicks and makes incompatibility/selection state obvious without changing host/join network orchestration. |
 | 2026-08-06 | M7 structured error mapping ships as opt-in and local-server scoped | Accepted | Keeps pre-M7 behavior as default rollback path while enabling deterministic diagnostics when explicitly requested. |
 | 2026-08-06 | M7 status/UI integration reuses existing state store and overlay rather than introducing a new coordinator in this milestone | Accepted | Minimizes behavioral risk and keeps M8 isolation/refactor scope intact. |
+| 2026-08-07 | M7 disconnect-path startup noise suppression keeps low-confidence unknown disconnects out of user-facing error state | Accepted | Preserves actionable diagnostics by logging raw callbacks while avoiding false-positive startup banners. |
 
 ## Deviation record
 
