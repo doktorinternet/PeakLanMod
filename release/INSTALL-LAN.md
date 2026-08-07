@@ -11,7 +11,6 @@ This guide installs a full LAN package without Thunderstore.
 ## Package layout
 
 - `mod/BepInEx/plugins/BadHorse.PeakLanMod.dll`
-- `mod/BepInEx/config/BadHorse.PeakLanMod.cfg`
 - `server/luxon_server.msvc.release.exe`
 - `server/config.example.yml`
 - `dependencies/README.md`
@@ -28,10 +27,11 @@ This guide installs a full LAN package without Thunderstore.
 This section is required if you intend to play the game using the mod. If you only intend to run a server, go straight to the `Server Setup` section
 
 1. Install BepInEx for PEAK found in the `dependencies/` folder. (TODO ADD bepinex install instructions in dependencies folder).
-2. Copy the content of `mod/BepInEx/` into your PEAK `BepInEx/` folder. Make sure the mod dll and config files are present in `BepInEx/plugins/` and `BepInEx/config/`.
-3. The config file should be plug and play if all instructions are been followed. If you use any other paths than recommended, you likely have to include those changes in the config file. You might also want to set the `LocalServerAddress` to the IP of your primary network adapter to avoid some warnings.
-4. Install any packaged dependency mods from `dependencies/`. 
-5. Start PEAK and verify that the mod is loaded by the new main menu server list.
+2. Copy the content of `mod/BepInEx/` into your PEAK `BepInEx/` folder. Make sure the mod dll is present in `BepInEx/plugins/`.
+3. Launch PEAK once to let BepInEx generate `BepInEx/config/BadHorse.PeakLanMod.cfg`, then close PEAK.
+4. The generated config should be near plug-and-play for default layout. If you use custom paths, update the generated config accordingly. You might also want to set `LocalServerAddress` to the IP of your primary network adapter to avoid warnings.
+5. Install any packaged dependency mods from `dependencies/`. 
+6. Start PEAK and verify that the mod is loaded by the new main menu server list.
 
 ## Host setup 
 
