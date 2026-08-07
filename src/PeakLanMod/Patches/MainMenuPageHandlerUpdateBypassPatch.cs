@@ -16,7 +16,7 @@ internal static class MainMenuPageHandlerUpdateBypassPatch
     private static bool Prefix()
     {
         if (!Plugin.IsLocalServerMode
-            || !Plugin.AutoSkipPhotonFailureDialogInLocalMode.Value)
+            || !Plugin.AutoSkipPhotonFailureDialog.Value)
         {
             _loggedSuppressedFrame = false;
             return true;

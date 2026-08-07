@@ -331,7 +331,7 @@ Status enum:
 | M5 | UDP LAN session discovery | M1 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-05 | 2026-08-02 |
 | M6 | UI actions for host/join/sessions/status | M4, M5 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-06 | 2026-08-02 |
 | M7 | Structured connection errors and mapping | M6 | Planned | Not started | Not started | TBD | PR-07 | 2026-08-02 |
-| M8 | Final mode isolation and rollback hardening | M7 | Planned | Not started | Not started | TBD | PR-08 | 2026-08-02 |
+| M8 | Final mode isolation and rollback hardening | M7 | Done | Static complete; runtime pending | Yes (config rollback) | TBD | PR-08 | 2026-08-07 |
 
 ## Acceptance criteria per milestone
 
@@ -497,7 +497,21 @@ M6 validation update (2026-08-02):
 - Manual local server mode remains functional and unaffected.
 - Auto local host mode functions with process/readiness workflow.
 - LAN discovery/join mode functions end to end.
-- Mode switching does not leak process/discovery state.
+- LocalServer-only runtime behavior is preserved (no runtime endpoint mode switching path).
+
+M8 implementation notes (2026-08-07):
+
+- Removed runtime endpoint mode-transition handling after confirming the operational model does not switch endpoint modes during runtime.
+- Removed CustomCloud endpoint mode and related configuration parameters from plugin runtime config.
+- LocalServer endpoint settings are now the only applied connection settings path for both host and join flows.
+- Preserved ownership rules: externally managed local server processes remain unowned and are never stopped by plugin-controlled shutdown paths.
+- Rollback path remains configuration-based for local-server lifecycle/readiness/discovery/UI features; no runtime endpoint mode toggle is required.
+
+M8 validation update (2026-08-07):
+
+- Validation type: static analysis and local compile.
+- Runtime outcome: pending manual two-machine verification.
+- Remaining scope: execute manual two-machine LocalServer host/join runtime verification.
 
 ## Unresolved questions
 
@@ -529,6 +543,7 @@ M6 validation update (2026-08-02):
 | 2026-08-02 | M6 first-release UI surface uses config-gated overlay + action keys wired to existing host/join flows | Accepted | Minimizes risk to proven networking path while exposing session selection/status without introducing new Photon call sites in UI helpers. |
 | 2026-08-02 | M6 interaction model uses clickable overlay controls instead of M6-specific shortcuts | Accepted | Improves discoverability and avoids hidden keybind UX on first release while preserving existing F6/F7 baseline controls. |
 | 2026-08-02 | M6 UX Part 2 requires disabled join affordance and inline reason before join-selected | Accepted | Prevents no-op clicks and makes incompatibility/selection state obvious without changing host/join network orchestration. |
+| 2026-08-07 | M8 runtime behavior remains LocalServer-only; runtime endpoint mode switching is removed | Accepted | Removes unused transition complexity and aligns implementation with intended host-create/client-join LocalServer-only LAN operation. |
 
 ## Deviation record
 
@@ -539,6 +554,7 @@ M6 validation update (2026-08-02):
 - 2026-08-02: No deviation from M4 validation scope. Validation executed as physically offline LAN two-machine runtime with separate accounts.
 - 2026-08-02: No deviation from M5 scope. Implemented transport/listener/session-store only; no UI wiring added before M6.
 - 2026-08-02: Minor M6 architectural deviation from long-term plan shape: connection intent execution remains in `Plugin` with `LanStatusPresenterBridge`/view-model presentation helpers. Dedicated coordinator extraction remains deferred to a later refactor milestone.
+- 2026-08-07: M8 scope clarification applied. Runtime endpoint mode-switch handling was removed to match the intended LocalServer-only operational model.
 
 ## Recommended small PR sequence
 

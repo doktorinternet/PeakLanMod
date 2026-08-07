@@ -3,20 +3,10 @@
 
 [Direct Connect]
 
-## Enable the experimental direct-connect flow.
-# Setting type: Boolean
-# Default value: true
-Enabled = true
-
 ## Photon room name.
 # Setting type: String
 # Default value: antonwahlberg-test-room
 RoomName = awg-lan-room-1
-
-## Photon Cloud region.
-# Setting type: String
-# Default value: eu
-Region =
 
 ## Start direct host.
 # Setting type: KeyboardShortcut
@@ -28,23 +18,7 @@ HostKey = F6
 # Default value: F7
 JoinKey = F7
 
-[Photon]
-
-## Photon endpoint mode: CustomCloud (legacy) or LocalServer.
-# Setting type: PhotonConnectionMode
-# Default value: CustomCloud
-# Acceptable values: CustomCloud, LocalServer
-Mode = LocalServer
-
-## Custom Photon PUN application ID.
-# Setting type: String
-# Default value:
-AppIdRealtime =
-
-## Custom Photon Voice application ID.
-# Setting type: String
-# Default value:
-AppIdVoice =
+[Hosting]
 
 ## Local server bootstrap endpoint fallback used before discovery selection.
 ## In M6 discovery UI flow this is usually auto-managed by host auto-detect and join-selected actions.
@@ -85,11 +59,6 @@ AutoLockWorkflowModeAfterSuccessfulHost = false
 # Default value: false
 AutoDetectHostIPv4 = false
 
-## Optional manual host LAN IPv4 override. When set, this value is used instead of interface auto-detection.
-# Setting type: String
-# Default value:
-PreferredHostIPv4 =
-
 ## Optional CSV interface filters (name/description/id contains match) for host LAN IPv4 auto-detection.
 # Setting type: String
 # Default value:
@@ -118,8 +87,8 @@ LocalServerExecutablePath = server/luxon_server.msvc.release.exe
 
 ## Working directory used when launching the local server executable.
 # Setting type: String
-# Default value:
-LocalServerWorkingDirectory =
+# Default value: server
+LocalServerWorkingDirectory = server
 
 ## Arguments passed to the local server executable when host auto-start is enabled.
 # Setting type: String
@@ -150,6 +119,11 @@ AutoRetryDirectHostUntilReady = true
 # Setting type: Boolean
 # Default value: false
 EnableLocalServerReadinessCheck = false
+
+## Auto-apply offline fallback in local-server mode to bypass the default Photon retry/offline popup on menu entry and post-room return.
+# Setting type: Boolean
+# Default value: true
+AutoSkipPhotonFailureDialog = true
 
 ## Maximum milliseconds to wait for local NameServer readiness before connect attempts.
 # Setting type: Int32
@@ -191,7 +165,3 @@ ProtocolVersion = 1
 # Default value: true
 RequireVersionMatch = true
 
-## Enable M6 LAN UI actions and discovered-session overlay in LocalServer mode.
-# Setting type: Boolean
-# Default value: false
-EnableLanUiActions = false

@@ -9,28 +9,12 @@ namespace PeakLanMod.Lan.Services;
 internal static class LanEndpointResolver
 {
     internal static bool TryResolveHostLanIpv4(
-        string preferredHostIpv4,
         string allowedHostInterfacesCsv,
         out string selectedIpv4,
         out string reason)
     {
         selectedIpv4 = string.Empty;
         reason = string.Empty;
-
-        string preferred = preferredHostIpv4.Trim();
-
-        if (!string.IsNullOrWhiteSpace(preferred))
-        {
-            if (!TryParseUsableIpv4(preferred, out _))
-            {
-                reason = "PreferredHostIPv4 is not a usable non-loopback IPv4 address.";
-                return false;
-            }
-
-            selectedIpv4 = preferred;
-            reason = "Selected PreferredHostIPv4 override.";
-            return true;
-        }
 
         HashSet<string> allowedTokens = ParseCsv(
             allowedHostInterfacesCsv);
