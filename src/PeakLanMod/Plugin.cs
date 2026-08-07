@@ -79,7 +79,6 @@ public sealed class Plugin : BaseUnityPlugin
     private string _pendingDirectJoinSource = string.Empty;
     private LocalServerEndpoint? _pendingDirectJoinEndpoint;
     private static LocalServerEndpoint? _transientJoinEndpointOverride;
-    private LanWorkflowMode? _lastAppliedLanWorkflowMode;
     private static readonly LanConnectionStateStore LanDiscoveryStateStore = new();
     private static readonly UdpLanDiscoveryListener LanDiscoveryListener =
         new(LanDiscoveryStateStore);
@@ -113,13 +112,22 @@ public sealed class Plugin : BaseUnityPlugin
     private static IPluginCompatibilityServices CompatibilityServices { get; set; } =
         PluginCompatibilityServices.CreateDefault();
 
+    private ConfigEntry<string> RoomName =>
+        Services.Options.RoomName;
+
+    private ConfigEntry<KeyboardShortcut> HostKey =>
+        Services.Options.HostKey;
+
+    private ConfigEntry<KeyboardShortcut> JoinKey =>
+        Services.Options.JoinKey;
+
     internal static IPluginCompatibilityServices Services =>
         CompatibilityServices;
 
     private void Awake()
     {
         Log = Logger;
-        CompatibilityServices = PluginCompatibilityServices.CreateDefault();
+        CompatibilityServices = PluginCompatibilityServices.CreateForPlugin(Config);
 
         ConfigureDirectConnect();
         ApplyLanWorkflowMode(force: true, source: "Awake");
@@ -143,14 +151,14 @@ public sealed class Plugin : BaseUnityPlugin
         SyncLanDiscoveryRuntime("Update");
         UpdateLanPanelCollapseForSettingsScreen();
 
-        if (_hostKey.Value.IsDown())
+        if (HostKey.Value.IsDown())
         {
             Logger.LogInfo("Host key pressed.");
 
             RequestDirectHostStart("HostKey");
         }
 
-        if (_joinKey.Value.IsDown())
+        if (JoinKey.Value.IsDown())
         {
             Logger.LogInfo("Join key pressed.");
             StartDirectJoin();
@@ -320,290 +328,16 @@ public sealed class Plugin : BaseUnityPlugin
             $"FixedRegion={settings.FixedRegion ?? "<null>"}; " +
             $"AppVersion={settings.AppVersion ?? "<null>"}");
     }
-    private ConfigEntry<string> _roomName = null!;
-    private ConfigEntry<KeyboardShortcut> _hostKey = null!;
-    private ConfigEntry<KeyboardShortcut> _joinKey = null!;
-
     private void ConfigureDirectConnect()
     {
-        _roomName = Config.Bind(
-            "Direct Connect",
-            "RoomName",
-            "badhorse-lan-mod-room_" + Guid.NewGuid().ToString("N")[..8],
-            "Host room name.");
-
-        _hostKey = Config.Bind(
-            "Direct Connect",
-            "HostKey",
-            new KeyboardShortcut(KeyCode.F6),
-            "Start direct host. Testing parameter.");
-
-        _joinKey = Config.Bind(
-            "Direct Connect",
-            "JoinKey",
-            new KeyboardShortcut(KeyCode.F7),
-            "Start direct join. Testing parameter.");
-
-        _lanPreferredRoomNameInput = _roomName.Value;
-
-        LocalServerAddress = Config.Bind(
-            "Hosting",
-            "LocalServerAddress",
-            "127.0.0.1",
-            "Local Luxon server hostname or IP. Swap with LAN host address.");
-
-        LocalServerPort = Config.Bind(
-            "Hosting",
-            "LocalServerPort",
-            5058,
-            "Port of Local Luxon Name Server UDP/TCP port.");
-
-        LocalServerProtocol = Config.Bind(
-            "Hosting",
-            "LocalServerProtocol",
-            ConnectionProtocol.Udp,
-            "Local server transport protocol.");
-
-        WorkflowMode = Config.Bind(
-            "LanWorkflow",
-            "WorkflowMode",
-            LanWorkflowMode.AutoSetup,
-            "High-level LAN workflow mode: AutoSetup (auto host endpoint/luxon updates), LockedRuntime (stable host endpoint, no host endpoint rewrites), or Advanced (manual control of all LAN workflow settings).");
-
-        AutoLockWorkflowModeAfterSuccessfulHost = Config.Bind(
-            "LanWorkflow",
-            "AutoLockWorkflowModeAfterSuccessfulHost",
-            true,
-            "Automatically switch WorkflowMode from AutoSetup to LockedRuntime after a successful host room creation. Sets itself to false afterwards.");
-
-        AutoDetectHostLanIpv4 = Config.Bind(
-            "LanWorkflow",
-            "AutoDetectHostIPv4",
-            true,
-            "Auto-detect host LAN IPv4 during direct host in LocalServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
-
-        AllowedHostInterfaces = Config.Bind(
-            "LanWorkflow",
-            "AllowedHostInterfaces",
-            //"Ethernet,Wi-Fi",
-            string.Empty,
-            "Optional CSV interface filters (name/description/id contains match) for host LAN IPv4 auto-detection.");
-
-        AutoUpdateLuxonConfigOnHost = Config.Bind(
-            "LanWorkflow",
-            "AutoUpdateLuxonConfigOnHost",
-            true,
-            "Automatically rewrite Luxon external_address values during direct host in LocalServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
-
-        LuxonConfigPath = Config.Bind(
-            "LanWorkflow",
-            "LuxonConfigPath",
-            "server/config.yml",
-            "Relative or absolute path to Luxon config.yml used by host-side external_address automation.");
-
-        AutoStartLocalServerOnHost = Config.Bind(
-            "LanWorkflow",
-            "AutoStartLocalServerOnHost",
-            true,
-            "Start local server executable during direct host when no matching process is already running.");
-
-        LocalServerExecutablePath = Config.Bind(
-            "LanWorkflow",
-            "LocalServerExecutablePath",
-            "server/luxon_server.msvc.release.exe",
-            "Relative or absolute path to the local server executable for optional host auto-start.");
-
-        LocalServerWorkingDirectory = Config.Bind(
-            "LanWorkflow",
-            "LocalServerWorkingDirectory",
-            "server",
-            "Working directory used when launching the local server executable. Leave empty to use executable directory.");
-
-        LocalServerStartArguments = Config.Bind(
-            "LanWorkflow",
-            "LocalServerStartArguments",
-            "config.yml",
-            "Arguments passed to the local server executable when host auto-start is enabled.");
-
-        AutoStopOwnedLocalServerOnExit = Config.Bind(
-            "LanWorkflow",
-            "AutoStopOwnedLocalServerOnExit",
-            true,
-            "Stop only plugin-owned local server process on plugin unload/game exit.");
-
-        AutoStopOwnedLocalServerOnLeaveRoom = Config.Bind(
-            "LanWorkflow",
-            "AutoStopOwnedLocalServerOnLeaveRoom",
-            true,
-            "Stop plugin-owned local server process when leaving a room.");
-
-        ForceKillOwnedLocalServerOnExit = Config.Bind(
-            "LanWorkflow",
-            "ForceKillOwnedLocalServerOnExit",
-            true,
-            "Force-kill plugin-owned local server process on exit when graceful stop times out.");
-
-        OwnedLocalServerStopTimeoutMs = Config.Bind(
-            "LanWorkflow",
-            "OwnedLocalServerStopTimeoutMs",
-            2000,
-            "Timeout in milliseconds for graceful stop of plugin-owned local server process.");
-
-        AutoRetryDirectHostUntilReady = Config.Bind(
-            "LanWorkflow",
-            "AutoRetryDirectHostUntilReady",
-            true,
-            "Queue host intent on HostKey and auto-complete when the server becomes connected and ready.");
-
-        EnableLocalServerReadinessCheck = Config.Bind(
-            "LanWorkflow",
-            "EnableLocalServerReadinessCheck",
-            true,
-            "Wait for local NameServer readiness before direct host/join connect attempts in LocalServer mode.");
-
-        AutoSkipPhotonFailureDialog = Config.Bind(
-            "LanWorkflow",
-            "AutoSkipPhotonFailureDialog",
-            true,
-            "Auto-apply offline fallback to bypass the default Photon retry/offline popup on menu entry and post-room return.");
-
-        LocalServerReadinessTimeoutMs = Config.Bind(
-            "LanWorkflow",
-            "ReadinessTimeoutMs",
-            5000,
-            "Maximum milliseconds to wait for local NameServer readiness before connect attempts.");
-
-        LocalServerReadinessPollIntervalMs = Config.Bind(
-            "LanWorkflow",
-            "ReadinessPollIntervalMs",
-            250,
-            "Milliseconds between local NameServer readiness probe attempts.");
-
-        LanDiscoveryEnabled = Config.Bind(
-            "LanWorkflow",
-            "DiscoveryEnabled",
-            false,
-            "Enable UDP LAN session discovery listener and host announcement broadcast in LocalServer mode.");
-
-        LanDiscoveryUdpPort = Config.Bind(
-            "LanWorkflow",
-            "DiscoveryUdpPort",
-            47777,
-            "UDP port used for LAN discovery announcements.");
-
-        LanDiscoveryBroadcastIntervalMs = Config.Bind(
-            "LanWorkflow",
-            "DiscoveryBroadcastIntervalMs",
-            1000,
-            "Interval in milliseconds for host discovery announcements.");
-
-        LanDiscoveryEntryTtlMs = Config.Bind(
-            "LanWorkflow",
-            "DiscoveryEntryTtlMs",
-            5000,
-            "Milliseconds before an unrefreshed discovered session is evicted.");
-
-        LanDiscoveryProtocolVersion = Config.Bind(
-            "LanWorkflow",
-            "ProtocolVersion",
-            "1",
-            "Discovery protocol version string advertised and required for session compatibility.");
-
-        LanDiscoveryRequireVersionMatch = Config.Bind(
-            "LanWorkflow",
-            "RequireVersionMatch",
-            true,
-            "Require exact game/mod version match for discovery session compatibility.");
-
-        EnableStructuredErrorMapping = Config.Bind(
-            "LanWorkflow",
-            "EnableStructuredErrorMapping",
-            true,
-            "Enable deterministic LAN error classification and UI/status surfacing.");
+        _lanPreferredRoomNameInput = RoomName.Value;
     }
 
     private void ApplyLanWorkflowMode(
         bool force,
         string source)
     {
-        LanWorkflowMode mode = WorkflowMode.Value;
-
-        if (!force && _lastAppliedLanWorkflowMode == mode)
-        {
-            return;
-        }
-
-        switch (mode)
-        {
-            case LanWorkflowMode.AutoSetup:
-                ApplyLanWorkflowPreset(
-                    source,
-                    mode,
-                    autoDetectHostIpv4: true,
-                    autoUpdateLuxonConfigOnHost: true);
-                break;
-
-            case LanWorkflowMode.LockedRuntime:
-                ApplyLanWorkflowPreset(
-                    source,
-                    mode,
-                    autoDetectHostIpv4: false,
-                    autoUpdateLuxonConfigOnHost: false);
-                break;
-
-            case LanWorkflowMode.Advanced:
-                Log.LogInfo(
-                    $"{source}: LanWorkflow mode Advanced active. " +
-                    $"Using explicit settings: " +
-                    $"AutoDetectHostIPv4={AutoDetectHostLanIpv4.Value}; " +
-                    $"AutoUpdateLuxonConfigOnHost={AutoUpdateLuxonConfigOnHost.Value}.");
-                break;
-
-            default:
-                Log.LogWarning(
-                    $"{source}: unknown LanWorkflow mode '{mode}'. " +
-                    "Falling back to Advanced behavior.");
-                break;
-        }
-
-        _lastAppliedLanWorkflowMode = mode;
-    }
-
-    private static void ApplyLanWorkflowPreset(
-        string source,
-        LanWorkflowMode mode,
-        bool autoDetectHostIpv4,
-        bool autoUpdateLuxonConfigOnHost)
-    {
-        bool changedAutoDetect = SetConfigEntryValue(
-            AutoDetectHostLanIpv4,
-            autoDetectHostIpv4);
-
-        bool changedAutoUpdate = SetConfigEntryValue(
-            AutoUpdateLuxonConfigOnHost,
-            autoUpdateLuxonConfigOnHost);
-
-        Log.LogInfo(
-            $"{source}: LanWorkflow mode {mode} applied. " +
-            $"AutoDetectHostIPv4={AutoDetectHostLanIpv4.Value}" +
-            (changedAutoDetect ? " (updated)" : string.Empty) +
-            "; " +
-            $"AutoUpdateLuxonConfigOnHost={AutoUpdateLuxonConfigOnHost.Value}" +
-            (changedAutoUpdate ? " (updated)" : string.Empty) +
-            ".");
-    }
-
-    private static bool SetConfigEntryValue<T>(
-        ConfigEntry<T> entry,
-        T value)
-    {
-        if (EqualityComparer<T>.Default.Equals(entry.Value, value))
-        {
-            return false;
-        }
-
-        entry.Value = value;
-        return true;
+        Services.WorkflowPolicy.ApplyLanWorkflowMode(force, source);
     }
 
     private void SyncLanDiscoveryRuntime(
@@ -987,10 +721,10 @@ public sealed class Plugin : BaseUnityPlugin
             _lanPreferredRoomNameInput);
 
         if (string.IsNullOrEmpty(_lanPreferredRoomNameInput)
-            && !string.IsNullOrWhiteSpace(_roomName.Value))
+            && !string.IsNullOrWhiteSpace(RoomName.Value))
         {
             _lanPreferredRoomNameInput = NormalizeRoomNameInputForUi(
-                _roomName.Value);
+                RoomName.Value);
         }
 
         IReadOnlyList<LanSessionInfo> sessions = LanDiscoveredSessionsViewModel.Sessions;
@@ -1106,7 +840,7 @@ public sealed class Plugin : BaseUnityPlugin
                     StringComparison.Ordinal))
             {
                 _lanPreferredRoomNameInput = updatedPreferredRoomName;
-                _roomName.Value = _lanPreferredRoomNameInput;
+                RoomName.Value = _lanPreferredRoomNameInput;
             }
         }
 
@@ -1118,7 +852,7 @@ public sealed class Plugin : BaseUnityPlugin
                 "Host LAN",
                 _lanUiButtonStyle ?? GUI.skin.button))
         {
-            _roomName.Value = validatedHostRoomName;
+            RoomName.Value = validatedHostRoomName;
             Log.LogInfo("LAN UI host button clicked.");
             RequestDirectHostStart("LanUiHostButton");
         }
@@ -2188,7 +1922,7 @@ public sealed class Plugin : BaseUnityPlugin
         out string roomName)
     {
         if (TryGetValidatedHostRoomName(
-                _roomName.Value,
+                RoomName.Value,
                 out roomName,
                 out string failureReason))
         {
@@ -2206,7 +1940,7 @@ public sealed class Plugin : BaseUnityPlugin
         out string roomName)
     {
         if (TryNormalizeRoomName(
-                _roomName.Value,
+                RoomName.Value,
                 out roomName,
                 out string failureReason))
         {
@@ -2243,35 +1977,35 @@ public sealed class Plugin : BaseUnityPlugin
                 yieldForCharacterSpawn: true));
     }
 
-    internal static ConfigEntry<LanWorkflowMode> WorkflowMode = null!;
-    internal static ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost = null!;
-    internal static ConfigEntry<string> LocalServerAddress = null!;
-    internal static ConfigEntry<int> LocalServerPort = null!;
-    internal static ConfigEntry<ConnectionProtocol> LocalServerProtocol = null!;
-    internal static ConfigEntry<bool> AutoDetectHostLanIpv4 = null!;
-    internal static ConfigEntry<string> AllowedHostInterfaces = null!;
-    internal static ConfigEntry<bool> AutoUpdateLuxonConfigOnHost = null!;
-    internal static ConfigEntry<string> LuxonConfigPath = null!;
-    internal static ConfigEntry<bool> AutoStartLocalServerOnHost = null!;
-    internal static ConfigEntry<string> LocalServerExecutablePath = null!;
-    internal static ConfigEntry<string> LocalServerWorkingDirectory = null!;
-    internal static ConfigEntry<string> LocalServerStartArguments = null!;
-    internal static ConfigEntry<bool> AutoStopOwnedLocalServerOnExit = null!;
-    internal static ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom = null!;
-    internal static ConfigEntry<bool> ForceKillOwnedLocalServerOnExit = null!;
-    internal static ConfigEntry<int> OwnedLocalServerStopTimeoutMs = null!;
-    internal static ConfigEntry<bool> AutoRetryDirectHostUntilReady = null!;
-    internal static ConfigEntry<bool> AutoSkipPhotonFailureDialog = null!;
-    internal static ConfigEntry<bool> EnableLocalServerReadinessCheck = null!;
-    internal static ConfigEntry<int> LocalServerReadinessTimeoutMs = null!;
-    internal static ConfigEntry<int> LocalServerReadinessPollIntervalMs = null!;
-    internal static ConfigEntry<bool> LanDiscoveryEnabled = null!;
-    internal static ConfigEntry<int> LanDiscoveryUdpPort = null!;
-    internal static ConfigEntry<int> LanDiscoveryBroadcastIntervalMs = null!;
-    internal static ConfigEntry<int> LanDiscoveryEntryTtlMs = null!;
-    internal static ConfigEntry<string> LanDiscoveryProtocolVersion = null!;
-    internal static ConfigEntry<bool> LanDiscoveryRequireVersionMatch = null!;
-    internal static ConfigEntry<bool> EnableStructuredErrorMapping = null!;
+    internal static ConfigEntry<LanWorkflowMode> WorkflowMode => Services.Options.WorkflowMode;
+    internal static ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost => Services.Options.AutoLockWorkflowModeAfterSuccessfulHost;
+    internal static ConfigEntry<string> LocalServerAddress => Services.Options.LocalServerAddress;
+    internal static ConfigEntry<int> LocalServerPort => Services.Options.LocalServerPort;
+    internal static ConfigEntry<ConnectionProtocol> LocalServerProtocol => Services.Options.LocalServerProtocol;
+    internal static ConfigEntry<bool> AutoDetectHostLanIpv4 => Services.Options.AutoDetectHostLanIpv4;
+    internal static ConfigEntry<string> AllowedHostInterfaces => Services.Options.AllowedHostInterfaces;
+    internal static ConfigEntry<bool> AutoUpdateLuxonConfigOnHost => Services.Options.AutoUpdateLuxonConfigOnHost;
+    internal static ConfigEntry<string> LuxonConfigPath => Services.Options.LuxonConfigPath;
+    internal static ConfigEntry<bool> AutoStartLocalServerOnHost => Services.Options.AutoStartLocalServerOnHost;
+    internal static ConfigEntry<string> LocalServerExecutablePath => Services.Options.LocalServerExecutablePath;
+    internal static ConfigEntry<string> LocalServerWorkingDirectory => Services.Options.LocalServerWorkingDirectory;
+    internal static ConfigEntry<string> LocalServerStartArguments => Services.Options.LocalServerStartArguments;
+    internal static ConfigEntry<bool> AutoStopOwnedLocalServerOnExit => Services.Options.AutoStopOwnedLocalServerOnExit;
+    internal static ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom => Services.Options.AutoStopOwnedLocalServerOnLeaveRoom;
+    internal static ConfigEntry<bool> ForceKillOwnedLocalServerOnExit => Services.Options.ForceKillOwnedLocalServerOnExit;
+    internal static ConfigEntry<int> OwnedLocalServerStopTimeoutMs => Services.Options.OwnedLocalServerStopTimeoutMs;
+    internal static ConfigEntry<bool> AutoRetryDirectHostUntilReady => Services.Options.AutoRetryDirectHostUntilReady;
+    internal static ConfigEntry<bool> AutoSkipPhotonFailureDialog => Services.Options.AutoSkipPhotonFailureDialog;
+    internal static ConfigEntry<bool> EnableLocalServerReadinessCheck => Services.Options.EnableLocalServerReadinessCheck;
+    internal static ConfigEntry<int> LocalServerReadinessTimeoutMs => Services.Options.LocalServerReadinessTimeoutMs;
+    internal static ConfigEntry<int> LocalServerReadinessPollIntervalMs => Services.Options.LocalServerReadinessPollIntervalMs;
+    internal static ConfigEntry<bool> LanDiscoveryEnabled => Services.Options.LanDiscoveryEnabled;
+    internal static ConfigEntry<int> LanDiscoveryUdpPort => Services.Options.LanDiscoveryUdpPort;
+    internal static ConfigEntry<int> LanDiscoveryBroadcastIntervalMs => Services.Options.LanDiscoveryBroadcastIntervalMs;
+    internal static ConfigEntry<int> LanDiscoveryEntryTtlMs => Services.Options.LanDiscoveryEntryTtlMs;
+    internal static ConfigEntry<string> LanDiscoveryProtocolVersion => Services.Options.LanDiscoveryProtocolVersion;
+    internal static ConfigEntry<bool> LanDiscoveryRequireVersionMatch => Services.Options.LanDiscoveryRequireVersionMatch;
+    internal static ConfigEntry<bool> EnableStructuredErrorMapping => Services.Options.EnableStructuredErrorMapping;
 
     internal static bool IsLocalServerMode =>
         true;
@@ -2400,32 +2134,7 @@ public sealed class Plugin : BaseUnityPlugin
     internal static void TryAutoLockWorkflowModeAfterSuccessfulHost(
         string source)
     {
-        if (!IsLocalServerMode)
-        {
-            return;
-        }
-
-        if (!AutoLockWorkflowModeAfterSuccessfulHost.Value)
-        {
-            return;
-        }
-
-        if (WorkflowMode.Value != LanWorkflowMode.AutoSetup)
-        {
-            return;
-        }
-
-        if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient)
-        {
-            return;
-        }
-
-        WorkflowMode.Value = LanWorkflowMode.LockedRuntime;
-        AutoLockWorkflowModeAfterSuccessfulHost.Value = false;
-
-        Log.LogInfo(
-            $"{source}: auto-switched LanWorkflow WorkflowMode " +
-            "from AutoSetup to LockedRuntime after successful host room creation.");
+        Services.WorkflowPolicy.TryAutoLockWorkflowModeAfterSuccessfulHost(source);
     }
 
     private static void ApplyLocalServerSettings(

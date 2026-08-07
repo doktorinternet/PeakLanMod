@@ -1,13 +1,51 @@
 using PeakLanMod.Lan.Model;
+using System;
+using BepInEx.Configuration;
+using ExitGames.Client.Photon;
+using UnityEngine;
 
 namespace PeakLanMod.Lan.Services;
 
 internal interface ILanPluginOptions
 {
+    ConfigEntry<string> RoomName { get; }
+    ConfigEntry<KeyboardShortcut> HostKey { get; }
+    ConfigEntry<KeyboardShortcut> JoinKey { get; }
+    ConfigEntry<Plugin.LanWorkflowMode> WorkflowMode { get; }
+    ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost { get; }
+    ConfigEntry<string> LocalServerAddress { get; }
+    ConfigEntry<int> LocalServerPort { get; }
+    ConfigEntry<ConnectionProtocol> LocalServerProtocol { get; }
+    ConfigEntry<bool> AutoDetectHostLanIpv4 { get; }
+    ConfigEntry<string> AllowedHostInterfaces { get; }
+    ConfigEntry<bool> AutoUpdateLuxonConfigOnHost { get; }
+    ConfigEntry<string> LuxonConfigPath { get; }
+    ConfigEntry<bool> AutoStartLocalServerOnHost { get; }
+    ConfigEntry<string> LocalServerExecutablePath { get; }
+    ConfigEntry<string> LocalServerWorkingDirectory { get; }
+    ConfigEntry<string> LocalServerStartArguments { get; }
+    ConfigEntry<bool> AutoStopOwnedLocalServerOnExit { get; }
+    ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom { get; }
+    ConfigEntry<bool> ForceKillOwnedLocalServerOnExit { get; }
+    ConfigEntry<int> OwnedLocalServerStopTimeoutMs { get; }
+    ConfigEntry<bool> AutoRetryDirectHostUntilReady { get; }
+    ConfigEntry<bool> AutoSkipPhotonFailureDialog { get; }
+    ConfigEntry<bool> EnableLocalServerReadinessCheck { get; }
+    ConfigEntry<int> LocalServerReadinessTimeoutMs { get; }
+    ConfigEntry<int> LocalServerReadinessPollIntervalMs { get; }
+    ConfigEntry<bool> LanDiscoveryEnabled { get; }
+    ConfigEntry<int> LanDiscoveryUdpPort { get; }
+    ConfigEntry<int> LanDiscoveryBroadcastIntervalMs { get; }
+    ConfigEntry<int> LanDiscoveryEntryTtlMs { get; }
+    ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
+    ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
+    ConfigEntry<bool> EnableStructuredErrorMapping { get; }
 }
 
 internal interface ILanWorkflowPolicyService
 {
+    void ApplyLanWorkflowMode(bool force, string source);
+    void TryAutoLockWorkflowModeAfterSuccessfulHost(string source);
 }
 
 internal interface IDirectConnectCoordinator
@@ -66,10 +104,12 @@ internal interface IPluginCompatibilityServices
 
 internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 {
-    private PluginCompatibilityServices()
+    private PluginCompatibilityServices(
+        ILanPluginOptions options,
+        ILanWorkflowPolicyService workflowPolicy)
     {
-        Options = new PlaceholderLanPluginOptions();
-        WorkflowPolicy = new PlaceholderLanWorkflowPolicyService();
+        Options = options;
+        WorkflowPolicy = workflowPolicy;
         DirectConnect = new PlaceholderDirectConnectCoordinator();
         Overlay = new PlaceholderLanOverlayController();
         DiscoveryRuntime = new PluginBackedLanDiscoveryRuntimeCoordinator();
@@ -80,7 +120,20 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
     internal static IPluginCompatibilityServices CreateDefault()
     {
-        return new PluginCompatibilityServices();
+        return new PluginCompatibilityServices(
+            new PlaceholderLanPluginOptions(),
+            new PlaceholderLanWorkflowPolicyService());
+    }
+
+    internal static IPluginCompatibilityServices CreateForPlugin(
+        ConfigFile config)
+    {
+        var options = new LanPluginOptions(config);
+        var workflowPolicy = new LanWorkflowPolicyService(options);
+
+        return new PluginCompatibilityServices(
+            options,
+            workflowPolicy);
     }
 
     public ILanPluginOptions Options { get; }
@@ -94,10 +147,58 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
     private sealed class PlaceholderLanPluginOptions : ILanPluginOptions
     {
+        private static ConfigEntry<T> NotReady<T>()
+        {
+            throw new InvalidOperationException(
+                "Plugin compatibility services are not initialized yet.");
+        }
+
+        public ConfigEntry<string> RoomName => NotReady<string>();
+        public ConfigEntry<KeyboardShortcut> HostKey => NotReady<KeyboardShortcut>();
+        public ConfigEntry<KeyboardShortcut> JoinKey => NotReady<KeyboardShortcut>();
+        public ConfigEntry<Plugin.LanWorkflowMode> WorkflowMode => NotReady<Plugin.LanWorkflowMode>();
+        public ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost => NotReady<bool>();
+        public ConfigEntry<string> LocalServerAddress => NotReady<string>();
+        public ConfigEntry<int> LocalServerPort => NotReady<int>();
+        public ConfigEntry<ConnectionProtocol> LocalServerProtocol => NotReady<ConnectionProtocol>();
+        public ConfigEntry<bool> AutoDetectHostLanIpv4 => NotReady<bool>();
+        public ConfigEntry<string> AllowedHostInterfaces => NotReady<string>();
+        public ConfigEntry<bool> AutoUpdateLuxonConfigOnHost => NotReady<bool>();
+        public ConfigEntry<string> LuxonConfigPath => NotReady<string>();
+        public ConfigEntry<bool> AutoStartLocalServerOnHost => NotReady<bool>();
+        public ConfigEntry<string> LocalServerExecutablePath => NotReady<string>();
+        public ConfigEntry<string> LocalServerWorkingDirectory => NotReady<string>();
+        public ConfigEntry<string> LocalServerStartArguments => NotReady<string>();
+        public ConfigEntry<bool> AutoStopOwnedLocalServerOnExit => NotReady<bool>();
+        public ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom => NotReady<bool>();
+        public ConfigEntry<bool> ForceKillOwnedLocalServerOnExit => NotReady<bool>();
+        public ConfigEntry<int> OwnedLocalServerStopTimeoutMs => NotReady<int>();
+        public ConfigEntry<bool> AutoRetryDirectHostUntilReady => NotReady<bool>();
+        public ConfigEntry<bool> AutoSkipPhotonFailureDialog => NotReady<bool>();
+        public ConfigEntry<bool> EnableLocalServerReadinessCheck => NotReady<bool>();
+        public ConfigEntry<int> LocalServerReadinessTimeoutMs => NotReady<int>();
+        public ConfigEntry<int> LocalServerReadinessPollIntervalMs => NotReady<int>();
+        public ConfigEntry<bool> LanDiscoveryEnabled => NotReady<bool>();
+        public ConfigEntry<int> LanDiscoveryUdpPort => NotReady<int>();
+        public ConfigEntry<int> LanDiscoveryBroadcastIntervalMs => NotReady<int>();
+        public ConfigEntry<int> LanDiscoveryEntryTtlMs => NotReady<int>();
+        public ConfigEntry<string> LanDiscoveryProtocolVersion => NotReady<string>();
+        public ConfigEntry<bool> LanDiscoveryRequireVersionMatch => NotReady<bool>();
+        public ConfigEntry<bool> EnableStructuredErrorMapping => NotReady<bool>();
     }
 
     private sealed class PlaceholderLanWorkflowPolicyService : ILanWorkflowPolicyService
     {
+        public void ApplyLanWorkflowMode(
+            bool force,
+            string source)
+        {
+        }
+
+        public void TryAutoLockWorkflowModeAfterSuccessfulHost(
+            string source)
+        {
+        }
     }
 
     private sealed class PlaceholderDirectConnectCoordinator : IDirectConnectCoordinator
