@@ -19,11 +19,13 @@ Use it to route new implementations and updates to the most appropriate files an
 
 Phase state:
 - Phase 0 status: completed.
-- Phase 1-7 status: not started.
+- Phase 1 status: completed.
+- Phase 2-7 status: not started.
 
 Current reality summary:
-- Plugin root still contains lifecycle, config, workflow, discovery, local server runtime, direct connect orchestration, UI, and shared helpers.
+- Plugin root still contains lifecycle, config, workflow, discovery, local server runtime, direct connect orchestration, and UI.
 - Phase 0 scaffolding now exists in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs` with plugin-backed adapters and placeholder interfaces for later extraction.
+- Phase 1 extracted deterministic identity/validation helpers into `src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs` with wrapper-preserving calls through `Plugin` methods.
 - External callers still use Plugin static wrappers; no behavior-routing migration occurred in this phase.
 
 Target direction summary:
@@ -44,6 +46,7 @@ Target direction summary:
 | Structured LAN error set/clear | LanErrorStateService | UI view models |
 | Validation/sanitization/fingerprinting | LanIdentityAndValidation | Patches |
 | Transitional service adapter ownership | PluginCompatibilityServices | Plugin feature methods |
+| Helper compatibility wrappers | Plugin static helper methods delegating to services | New helper logic in Plugin root |
 
 ## Placement rules for new work
 
@@ -77,7 +80,10 @@ Use this section to track temporary Plugin static wrappers and planned removal p
 | Plugin.NotifyLocalServerDetected / NotDetected | PhotonCallbackProbe | Phase 7 | Move to LanErrorStateService facade. |
 | Plugin.ReportStructuredLanError / ClearStructuredLanError | PhotonCallbackProbe | Phase 7 | Move to LanErrorStateService facade. |
 | Plugin.RefreshLanDiscoveryBroadcast / StopLanDiscoveryBroadcast | PhotonCallbackProbe | Phase 7 | Move to LanDiscoveryRuntimeCoordinator facade. |
-| Plugin.Fingerprint | Discovery + process helpers + probes | Phase 7 | Move to LanIdentityAndValidation utility. |
+| Plugin.Fingerprint | Discovery + process helpers + probes | Phase 7 | Wrapper now delegates to LanIdentityAndValidation (Phase 1). |
+| Plugin.NormalizeRoomName / TryNormalizeRoomName / NormalizeRoomNameInputForUi | Plugin internal host/join + LAN UI | Phase 7 | Wrappers now delegate to LanIdentityAndValidation (Phase 1). |
+| Plugin.TryGetValidatedHostRoomName / TryGetValidatedHostRoomNameFromInput | Plugin host + LAN UI input gate | Phase 7 | Wrappers now delegate to LanIdentityAndValidation (Phase 1). |
+| Plugin.SanitizeEndpointForLog / PullU | Plugin local-server diagnostics + identity helpers | Phase 7 | Wrappers now delegate to LanIdentityAndValidation (Phase 1). |
 | Plugin.Services | none (Phase 0 only) | Phase 7 | Transitional composition access point for plugin-backed adapters. |
 
 ## Interface ownership ledger
@@ -94,7 +100,7 @@ Add new interfaces here as they are introduced.
 | ILanDiscoveryRuntimeCoordinator | PluginCompatibilityServices (plugin-backed) | Discovery broadcast compatibility surface. |
 | ILanErrorStateService | PluginCompatibilityServices (plugin-backed) | Structured LAN error and local-server state compatibility surface. |
 | ILocalServerRuntimeService | PluginCompatibilityServices (plugin-backed) | Photon app-settings compatibility surface. |
-| ILanIdentityAndValidation | PluginCompatibilityServices (plugin-backed) | Fingerprint compatibility surface. |
+| ILanIdentityAndValidation | LanIdentityAndValidation | Normalization, host room-name validation, endpoint sanitization, fingerprint, and identity helper compatibility surface. |
 
 ## Phase update log
 
@@ -127,3 +133,11 @@ Append one entry whenever a migration phase is completed.
 - New interfaces introduced: IPluginCompatibilityServices, ILanPluginOptions, ILanWorkflowPolicyService, IDirectConnectCoordinator, ILanOverlayController, ILanDiscoveryRuntimeCoordinator, ILanErrorStateService, ILocalServerRuntimeService, ILanIdentityAndValidation
 - Compatibility wrappers added/removed: added Plugin.Services transitional wrapper surface; no removals
 - Notes for future agents: keep Plugin static wrapper call sites unchanged until Phase 1+ implementation extraction starts.
+
+- 2026-08-07
+- Phase completed: Phase 1
+- Architecture snapshot updated sections: phase state, current reality summary
+- Routing table changes: added helper compatibility wrapper routing row
+- New interfaces introduced: none
+- Compatibility wrappers added/removed: no removals; helper wrappers now delegate to LanIdentityAndValidation
+- Notes for future agents: keep wrapper signatures stable while moving non-helper responsibilities in later phases.

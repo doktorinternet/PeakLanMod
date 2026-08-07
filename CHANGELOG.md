@@ -4,6 +4,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-07
 
+- Completed Plugin separation migration Phase 1: extracted deterministic identity/validation helpers into `LanIdentityAndValidation` with compatibility wrappers preserved in `Plugin` (no intended runtime behavior change).
 - Completed Plugin separation migration Phase 0: added compatibility service scaffolding and plugin-backed adapters for future extraction with no intended runtime behavior change.
 - Release tag: `v0.5.0`.
 - Milestone 8 scope correction: removed runtime mode-transition handling after confirming this mod does not switch network modes during runtime.
