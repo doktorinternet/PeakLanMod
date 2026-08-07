@@ -505,3 +505,15 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, interface ownership ledger, phase update log
 - Notes: Added Phase 0 service contracts and plugin-backed adapter wiring only; no networking flow or callback ordering changes. User confirmed post-change two-machine runtime test passed.
+
+- 2026-08-07
+- Phase: Phase 1 - Extract pure helper logic
+- Files changed: src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: moving deterministic identity/validation helpers behind compatibility wrappers is behavior-neutral when signatures and call paths are preserved.
+- Build result: dotnet build succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): static
+- First divergent callback/state observed (if any): none observed in static validation
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, interface ownership ledger, phase update log
+- Notes: Preserved Plugin helper method signatures as wrappers while extracting normalization, blocked-term checks, endpoint sanitization, fingerprinting, and user-id helper logic into LanIdentityAndValidation. No networking behavior changes were introduced.

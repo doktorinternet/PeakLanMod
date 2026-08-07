@@ -9,11 +9,6 @@ using Zorro.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Text;
-using System.Security.Cryptography;
-using System.Net;
-using System.Net.Sockets;
-using System.Text.RegularExpressions;
 using PeakLanMod.Lan.Discovery;
 using PeakLanMod.Lan.Diagnostics;
 using PeakLanMod.Lan.Model;
@@ -93,34 +88,6 @@ public sealed class Plugin : BaseUnityPlugin
     private static readonly LanStatusPresenterBridge LanStatusPresenterBridge = new();
     private static readonly string LanDiscoveryServerInstanceId =
         Guid.NewGuid().ToString("N");
-    private static readonly HashSet<string> X7GateSet =
-        new(StringComparer.Ordinal)
-        {
-            "9D24C19A08",
-        };
-    private static readonly HashSet<string> BlockedHostRoomNameTerms =
-        new(StringComparer.Ordinal)
-        {
-            // English profanity and abusive language.
-            "bitch",
-            "fag",
-            "faggot",
-            "retard",
-            "slut",
-            "whore",
-            "nigger",
-            "negro",
-
-            // Swedish profanity and abusive language.
-            "fitta",
-            "hora",
-            "kuk",
-            "mongo",
-            "neger",
-            "bög",
-            "svartskalle",
-            "svart skalle"
-        };
     private static int _lastLanDiscoverySnapshotCount = -1;
     private static bool? _lastLanDiscoveryListenerRunning;
     private static bool? _lastLanDiscoveryBroadcasterRunning;
@@ -2131,16 +2098,9 @@ public sealed class Plugin : BaseUnityPlugin
     private static string NormalizeRoomName(
         string roomName)
     {
-        string normalized =
-            roomName.Trim().ToLowerInvariant();
-
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            throw new InvalidOperationException(
-                "The configured room name is empty.");
-        }
-
-        return normalized;
+        return Services
+            .IdentityAndValidation
+            .NormalizeRoomName(roomName);
     }
 
     private static bool TryNormalizeRoomName(
@@ -2148,119 +2108,45 @@ public sealed class Plugin : BaseUnityPlugin
         out string normalizedRoomName,
         out string failureReason)
     {
-        try
-        {
-            normalizedRoomName = NormalizeRoomName(roomName);
-            failureReason = string.Empty;
-            return true;
-        }
-        catch (InvalidOperationException exception)
-        {
-            normalizedRoomName = string.Empty;
-            failureReason = exception.Message;
-            return false;
-        }
+        return Services
+            .IdentityAndValidation
+            .TryNormalizeRoomName(
+                roomName,
+                out normalizedRoomName,
+                out failureReason);
     }
 
     private static string NormalizeRoomNameInputForUi(
         string roomName)
     {
-        if (string.IsNullOrEmpty(roomName))
-        {
-            return string.Empty;
-        }
-
-        string normalized = roomName
-            .Replace("\r", string.Empty)
-            .Replace("\n", string.Empty);
-
-        const int maxRoomNameLength = 64;
-
-        if (normalized.Length > maxRoomNameLength)
-        {
-            normalized = normalized[..maxRoomNameLength];
-        }
-
-        return normalized;
+        return Services
+            .IdentityAndValidation
+            .NormalizeRoomNameInputForUi(roomName);
     }
 
     private static bool TryContainsBlockedHostRoomNameTerm(
         string normalizedRoomName,
         out string blockedTerm)
     {
-        blockedTerm = string.Empty;
-
-        string[] tokens = Regex.Split(
-            normalizedRoomName,
-            @"[^a-z0-9]+");
-
-        for (int index = 0; index < tokens.Length; index++)
-        {
-            string token = tokens[index];
-
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                continue;
-            }
-
-            foreach (string candidate in BlockedHostRoomNameTerms)
-            {
-                if (token.IndexOf(
-                        candidate,
-                        StringComparison.Ordinal) >= 0)
-                {
-                    blockedTerm = candidate;
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return Services
+            .IdentityAndValidation
+            .TryContainsBlockedHostRoomNameTerm(
+                normalizedRoomName,
+                out blockedTerm);
     }
 
     private bool Q1()
     {
-        string a = PullU();
-
-        if (string.IsNullOrWhiteSpace(a))
-        {
-            return false;
-        }
-
-        string b = Fingerprint(a);
-
-        return X7GateSet.Contains(b);
+        return Services
+            .IdentityAndValidation
+            .IsCurrentUserInX7GateSet();
     }
 
     private static string PullU()
     {
-        string fromPhotonAuth =
-            PhotonNetwork.AuthValues?.UserId ?? string.Empty;
-
-        if (!string.IsNullOrWhiteSpace(fromPhotonAuth))
-        {
-            return fromPhotonAuth.Trim();
-        }
-
-        try
-        {
-            AuthenticationValues? loadedAuth =
-                Peak.Network.NetworkingUtilities.LoadUserID();
-
-            return loadedAuth?.UserId?.Trim() ?? string.Empty;
-        }
-        catch (Exception ex)
-        {
-            if (Log is not null)
-            {
-                Log.LogWarning(
-                    "User ID resolution fallback failed. " +
-                    $"Error={ex.GetType().Name}; " +
-                    $"Message={ex.Message}");
-            }
-
-            return string.Empty;
-        }
+        return Services
+            .IdentityAndValidation
+            .PullU();
     }
 
     private static string MixSig(
@@ -2277,24 +2163,12 @@ public sealed class Plugin : BaseUnityPlugin
         out string normalizedRoomName,
         out string failureReason)
     {
-        if (!TryNormalizeRoomName(
+        return Services
+            .IdentityAndValidation
+            .TryGetValidatedHostRoomName(
                 roomName,
                 out normalizedRoomName,
-                out failureReason))
-        {
-            return false;
-        }
-
-        if (TryContainsBlockedHostRoomNameTerm(
-                normalizedRoomName,
-                out string blockedTerm))
-        {
-            failureReason = $"room name contains a blocked term. Don't be a jerk.";
-            return false;
-        }
-
-        failureReason = string.Empty;
-        return true;
+                out failureReason);
     }
 
     private bool TryGetValidatedHostRoomNameFromInput(
@@ -2302,23 +2176,12 @@ public sealed class Plugin : BaseUnityPlugin
         out string normalizedRoomName,
         out string failureReason)
     {
-        if (TryGetValidatedHostRoomName(
+        return Services
+            .IdentityAndValidation
+            .TryGetValidatedHostRoomNameFromInput(
                 roomName,
                 out normalizedRoomName,
-                out failureReason))
-        {
-            return true;
-        }
-
-        if (string.Equals(
-                failureReason,
-                "The configured room name is empty.",
-                StringComparison.Ordinal))
-        {
-            failureReason = "room name is required.";
-        }
-
-        return false;
+                out failureReason);
     }
 
     private bool TryGetValidatedConfiguredHostRoomName(
@@ -2360,26 +2223,9 @@ public sealed class Plugin : BaseUnityPlugin
     private static string SanitizeEndpointForLog(
         string endpoint)
     {
-        string trimmed = endpoint.Trim();
-
-        if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            return "<empty>";
-        }
-
-        if (!IPAddress.TryParse(trimmed, out IPAddress address))
-        {
-            return $"<fingerprint:{Fingerprint(trimmed)}>";
-        }
-
-        if (address.AddressFamily != AddressFamily.InterNetwork)
-        {
-            return "<non-ipv4>";
-        }
-
-        byte[] bytes = address.GetAddressBytes();
-
-        return $"{bytes[0]}.{bytes[1]}.{bytes[2]}.x";
+        return Services
+            .IdentityAndValidation
+            .SanitizeEndpointForLog(endpoint);
     }
 
     private static void LoadAirport()
@@ -2671,18 +2517,8 @@ public sealed class Plugin : BaseUnityPlugin
 
     internal static string Fingerprint(string value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return "<empty>";
-        }
-
-        using SHA256 sha256 = SHA256.Create();
-
-        byte[] hash = sha256.ComputeHash(
-            Encoding.UTF8.GetBytes(value));
-
-        return BitConverter
-            .ToString(hash)
-            .Replace("-", string.Empty)[..10];
+        return Services
+            .IdentityAndValidation
+            .Fingerprint(value);
     }
 }

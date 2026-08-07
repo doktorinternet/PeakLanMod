@@ -40,6 +40,15 @@ internal interface ILocalServerRuntimeService
 
 internal interface ILanIdentityAndValidation
 {
+    string NormalizeRoomName(string roomName);
+    bool TryNormalizeRoomName(string roomName, out string normalizedRoomName, out string failureReason);
+    string NormalizeRoomNameInputForUi(string roomName);
+    bool TryContainsBlockedHostRoomNameTerm(string normalizedRoomName, out string blockedTerm);
+    bool TryGetValidatedHostRoomName(string roomName, out string normalizedRoomName, out string failureReason);
+    bool TryGetValidatedHostRoomNameFromInput(string roomName, out string normalizedRoomName, out string failureReason);
+    string PullU();
+    bool IsCurrentUserInX7GateSet();
+    string SanitizeEndpointForLog(string endpoint);
     string Fingerprint(string value);
 }
 
@@ -66,7 +75,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         DiscoveryRuntime = new PluginBackedLanDiscoveryRuntimeCoordinator();
         ErrorState = new PluginBackedLanErrorStateService();
         LocalServerRuntime = new PluginBackedLocalServerRuntimeService();
-        IdentityAndValidation = new PluginBackedLanIdentityAndValidation();
+        IdentityAndValidation = new LanIdentityAndValidation();
     }
 
     internal static IPluginCompatibilityServices CreateDefault()
@@ -145,14 +154,6 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public void ApplyConfiguredPhotonSettings()
         {
             Plugin.ApplyConfiguredPhotonSettings();
-        }
-    }
-
-    private sealed class PluginBackedLanIdentityAndValidation : ILanIdentityAndValidation
-    {
-        public string Fingerprint(string value)
-        {
-            return Plugin.Fingerprint(value);
         }
     }
 }
