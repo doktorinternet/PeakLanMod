@@ -446,7 +446,7 @@ internal static class LuxonProcessController
     private static string SanitizePathForLog(string path)
     {
         string fileName = Path.GetFileName(path);
-        string fingerprint = Plugin.Fingerprint(path);
+        string fingerprint = LanRuntimeContext.Fingerprint(path);
 
         return string.IsNullOrWhiteSpace(fileName)
             ? $"<path:{fingerprint}>"

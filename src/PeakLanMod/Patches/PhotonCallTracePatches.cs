@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using PeakLanMod.Lan.Services;
 using Photon.Pun;
 using Photon.Realtime;
 
@@ -47,7 +48,7 @@ internal static class PhotonCallTracePatches
             LogJoinContext(__originalMethod.Name);
         }
 
-        Plugin.DumpPhotonSettings(
+        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings(
             $"before PhotonNetwork.{__originalMethod.Name}");
     }
 
@@ -64,7 +65,7 @@ internal static class PhotonCallTracePatches
             $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
             $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
             $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
-            $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
+            $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
     }
 

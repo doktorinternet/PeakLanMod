@@ -4,6 +4,14 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-07
 
+- Completed Plugin separation migration Phase 7: removed remaining Plugin static compatibility wrappers, added `Lan/Services/LanRuntimeContext.cs` for patch/probe service access, and finalized `Plugin.cs` as composition root + metadata/log/Photon diagnostics only (no intended networking behavior change; compile validation passed and user-confirmed physically offline LAN test succeeded as intended).
+- Completed Plugin separation migration Phase 6: extracted LAN overlay rendering/state/style and settings-screen collapse behavior to `Lan/UI/LanOverlayController.cs`, wired through `ILanOverlayController` in compatibility services while preserving existing host/join/discovery intent routing (user-confirmed two-machine host/join validation passed with deployed DLL).
+- Completed Plugin separation migration Phase 5: extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and host/join state transitions to `Lan/Services/DirectConnectCoordinator.cs` while preserving Plugin compatibility wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
+- Completed Plugin separation migration Phase 4: extracted LocalServer endpoint override management, readiness checks, host process lifecycle control, host endpoint/Luxon automation, and Photon AppSettings application to `Lan/Services/LocalServerRuntimeService.cs` while preserving Plugin compatibility wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
+- Completed Plugin separation migration Phase 3: extracted LAN discovery runtime coordination to `LanDiscoveryRuntimeCoordinator` and structured error/local-server state handling to `LanErrorStateService`, while preserving Plugin callback wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
+- Completed Plugin separation migration Phase 2: extracted Config.Bind ownership to `LanPluginOptions` and workflow preset/auto-lock policy logic to `LanWorkflowPolicyService`, while preserving Plugin compatibility accessors and intended runtime behavior.
+- Completed Plugin separation migration Phase 1: extracted deterministic identity/validation helpers into `LanIdentityAndValidation` with compatibility wrappers preserved in `Plugin` (no intended runtime behavior change).
+- Completed Plugin separation migration Phase 0: added compatibility service scaffolding and plugin-backed adapters for future extraction with no intended runtime behavior change.
 - Release tag: `v0.5.0`.
 - Milestone 8 scope correction: removed runtime mode-transition handling after confirming this mod does not switch network modes during runtime.
 - Removed CustomCloud mode and related config parameters (`Photon.Mode`, `Photon.AppIdRealtime`, `Photon.AppIdVoice`).

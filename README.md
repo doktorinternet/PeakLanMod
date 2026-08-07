@@ -2,6 +2,38 @@
 
 Repository for developing and distributing a LAN multiplayer mod for PEAK.
 
+## Plugin separation migration status (Phases 0-7)
+
+Phases 0-7 of the `Plugin.cs` separation plan are implemented with behavior-preserving scope.
+
+- Added transitional service contracts and plugin-backed compatibility adapters in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`.
+- Added composition wiring in `Plugin.Awake` through `LanRuntimeContext.Initialize(...)`.
+- Extracted deterministic helper logic into `src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs`:
+  - room-name normalization and validation,
+  - blocked-term checks,
+  - endpoint sanitization for logs,
+  - fingerprint and user-id helper logic.
+- Extracted config binding ownership to `src/PeakLanMod/Lan/Services/LanPluginOptions.cs`.
+- Extracted workflow preset and auto-lock policy logic to `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`.
+- Extracted LAN discovery runtime lifecycle and compatibility evaluation to `src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs`.
+- Extracted Photon transition tracking and structured LAN error/local-server state handling to `src/PeakLanMod/Lan/Services/LanErrorStateService.cs`.
+- Extracted local server endpoint override/readiness/process/config runtime behavior to `src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs`.
+- Extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and state transitions to `src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs`.
+- Extracted LAN overlay rendering/state/style and settings-screen collapse behavior to `src/PeakLanMod/Lan/UI/LanOverlayController.cs`, wired via `ILanOverlayController` in compatibility services.
+- Added `src/PeakLanMod/Lan/Services/LanRuntimeContext.cs` and migrated patch/callback callers to service facades.
+- Removed Plugin static compatibility wrappers; Plugin now remains as composition root plus metadata/logging and Photon settings diagnostics.
+- Runtime behavior is intended to remain unchanged in these phases; host/join/discovery/network callback flow was not redesigned.
+- Phase 4 runtime verification: user-confirmed two-machine host/join test passed.
+- Phase 5 runtime verification: user-confirmed two-machine host/join test passed.
+- Phase 6 runtime verification: user-confirmed two-machine host/join test passed.
+- Phase 7 runtime verification: user-confirmed physically offline LAN host/join test passed as intended.
+- No new user configuration keys were introduced in these phases.
+
+Rollback path:
+
+- Revert the Phase 7 migration commit(s) to restore Plugin static compatibility wrappers if a caller-level regression is discovered.
+- Revert the Phase 0-7 migration commit(s) to return to the pre-separation single-class helper/config/workflow/discovery/error/local-runtime/direct-connect/ui implementation.
+
 ## LAN release packaging (offline distribution)
 
 This repository supports a LAN-focused release package that can be copied over local network shares.
