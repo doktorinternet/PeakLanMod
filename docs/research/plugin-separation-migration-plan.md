@@ -589,3 +589,104 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, phase update log
 - Notes: Plugin is now a thin composition root plus metadata/log surface. No networking behavior changes were intentionally introduced in this phase; user confirmed a physically offline LAN test passed as intended.
+
+## Post-migration cleanup plan (deviations backlog)
+
+Status: Open (documentation-only backlog)
+Date: 2026-08-07
+Validation level for this section: static analysis only
+
+Purpose:
+- Capture remaining structural deviations after Phase 7 completion.
+- Provide small, reviewable cleanup tasks for a future agent.
+- Keep behavior-neutral cleanup separate from feature work.
+
+Observed evidence:
+1. `Plugin.LanWorkflowMode` remains declared in `src/PeakLanMod/Plugin.cs` and is referenced by service-layer contracts/implementations.
+2. Transitional placeholder types remain in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`.
+3. `DumpPhotonSettings` remains on `Plugin` even though earlier extraction mapping listed `LocalServerRuntimeService` as target ownership.
+4. `LanRuntimeContext.IsLocalServerMode` is still a constant `true` compatibility gate.
+
+Hypothesis:
+- Addressing these items in isolated refactor-only PRs can reduce architectural ambiguity without changing LAN runtime behavior.
+
+Conclusions:
+- Work package behavior goals are complete, but cleanup is still useful before declaring architecture fully normalized.
+- Cleanup should be tracked as explicit post-migration tasks with acceptance checks.
+
+### Cleanup task list for future agent
+
+1. Workflow mode ownership decoupling
+- Priority: medium
+- Goal: remove service-layer type dependency on `Plugin.LanWorkflowMode`.
+- File touchpoints:
+- `src/PeakLanMod/Plugin.cs`
+- `src/PeakLanMod/Lan/Services/LanPluginOptions.cs`
+- `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`
+- `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`
+- Suggested action:
+- Introduce a service-owned workflow mode type (for example under `Lan/Model`) and migrate options/policy interfaces to that type.
+- Keep config keys/default semantics unchanged.
+- Acceptance criteria:
+- No service interface or implementation references `Plugin.LanWorkflowMode`.
+- `Plugin` remains lifecycle/metadata focused.
+- Build passes in local PEAK-referenced environment.
+- Runtime verification target: one-machine smoke + two-machine host/join.
+
+2. Transitional scaffolding minimization
+- Priority: low
+- Goal: reduce migration-era placeholder surface in `PluginCompatibilityScaffolding` to the minimal startup-safe set.
+- File touchpoints:
+- `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`
+- `src/PeakLanMod/Lan/Services/LanRuntimeContext.cs`
+- Suggested action:
+- Evaluate whether all placeholder implementations are still required post-Phase 7.
+- Remove or narrow unused placeholder branches while preserving safe behavior before plugin initialization.
+- Acceptance criteria:
+- No dead compatibility branches that are unreachable in normal plugin lifecycle.
+- Startup safety remains intact (no null/service access regressions before `LanRuntimeContext.Initialize`).
+- Build passes in local PEAK-referenced environment.
+- Runtime verification target: one-machine title-scene startup and unload/reload smoke.
+
+3. Photon settings diagnostics ownership alignment
+- Priority: low
+- Goal: decide and document final ownership of Photon settings diagnostics (`DumpPhotonSettings`).
+- File touchpoints:
+- `src/PeakLanMod/Plugin.cs`
+- `src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs`
+- `src/PeakLanMod/Patches/NetworkConnectorPatches.cs`
+- `src/PeakLanMod/Patches/PhotonCallTracePatches.cs`
+- `docs/research/repository-structure-guide.md`
+- Suggested action:
+- Choose one stable approach:
+- keep `DumpPhotonSettings` intentionally on `Plugin` and update extraction-map notes accordingly, or
+- move diagnostics to a dedicated service utility and rewire callers.
+- Acceptance criteria:
+- Plan/guide documents match actual ownership.
+- No mixed ownership ambiguity between migration map and implemented structure.
+- Build passes in local PEAK-referenced environment.
+- Runtime verification target: static review plus one-machine callback trace sanity check.
+
+4. Local server mode gate normalization
+- Priority: low
+- Goal: resolve whether `LanRuntimeContext.IsLocalServerMode` remains a permanent constant or becomes explicit policy/config state.
+- File touchpoints:
+- `src/PeakLanMod/Lan/Services/LanRuntimeContext.cs`
+- Service/patch callers that branch on `IsLocalServerMode`
+- `docs/research/repository-structure-guide.md`
+- Suggested action:
+- If always-true is intentional, document this as an explicit architecture invariant.
+- If mode toggling is still a future requirement, replace constant with a dedicated mode provider and maintain current default behavior.
+- Acceptance criteria:
+- Single authoritative source for mode-gating semantics.
+- No contradictory comments/plan entries about deferred mode extraction.
+- Build passes in local PEAK-referenced environment.
+- Runtime verification target: one-machine smoke in title/menu and host/join hotkeys.
+
+### Execution constraints for cleanup PRs
+
+1. Preserve verified direct custom-Photon and offline LAN baselines.
+2. Make one hypothesis-driven behavior-neutral refactor per PR.
+3. Keep diagnostics until equivalent replacement is proven.
+4. Update `docs/research/repository-structure-guide.md` in the same PR as each cleanup change.
+5. Do not claim runtime success without corresponding logs or user confirmation.
