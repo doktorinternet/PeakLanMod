@@ -4,6 +4,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-07
 
+- Release tag: `v0.5.0`.
 - Milestone 8 scope correction: removed runtime mode-transition handling after confirming this mod does not switch network modes during runtime.
 - Removed CustomCloud mode and related config parameters (`Photon.Mode`, `Photon.AppIdRealtime`, `Photon.AppIdVoice`).
 - LocalServer is now the only supported endpoint path for both host-create and client-join LAN workflows.

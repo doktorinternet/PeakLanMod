@@ -67,7 +67,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     public const string PluginGuid = "BadHorse.PeakLanMod";
     public const string PluginName = "PEAK LAN Mod";
-    public const string PluginVersion = "0.4.0";
+    public const string PluginVersion = "0.5.0";
 
     internal static ManualLogSource Log { get; private set; } = null!;
 
