@@ -20,8 +20,8 @@ Authority: Working basis and migration log for splitting src/PeakLanMod/Plugin.c
 - Mod version observed in source: 0.5.0.
 - Commit hash: not captured in this planning task.
 - Host/client role under analysis: both, by static flow review.
-- Connection modes under analysis: LocalServer workflow, direct host, direct join, LAN discovery UI.
-- Region/server context under analysis: Photon NameServer endpoint configured by LocalServerAddress/LocalServerPort/LocalServerProtocol.
+- Connection modes under analysis: LanServer workflow, direct host, direct join, LAN discovery UI.
+- Region/server context under analysis: Photon NameServer endpoint configured by LanServerAddress/LanServerPort/LanServerProtocol.
 - Test date: 2026-08-07 (planning only).
 
 ## Observed evidence (static)
@@ -66,7 +66,7 @@ Authority: Working basis and migration log for splitting src/PeakLanMod/Plugin.c
 4. DirectConnectCoordinator
 - Owns host/join queueing and state-machine transitions.
 
-5. LocalServerRuntimeService
+5. LanServerRuntimeService
 - Owns endpoint selection, readiness checks, Luxon process control, Luxon config automation, and Photon AppSettings application.
 
 6. LanDiscoveryRuntimeCoordinator
@@ -83,7 +83,7 @@ Authority: Working basis and migration log for splitting src/PeakLanMod/Plugin.c
 
 ## Constraints to preserve during migration
 
-1. Preserve verified direct custom-Photon baseline behavior while LocalServer LAN behavior is still evolving.
+1. Preserve verified direct custom-Photon baseline behavior while LanServer LAN behavior is still evolving.
 2. Keep all new/experimental behavior behind existing configuration gates.
 3. Do not remove diagnostic callbacks/logging until parity is proven.
 4. Avoid broad behavior changes to Photon callback ordering or connection timing.
@@ -206,7 +206,7 @@ Exit criteria:
 - Discovery snapshot counts and broadcaster start/stop behavior remain equivalent.
 - Structured error transitions match current behavior.
 
-### Phase 4: Extract LocalServer runtime service
+### Phase 4: Extract LanServer runtime service
 
 Hypothesis: consolidating endpoint/readiness/process logic improves maintainability while preserving behavior if sequencing stays identical.
 
@@ -306,7 +306,7 @@ Legend:
 | Update | PluginCompositionRoot | Keep in Plugin | Route update ticks to workflow/discovery/ui/direct-connect coordinators. |
 | OnDestroy | PluginCompositionRoot | Keep in Plugin | Dispose/shutdown services and unpatch Harmony. |
 | OnGUI | PluginCompositionRoot | Keep in Plugin | Delegate to LanOverlayController render call. |
-| DumpPhotonSettings | LocalServerRuntimeService | Extract | Keep temporary static wrapper for patch diagnostics. |
+| DumpPhotonSettings | LanServerRuntimeService | Extract | Keep temporary static wrapper for patch diagnostics. |
 | ConfigureDirectConnect | LanPluginOptions | Extract | Move all Config.Bind calls. |
 | ApplyLanWorkflowMode | LanWorkflowPolicyService | Extract | Called from update/lifecycle. |
 | ApplyLanWorkflowPreset | LanWorkflowPolicyService | Extract | Internal helper in policy service. |
@@ -342,24 +342,24 @@ Legend:
 | CanStartDirectConnection | DirectConnectCoordinator | Extract | Readiness/reconnect gating and throttled logging. |
 | EnsureOnlineModeForDirectConnect | DirectConnectCoordinator | Extract | Offline mode forcing prior to connect path. |
 | LoadAirport | DirectConnectCoordinator | Extract | Scene transition utility. |
-| EnsureLocalServerReadinessBeforeConnect | LocalServerRuntimeService | Extract | Readiness gate for host/join. |
-| EnsureQueuedHostReadinessBeforeConnect | LocalServerRuntimeService | Extract | Host queued readiness polling path. |
+| EnsureLanServerReadinessBeforeConnect | LanServerRuntimeService | Extract | Readiness gate for host/join. |
+| EnsureQueuedHostReadinessBeforeConnect | LanServerRuntimeService | Extract | Host queued readiness polling path. |
 | ResetQueuedHostReadinessWindow | DirectConnectCoordinator | Extract | Queue timing state reset. |
-| EnsureHostLocalServerProcess | LocalServerRuntimeService | Extract | Local server process ensure/autostart. |
-| StopOwnedLocalServerProcessOnExit | LocalServerRuntimeService | Extract | Owned process shutdown semantics. |
-| ApplyHostLanIpv4Selection | LocalServerRuntimeService | Extract | Endpoint auto-detect and config update. |
-| ApplyHostLuxonConfigAutomation | LocalServerRuntimeService | Extract | Luxon external_address automation. |
-| ApplyConfiguredPhotonSettings | LocalServerRuntimeService | Extract | Keep static wrapper for patch call path initially. |
-| ApplyLocalServerSettings | LocalServerRuntimeService | Extract | AppSettings writer with validation. |
-| GetConfiguredLocalEndpoint | LocalServerRuntimeService | Extract | String formatting helper. |
-| GetEffectiveLocalEndpoint | LocalServerRuntimeService | Extract | Effective endpoint formatter with override. |
-| GetConfiguredLocalServerEndpoint | LocalServerRuntimeService | Extract | Typed endpoint accessor. |
-| GetEffectiveLocalServerEndpointForConnection | LocalServerRuntimeService | Extract | Config vs transient override resolver. |
-| ApplyTransientJoinEndpointOverride | LocalServerRuntimeService | Extract | Runtime override management. |
-| ClearTransientJoinEndpointOverride | LocalServerRuntimeService | Extract | Runtime override cleanup. |
-| IsJoinEndpointOverrideActive property | LocalServerRuntimeService | Extract | Override state property. |
-| NotifyLocalServerDetected | LanErrorStateService | Extract | Keep static compatibility wrapper for callbacks. |
-| NotifyLocalServerNotDetected | LanErrorStateService | Extract | Keep static compatibility wrapper for callbacks. |
+| EnsureHostLanServerProcess | LanServerRuntimeService | Extract | Local server process ensure/autostart. |
+| StopOwnedLanServerProcessOnExit | LanServerRuntimeService | Extract | Owned process shutdown semantics. |
+| ApplyHostLanIpv4Selection | LanServerRuntimeService | Extract | Endpoint auto-detect and config update. |
+| ApplyHostLuxonConfigAutomation | LanServerRuntimeService | Extract | Luxon external_address automation. |
+| ApplyConfiguredPhotonSettings | LanServerRuntimeService | Extract | Keep static wrapper for patch call path initially. |
+| ApplyLanServerSettings | LanServerRuntimeService | Extract | AppSettings writer with validation. |
+| GetConfiguredLocalEndpoint | LanServerRuntimeService | Extract | String formatting helper. |
+| GetEffectiveLocalEndpoint | LanServerRuntimeService | Extract | Effective endpoint formatter with override. |
+| GetConfiguredLanServerEndpoint | LanServerRuntimeService | Extract | Typed endpoint accessor. |
+| GetEffectiveLanServerEndpointForConnection | LanServerRuntimeService | Extract | Config vs transient override resolver. |
+| ApplyTransientJoinEndpointOverride | LanServerRuntimeService | Extract | Runtime override management. |
+| ClearTransientJoinEndpointOverride | LanServerRuntimeService | Extract | Runtime override cleanup. |
+| IsJoinEndpointOverrideActive property | LanServerRuntimeService | Extract | Override state property. |
+| NotifyLanServerDetected | LanErrorStateService | Extract | Keep static compatibility wrapper for callbacks. |
+| NotifyLanServerNotDetected | LanErrorStateService | Extract | Keep static compatibility wrapper for callbacks. |
 | ReportStructuredLanError | LanErrorStateService | Extract | Keep static compatibility wrapper for callbacks. |
 | ClearStructuredLanError | LanErrorStateService | Extract | Keep static compatibility wrapper for callbacks. |
 | HandleLeftRoom | LanErrorStateService | Extract | Delegates stop-owned-process-on-leave logic. |
@@ -386,7 +386,7 @@ Legend:
 | _previousState | LanErrorStateService | Extract | Photon state transition telemetry state. |
 | _pendingDirectHostStart / _pendingDirectHostConnectRequested / _queuedHostPreflightCompleted / _queuedHostReadinessStartedAtUtc / _queuedHostReadinessAttempts | DirectConnectCoordinator | Extract | Host queue state machine internals. |
 | _pendingDirectJoinStart / _pendingDirectJoinConnectRequested / _pendingDirectJoinRoomName / _pendingDirectJoinSource / _pendingDirectJoinEndpoint | DirectConnectCoordinator | Extract | Join queue state machine internals. |
-| _transientJoinEndpointOverride | LocalServerRuntimeService | Extract | Endpoint override state, currently static. |
+| _transientJoinEndpointOverride | LanServerRuntimeService | Extract | Endpoint override state, currently static. |
 | _lastAppliedLanWorkflowMode | LanWorkflowPolicyService | Extract | Last-applied workflow mode cache. |
 | LanDiscoveryStateStore / LanDiscoveryListener / LanDiscoveryBroadcaster / LanDiscoveredSessionsViewModel / LanStatusPresenterBridge / LanDiscoveryServerInstanceId | LanDiscoveryRuntimeCoordinator (state store shared with UI) | Extract | Discovery runtime single-responsibility grouping. |
 | _lastLanDiscoverySnapshotCount / _lastLanDiscoveryListenerRunning / _lastLanDiscoveryBroadcasterRunning | LanDiscoveryRuntimeCoordinator | Extract | Discovery change logging cache. |
@@ -397,7 +397,7 @@ Legend:
 | All internal static ConfigEntry fields under line ~2393 | LanPluginOptions | Extract | Keep temporary Plugin pass-through properties if needed. |
 | PluginGuid / PluginName / PluginVersion | Plugin (or PluginMetadata static class) | Keep in Plugin | Referenced by BepInPlugin attribute and metadata logs. |
 | Log | Plugin (or ILoggerAdapter) | Keep in Plugin (initially) | Needed broadly; optional future abstraction. |
-| IsLocalServerMode | LanPluginOptions or LanModeService | Extract (later) | Currently always true; keep wrapper initially for compatibility. |
+| IsLanServerMode | LanPluginOptions or LanModeService | Extract (later) | Currently always true; keep wrapper initially for compatibility. |
 | X7GateSet / BlockedHostRoomNameTerms | LanIdentityAndValidation | Extract | Validation and admin gating data should leave root class. |
 
 ## External caller migration checklist
@@ -408,7 +408,7 @@ Legend:
 
 2. Photon settings patch
 - src/PeakLanMod/Patches/PhotonAppIdPatch.cs
-- Redirect from Plugin.ApplyConfiguredPhotonSettings to LocalServerRuntimeService facade.
+- Redirect from Plugin.ApplyConfiguredPhotonSettings to LanServerRuntimeService facade.
 
 3. UI bypass patches relying on config
 - src/PeakLanMod/Patches/MainMenuPageHandlerUpdateBypassPatch.cs
@@ -543,8 +543,8 @@ Use this section as append-only log during implementation.
 - Notes: Discovery listener/broadcaster runtime and structured LAN error state are now owned by concrete Phase 3 services while Plugin wrappers remain intact for PhotonCallbackProbe and later-phase migration safety. User confirmed two-machine host/join validation passed.
 
 - 2026-08-07
-- Phase: Phase 4 - Extract LocalServer runtime service
-- Files changed: src/PeakLanMod/Lan/Model/LocalServerEndpoint.cs; src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Phase: Phase 4 - Extract LanServer runtime service
+- Files changed: src/PeakLanMod/Lan/Model/LanServerEndpoint.cs; src/PeakLanMod/Lan/Services/LanServerRuntimeService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
 - Behavioral hypothesis for this step: moving local server endpoint overrides, readiness checks, process lifecycle, host endpoint/Luxon automation, and Photon local-server AppSettings application into a dedicated service is behavior-neutral when Plugin wrapper signatures and call ordering are preserved.
 - Build result: dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false succeeded (netstandard2.1, local environment)
 - Runtime verification level (static/one-machine/two-machine/offline): two-machine (user confirmed)
@@ -552,7 +552,7 @@ Use this section as append-only log during implementation.
 - Rollback applied (yes/no): no
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, compatibility wrappers, interface ownership ledger, phase update log
-- Notes: Plugin local-server method bodies now delegate to LocalServerRuntimeService while preserving existing wrapper call sites and queued-host timeout semantics. User confirmed two-machine host/join runtime validation passed.
+- Notes: Plugin local-server method bodies now delegate to LanServerRuntimeService while preserving existing wrapper call sites and queued-host timeout semantics. User confirmed two-machine host/join runtime validation passed.
 
 - 2026-08-07
 - Phase: Phase 5 - Extract direct connect coordinator
@@ -580,7 +580,7 @@ Use this section as append-only log during implementation.
 
 - 2026-08-07
 - Phase: Phase 7 - Remove compatibility debt
-- Files changed: src/PeakLanMod/Plugin.cs; src/PeakLanMod/PhotonCallbackProbe.cs; src/PeakLanMod/Patches/PhotonAppIdPatch.cs; src/PeakLanMod/Patches/MainMenuPageHandlerUpdateBypassPatch.cs; src/PeakLanMod/Patches/NetworkConnectorDisconnectBypassPatch.cs; src/PeakLanMod/Patches/PhotonCallTracePatches.cs; src/PeakLanMod/Lan/Services/LanRuntimeContext.cs; src/PeakLanMod/Lan/Services/LanErrorStateService.cs; src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs; src/PeakLanMod/Lan/UI/LanOverlayController.cs; src/PeakLanMod/Lan/Discovery/UdpLanDiscoveryListener.cs; src/PeakLanMod/Lan/Services/LuxonProcessController.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Files changed: src/PeakLanMod/Plugin.cs; src/PeakLanMod/PhotonCallbackProbe.cs; src/PeakLanMod/Patches/PhotonAppIdPatch.cs; src/PeakLanMod/Patches/MainMenuPageHandlerUpdateBypassPatch.cs; src/PeakLanMod/Patches/NetworkConnectorDisconnectBypassPatch.cs; src/PeakLanMod/Patches/PhotonCallTracePatches.cs; src/PeakLanMod/Lan/Services/LanRuntimeContext.cs; src/PeakLanMod/Lan/Services/LanErrorStateService.cs; src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/Services/LanServerRuntimeService.cs; src/PeakLanMod/Lan/UI/LanOverlayController.cs; src/PeakLanMod/Lan/Discovery/UdpLanDiscoveryListener.cs; src/PeakLanMod/Lan/Services/LuxonProcessController.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
 - Behavioral hypothesis for this step: removing Plugin static compatibility wrappers and rewiring callers to service facades via LanRuntimeContext is behavior-neutral when call targets, ordering, and guards remain identical.
 - Build result: dotnet build succeeded (netstandard2.1, local environment)
 - Runtime verification level (static/one-machine/two-machine/offline): offline (user confirmed)
@@ -592,7 +592,7 @@ Use this section as append-only log during implementation.
 
 - 2026-08-07
 - Phase: Post-migration cleanup - deviations backlog closure
-- Files changed: src/PeakLanMod/Lan/Model/LanWorkflowMode.cs; src/PeakLanMod/Lan/Services/LanModePolicyService.cs; src/PeakLanMod/Lan/Services/LanPluginOptions.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Lan/Services/LanRuntimeContext.cs; src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs; src/PeakLanMod/Plugin.cs; src/PeakLanMod/Patches/NetworkConnectorPatches.cs; src/PeakLanMod/Patches/PhotonCallTracePatches.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md
+- Files changed: src/PeakLanMod/Lan/Model/LanWorkflowMode.cs; src/PeakLanMod/Lan/Services/LanModePolicyService.cs; src/PeakLanMod/Lan/Services/LanPluginOptions.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Lan/Services/LanRuntimeContext.cs; src/PeakLanMod/Lan/Services/LanServerRuntimeService.cs; src/PeakLanMod/Plugin.cs; src/PeakLanMod/Patches/NetworkConnectorPatches.cs; src/PeakLanMod/Patches/PhotonCallTracePatches.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md
 - Behavioral hypothesis for this step: ownership and compatibility-surface normalization (workflow-mode type ownership, diagnostics ownership, mode-gate ownership, and placeholder minimization) is behavior-neutral when defaults and call ordering remain unchanged.
 - Build result: dotnet build succeeded (netstandard2.1, local environment)
 - Runtime verification level (static/one-machine/two-machine/offline): static
@@ -601,6 +601,18 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: current reality summary, transition compatibility wrappers, interface ownership ledger, phase update log
 - Notes: Resolved all four documented cleanup deviations. Runtime behavior was not revalidated in this step.
+
+- 2026-08-07
+- Phase: Terminology migration milestone - LocalServer to LanServer
+- Files changed: src/PeakLanMod/Lan/Model/LanServerEndpoint.cs; src/PeakLanMod/Lan/Services/LanServerRuntimeService.cs; src/PeakLanMod/Lan/Services/LanPluginOptions.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Lan/Services/LanRuntimeContext.cs; src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs; src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs; src/PeakLanMod/Lan/Services/LanErrorStateService.cs; src/PeakLanMod/Lan/Services/LanModePolicyService.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/UI/LanOverlayController.cs; src/PeakLanMod/Patches/PhotonAppIdPatch.cs; src/PeakLanMod/Patches/PhotonCallTracePatches.cs; src/PeakLanMod/Patches/NetworkConnectorPatches.cs; src/PeakLanMod/Patches/MainMenuPageHandlerUpdateBypassPatch.cs; src/PeakLanMod/Patches/NetworkConnectorDisconnectBypassPatch.cs; src/PeakLanMod/PhotonCallbackProbe.cs; src/PeakLanMod/Plugin.cs; README.md; CHANGELOG.md; release/INSTALL-LAN.md; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; docs/research/lan-implementation-plan.md; docs/testing/manual-two-machine-checklist.md
+- Behavioral hypothesis for this step: renaming LocalServer concepts to LanServer and adding legacy-key fallback in options is behavior-neutral for runtime connection flow while improving naming consistency.
+- Build result: dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): static
+- First divergent callback/state observed (if any): not observed in static validation
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot wording and phase update terminology references
+- Notes: Direct-connect baseline call order and Local/LAN runtime behavior were intentionally unchanged. Manual two-machine and offline runtime revalidation remains pending.
 
 ## Post-migration cleanup plan (deviations backlog)
 
@@ -616,7 +628,7 @@ Purpose:
 Observed evidence:
 1. Resolved: workflow mode ownership is now service/model-owned via `LanWorkflowMode` in `src/PeakLanMod/Lan/Model/LanWorkflowMode.cs`; service contracts no longer reference `Plugin.LanWorkflowMode`.
 2. Resolved: dead transitional placeholder types were removed from `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`; only startup-safe placeholders still used by default initialization remain.
-3. Resolved: Photon settings diagnostics ownership moved to `LocalServerRuntimeService.DumpPhotonSettings(...)`, and callers were rewired from `Plugin`.
+3. Resolved: Photon settings diagnostics ownership moved to `LanServerRuntimeService.DumpPhotonSettings(...)`, and callers were rewired from `Plugin`.
 4. Resolved: local-server mode-gate ownership is now centralized behind `ILanModePolicyService` (`LanModePolicyService`) and consumed via `LanRuntimeContext`.
 
 Hypothesis:
@@ -637,12 +649,12 @@ Conclusions:
 - Retained initialization-safe placeholders still required for pre-initialize safety.
 
 3. Completed: Photon settings diagnostics ownership alignment
-- Final ownership is `LocalServerRuntimeService.DumpPhotonSettings(...)`.
-- Diagnostics callers in patches/plugin now route through `LanRuntimeContext.Services.LocalServerRuntime`.
+- Final ownership is `LanServerRuntimeService.DumpPhotonSettings(...)`.
+- Diagnostics callers in patches/plugin now route through `LanRuntimeContext.Services.LanServerRuntime`.
 
 4. Completed: local server mode-gate normalization
 - Added `ILanModePolicyService` / `LanModePolicyService` as authoritative source.
-- `LanRuntimeContext.IsLocalServerMode` now delegates to mode policy service rather than a hardcoded constant.
+- `LanRuntimeContext.IsLanServerMode` now delegates to mode policy service rather than a hardcoded constant.
 
 ### Execution constraints for cleanup PRs
 

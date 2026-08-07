@@ -18,8 +18,8 @@ internal static class LanRuntimeContext
     internal static ILanPluginOptions Options =>
         _services.Options;
 
-    internal static bool IsLocalServerMode =>
-        _services.ModePolicy.IsLocalServerModeEnabled;
+    internal static bool IsLanServerMode =>
+        _services.ModePolicy.IsLanServerModeEnabled;
 
     internal static string Fingerprint(string value)
     {
@@ -31,7 +31,7 @@ internal static class LanRuntimeContext
     internal static string GetEffectiveLocalEndpointForLogging()
     {
         return _services
-            .LocalServerRuntime
+            .LanServerRuntime
             .GetEffectiveLocalEndpoint();
     }
 }

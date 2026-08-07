@@ -29,16 +29,16 @@ internal sealed class PhotonCallbackProbe :
             $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
 
-        if (LanRuntimeContext.IsLocalServerMode)
+        if (LanRuntimeContext.IsLanServerMode)
         {
             if (PhotonNetwork.OfflineMode)
             {
-                LanRuntimeContext.Services.ErrorState.NotifyLocalServerNotDetected(
+                LanRuntimeContext.Services.ErrorState.NotifyLanServerNotDetected(
                     "OfflineMode fallback active");
             }
             else
             {
-                LanRuntimeContext.Services.ErrorState.NotifyLocalServerDetected();
+                LanRuntimeContext.Services.ErrorState.NotifyLanServerDetected();
                 LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
                     source: "OnConnectedToMaster",
                     reason: "connected to master");
@@ -123,12 +123,12 @@ internal sealed class PhotonCallbackProbe :
             $"message={message}; " +
             $"state={PhotonNetwork.NetworkClientState}; " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
-            $"server={LanRuntimeContext.Options.LocalServerAddress.Value}:{LanRuntimeContext.Options.LocalServerPort.Value}; " +
-            $"protocol={LanRuntimeContext.Options.LocalServerProtocol.Value}");
+            $"server={LanRuntimeContext.Options.LanServerAddress.Value}:{LanRuntimeContext.Options.LanServerPort.Value}; " +
+            $"protocol={LanRuntimeContext.Options.LanServerProtocol.Value}");
 
-        if (LanRuntimeContext.IsLocalServerMode)
+        if (LanRuntimeContext.IsLanServerMode)
         {
-            LanRuntimeContext.Services.ErrorState.NotifyLocalServerNotDetected(
+            LanRuntimeContext.Services.ErrorState.NotifyLanServerNotDetected(
                 $"create room failed {returnCode}");
         }
 
@@ -161,9 +161,9 @@ internal sealed class PhotonCallbackProbe :
 
         LanRuntimeContext.Services.DiscoveryRuntime.StopLanDiscoveryBroadcast("OnDisconnected");
 
-        if (LanRuntimeContext.IsLocalServerMode)
+        if (LanRuntimeContext.IsLanServerMode)
         {
-            LanRuntimeContext.Services.ErrorState.NotifyLocalServerNotDetected(
+            LanRuntimeContext.Services.ErrorState.NotifyLanServerNotDetected(
                 $"disconnect cause {cause}");
         }
 

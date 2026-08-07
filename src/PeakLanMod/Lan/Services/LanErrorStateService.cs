@@ -47,25 +47,25 @@ internal sealed class LanErrorStateService : ILanErrorStateService
         _previousState = currentState;
     }
 
-    public void NotifyLocalServerDetected()
+    public void NotifyLanServerDetected()
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return;
         }
 
         ClearStructuredLanError(
-            source: "NotifyLocalServerDetected",
+            source: "NotifyLanServerDetected",
             reason: "local server detected");
 
         Plugin.Log.LogInfo(
             $"Local server detected at {LanRuntimeContext.GetEffectiveLocalEndpointForLogging()}.");
     }
 
-    public void NotifyLocalServerNotDetected(
+    public void NotifyLanServerNotDetected(
         string reason)
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return;
         }
@@ -80,7 +80,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
         string message,
         string context)
     {
-        if (!LanRuntimeContext.IsLocalServerMode
+        if (!LanRuntimeContext.IsLanServerMode
             || !_options.EnableStructuredErrorMapping.Value
             || code == LanErrorCode.None)
         {
@@ -112,7 +112,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
         string source,
         string reason)
     {
-        if (!LanRuntimeContext.IsLocalServerMode
+        if (!LanRuntimeContext.IsLanServerMode
             || !_options.EnableStructuredErrorMapping.Value)
         {
             return;
@@ -131,17 +131,17 @@ internal sealed class LanErrorStateService : ILanErrorStateService
 
     public void HandleLeftRoom()
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return;
         }
 
-        if (!_options.AutoStopOwnedLocalServerOnLeaveRoom.Value)
+        if (!_options.AutoStopOwnedLanServerOnLeaveRoom.Value)
         {
             return;
         }
 
-        LanRuntimeContext.Services.LocalServerRuntime.StopOwnedLocalServerProcessOnExit(
+        LanRuntimeContext.Services.LanServerRuntime.StopOwnedLanServerProcessOnExit(
             "PhotonCallbackProbe.OnLeftRoom");
     }
 

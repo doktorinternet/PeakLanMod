@@ -14,7 +14,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private readonly IDirectConnectCoordinator _directConnect;
     private readonly ILanDiscoveryRuntimeCoordinator _discoveryRuntime;
     private readonly ILanErrorStateService _errorState;
-    private readonly ILocalServerRuntimeService _localServerRuntime;
+    private readonly ILanServerRuntimeService _LanServerRuntime;
     private readonly ILanIdentityAndValidation _identityAndValidation;
     private readonly LanDiscoveredSessionsViewModel _discoveredSessionsViewModel = new();
     private readonly LanStatusPresenterBridge _statusPresenterBridge = new();
@@ -41,21 +41,21 @@ internal sealed class LanOverlayController : ILanOverlayController
         IDirectConnectCoordinator directConnect,
         ILanDiscoveryRuntimeCoordinator discoveryRuntime,
         ILanErrorStateService errorState,
-        ILocalServerRuntimeService localServerRuntime,
+        ILanServerRuntimeService LanServerRuntime,
         ILanIdentityAndValidation identityAndValidation)
     {
         _options = options;
         _directConnect = directConnect;
         _discoveryRuntime = discoveryRuntime;
         _errorState = errorState;
-        _localServerRuntime = localServerRuntime;
+        _LanServerRuntime = LanServerRuntime;
         _identityAndValidation = identityAndValidation;
         _lanPreferredRoomNameInput = _options.RoomName.Value;
     }
 
     public void UpdateLanPanelCollapseForSettingsScreen()
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return;
         }
@@ -105,7 +105,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     public bool ShouldRenderLanUiOverlay()
     {
-        return LanRuntimeContext.IsLocalServerMode
+        return LanRuntimeContext.IsLanServerMode
             && _options.LanDiscoveryEnabled.Value
             && IsMainMenuScene();
     }
@@ -138,7 +138,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         string summaryLine = _statusPresenterBridge.BuildSummaryLine(
             phase,
-            _localServerRuntime.GetConfiguredLocalEndpoint(),
+            _LanServerRuntime.GetConfiguredLocalEndpoint(),
             sessions.Count,
             connectionError);
 
@@ -534,7 +534,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         _directConnect.RequestDirectJoinStart(
             selectedRoomName,
             "StartDirectJoinSelected",
-            new LocalServerEndpoint(
+            new LanServerEndpoint(
                 selected.NameServerAddress,
                 selected.NameServerPort,
                 protocol));

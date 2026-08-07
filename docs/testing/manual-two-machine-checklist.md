@@ -83,5 +83,5 @@ Save host and client logs from the same attempt. Record:
 - Host role: gaming PC
 - Client role: office laptop
 - Accounts: separate Steam accounts
-- Connection mode: LocalServer
+- Connection mode: LanServer
 - Result: pass

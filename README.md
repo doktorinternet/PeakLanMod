@@ -2,6 +2,19 @@
 
 Repository for developing and distributing a LAN multiplayer mod for PEAK.
 
+## LanServer terminology migration (2026-08-07)
+
+The mod now uses `LanServer` naming across code-facing APIs, diagnostics, and documentation.
+
+- New canonical config names use `LanServer*` keys (for example `LanServerAddress`, `LanServerPort`, `LanServerProtocol`).
+- Backward compatibility is preserved for upgrades: if a canonical `LanServer*` key is missing, the plugin seeds it from the corresponding legacy `LocalServer*` key.
+- Direct connect behavior and the custom Photon Cloud diagnostic baseline remain unchanged by this terminology migration.
+
+Rollback path:
+
+- Revert this milestone commit(s) to restore prior `LocalServer` naming.
+- Existing legacy `LocalServer*` keys remain usable through compatibility fallback even without rollback.
+
 ## Plugin separation migration status (Phases 0-7)
 
 Phases 0-7 of the `Plugin.cs` separation plan are implemented with behavior-preserving scope.
@@ -17,7 +30,7 @@ Phases 0-7 of the `Plugin.cs` separation plan are implemented with behavior-pres
 - Extracted workflow preset and auto-lock policy logic to `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`.
 - Extracted LAN discovery runtime lifecycle and compatibility evaluation to `src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs`.
 - Extracted Photon transition tracking and structured LAN error/local-server state handling to `src/PeakLanMod/Lan/Services/LanErrorStateService.cs`.
-- Extracted local server endpoint override/readiness/process/config runtime behavior to `src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs`.
+- Extracted local server endpoint override/readiness/process/config runtime behavior to `src/PeakLanMod/Lan/Services/LanServerRuntimeService.cs`.
 - Extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and state transitions to `src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs`.
 - Extracted LAN overlay rendering/state/style and settings-screen collapse behavior to `src/PeakLanMod/Lan/UI/LanOverlayController.cs`, wired via `ILanOverlayController` in compatibility services.
 - Added `src/PeakLanMod/Lan/Services/LanRuntimeContext.cs` and migrated patch/callback callers to service facades.
@@ -83,7 +96,7 @@ See `release/INSTALL-LAN.md` for host/client setup instructions.
 
 ## LAN host IPv4 auto-detection (M1)
 
-Milestone 1 adds optional host-side LAN IPv4 selection for `LocalServer` mode.
+Milestone 1 adds optional host-side LAN IPv4 selection for `LanServer` mode.
 
 - `LanWorkflow.AutoDetectHostIPv4 = true` enables host-side endpoint selection when pressing `HostKey`.
 - `LanWorkflow.AllowedHostInterfaces` narrows candidate interfaces using CSV contains-matching on interface name/description/id.
@@ -91,13 +104,13 @@ Milestone 1 adds optional host-side LAN IPv4 selection for `LocalServer` mode.
 
 Rollback path:
 
-- Set `LanWorkflow.AutoDetectHostIPv4 = false` to keep using the configured `Photon.LocalServerAddress` directly.
+- Set `LanWorkflow.AutoDetectHostIPv4 = false` to keep using the configured `Photon.LanServerAddress` directly.
 
 ## Luxon external_address automation (M2)
 
 Milestone 2 adds optional host-side automation that rewrites Luxon `external_address` values in `config.yml` before direct hosting.
 
-- `LanWorkflow.AutoUpdateLuxonConfigOnHost = true` enables rewriting during host start (`HostKey`) in `LocalServer` mode.
+- `LanWorkflow.AutoUpdateLuxonConfigOnHost = true` enables rewriting during host start (`HostKey`) in `LanServer` mode.
 - `LanWorkflow.LuxonConfigPath` explicitly selects which Luxon `config.yml` is rewritten before host connect flow.
 - The updater rewrites all matched `external_address` entries under `NameServer`, `MasterServer`, and `GameServer`, preserving existing ports.
 - Default remains disabled, so manual Luxon config is unchanged unless explicitly enabled.
@@ -110,20 +123,20 @@ Rollback path:
 
 Milestone 3 adds optional host-side local server process control with explicit ownership tracking.
 
-- `LanWorkflow.AutoStartLocalServerOnHost = true` enables process auto-start during direct host (`HostKey`) in `LocalServer` mode.
-- `LanWorkflow.LocalServerExecutablePath` sets the server executable path.
-- `LanWorkflow.LocalServerWorkingDirectory` sets process working directory. Leave empty to use the executable directory.
-- `LanWorkflow.LocalServerStartArguments` sets startup arguments.
-- Relative `LocalServerExecutablePath` values are resolved against `LocalServerWorkingDirectory` first (when set), then existing fallback probes are used.
-- `LanWorkflow.AutoStopOwnedLocalServerOnExit = true` stops only plugin-owned server process on plugin unload/game exit.
-- `LanWorkflow.ForceKillOwnedLocalServerOnExit` and `LanWorkflow.OwnedLocalServerStopTimeoutMs` control timeout and forced termination behavior.
+- `LanWorkflow.AutoStartLanServerOnHost = true` enables process auto-start during direct host (`HostKey`) in `LanServer` mode.
+- `LanWorkflow.LanServerExecutablePath` sets the server executable path.
+- `LanWorkflow.LanServerWorkingDirectory` sets process working directory. Leave empty to use the executable directory.
+- `LanWorkflow.LanServerStartArguments` sets startup arguments.
+- Relative `LanServerExecutablePath` values are resolved against `LanServerWorkingDirectory` first (when set), then existing fallback probes are used.
+- `LanWorkflow.AutoStopOwnedLanServerOnExit = true` stops only plugin-owned server process on plugin unload/game exit.
+- `LanWorkflow.ForceKillOwnedLanServerOnExit` and `LanWorkflow.OwnedLanServerStopTimeoutMs` control timeout and forced termination behavior.
 - `LanWorkflow.AutoRetryDirectHostUntilReady = true` keeps a host request queued after one `HostKey` press and completes it automatically once Photon reaches connected+ready.
 
-If `LocalServerWorkingDirectory` is set to a relative path and that folder does not exist under PEAK's process working directory, the launcher falls back to the executable directory and logs that fallback.
+If `LanServerWorkingDirectory` is set to a relative path and that folder does not exist under PEAK's process working directory, the launcher falls back to the executable directory and logs that fallback.
 
-Relative `LocalServerExecutablePath` values are resolved by checking:
+Relative `LanServerExecutablePath` values are resolved by checking:
 
-- configured `LocalServerWorkingDirectory` (when set),
+- configured `LanServerWorkingDirectory` (when set),
 - current process working directory,
 - `BepInEx/config` directory and its parent directories.
 
@@ -138,14 +151,14 @@ Ownership behavior:
 
 Rollback path:
 
-- Set `LanWorkflow.AutoStartLocalServerOnHost = false` to return to fully manual server startup.
-- Optionally set `LanWorkflow.AutoStopOwnedLocalServerOnExit = false` to disable plugin-driven shutdown.
+- Set `LanWorkflow.AutoStartLanServerOnHost = false` to return to fully manual server startup.
+- Optionally set `LanWorkflow.AutoStopOwnedLanServerOnExit = false` to disable plugin-driven shutdown.
 
 ## Local NameServer readiness gate (M4)
 
 Milestone 4 adds an optional readiness gate that checks local NameServer reachability before direct host/join connect attempts.
 
-- `LanWorkflow.EnableLocalServerReadinessCheck = true` enables readiness gating in `LocalServer` mode.
+- `LanWorkflow.EnableLanServerReadinessCheck = true` enables readiness gating in `LanServer` mode.
 - `LanWorkflow.ReadinessTimeoutMs` controls maximum wait time before reporting readiness timeout.
 - `LanWorkflow.ReadinessPollIntervalMs` controls probe cadence.
 - In host auto-retry flow (`AutoRetryDirectHostUntilReady = true`), the host intent remains queued until readiness succeeds or timeout is reached.
@@ -157,7 +170,7 @@ Focused diagnostics:
 
 Rollback path:
 
-- Set `LanWorkflow.EnableLocalServerReadinessCheck = false` to restore pre-M4 behavior.
+- Set `LanWorkflow.EnableLanServerReadinessCheck = false` to restore pre-M4 behavior.
 
 ## UDP LAN discovery transport and session store (M5)
 
@@ -185,7 +198,7 @@ Rollback path:
 
 ## LAN UI actions and session/status overlay (M6)
 
-Milestone 6 adds UI intent controls and discovered-session rendering for `LocalServer` mode.
+Milestone 6 adds UI intent controls and discovered-session rendering for `LanServer` mode.
 
 Current M6 scope:
 
@@ -201,11 +214,11 @@ Current M6 scope:
 
 Rollback path:
 
-- No config toggle for LAN UI actions is provided in LocalServer-only mode.
+- No config toggle for LAN UI actions is provided in LanServer-only mode.
 
 ## Mode isolation and rollback hardening (M8)
 
-Milestone 8 now hardens the LocalServer-only workflow and removes CustomCloud mode/configuration.
+Milestone 8 now hardens the LanServer-only workflow and removes CustomCloud mode/configuration.
 
 - The plugin always applies local-server endpoint settings before connect attempts.
 - Custom cloud AppId configuration entries are removed.
@@ -217,7 +230,7 @@ Focused diagnostics:
 
 Rollback path:
 
-- Keep `LanWorkflow.AutoStopOwnedLocalServerOnExit` and `LanWorkflow.AutoStopOwnedLocalServerOnLeaveRoom` enabled/disabled based on operational preference.
+- Keep `LanWorkflow.AutoStopOwnedLanServerOnExit` and `LanWorkflow.AutoStopOwnedLanServerOnLeaveRoom` enabled/disabled based on operational preference.
 
 ## Structured connection error mapping (M7)
 

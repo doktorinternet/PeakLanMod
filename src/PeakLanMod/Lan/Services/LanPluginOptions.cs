@@ -28,20 +28,26 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             new KeyboardShortcut(KeyCode.F7),
             "Start direct join. Testing parameter.");
 
-        LocalServerAddress = config.Bind(
+        LanServerAddress = BindWithLegacyFallback(
+            config,
             "Hosting",
+            "LanServerAddress",
             "LocalServerAddress",
             "127.0.0.1",
             "Local Luxon server hostname or IP. Swap with LAN host address.");
 
-        LocalServerPort = config.Bind(
+        LanServerPort = BindWithLegacyFallback(
+            config,
             "Hosting",
+            "LanServerPort",
             "LocalServerPort",
             5058,
             "Port of Local Luxon Name Server UDP/TCP port.");
 
-        LocalServerProtocol = config.Bind(
+        LanServerProtocol = BindWithLegacyFallback(
+            config,
             "Hosting",
+            "LanServerProtocol",
             "LocalServerProtocol",
             ConnectionProtocol.Udp,
             "Local server transport protocol.");
@@ -62,7 +68,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "LanWorkflow",
             "AutoDetectHostIPv4",
             true,
-            "Auto-detect host LAN IPv4 during direct host in LocalServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
+            "Auto-detect host LAN IPv4 during direct host in LanServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
 
         AllowedHostInterfaces = config.Bind(
             "LanWorkflow",
@@ -74,7 +80,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "LanWorkflow",
             "AutoUpdateLuxonConfigOnHost",
             true,
-            "Automatically rewrite Luxon external_address values during direct host in LocalServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
+            "Automatically rewrite Luxon external_address values during direct host in LanServer mode. Controlled by WorkflowMode unless WorkflowMode=Advanced.");
 
         LuxonConfigPath = config.Bind(
             "LanWorkflow",
@@ -82,50 +88,66 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "server/config.yml",
             "Relative or absolute path to Luxon config.yml used by host-side external_address automation.");
 
-        AutoStartLocalServerOnHost = config.Bind(
+        AutoStartLanServerOnHost = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "AutoStartLanServerOnHost",
             "AutoStartLocalServerOnHost",
             true,
             "Start local server executable during direct host when no matching process is already running.");
 
-        LocalServerExecutablePath = config.Bind(
+        LanServerExecutablePath = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "LanServerExecutablePath",
             "LocalServerExecutablePath",
             "server/luxon_server.msvc.release.exe",
             "Relative or absolute path to the local server executable for optional host auto-start.");
 
-        LocalServerWorkingDirectory = config.Bind(
+        LanServerWorkingDirectory = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "LanServerWorkingDirectory",
             "LocalServerWorkingDirectory",
             "server",
             "Working directory used when launching the local server executable. Leave empty to use executable directory.");
 
-        LocalServerStartArguments = config.Bind(
+        LanServerStartArguments = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "LanServerStartArguments",
             "LocalServerStartArguments",
             "config.yml",
             "Arguments passed to the local server executable when host auto-start is enabled.");
 
-        AutoStopOwnedLocalServerOnExit = config.Bind(
+        AutoStopOwnedLanServerOnExit = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "AutoStopOwnedLanServerOnExit",
             "AutoStopOwnedLocalServerOnExit",
             true,
             "Stop only plugin-owned local server process on plugin unload/game exit.");
 
-        AutoStopOwnedLocalServerOnLeaveRoom = config.Bind(
+        AutoStopOwnedLanServerOnLeaveRoom = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "AutoStopOwnedLanServerOnLeaveRoom",
             "AutoStopOwnedLocalServerOnLeaveRoom",
             true,
             "Stop plugin-owned local server process when leaving a room.");
 
-        ForceKillOwnedLocalServerOnExit = config.Bind(
+        ForceKillOwnedLanServerOnExit = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "ForceKillOwnedLanServerOnExit",
             "ForceKillOwnedLocalServerOnExit",
             true,
             "Force-kill plugin-owned local server process on exit when graceful stop times out.");
 
-        OwnedLocalServerStopTimeoutMs = config.Bind(
+        OwnedLanServerStopTimeoutMs = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "OwnedLanServerStopTimeoutMs",
             "OwnedLocalServerStopTimeoutMs",
             2000,
             "Timeout in milliseconds for graceful stop of plugin-owned local server process.");
@@ -136,11 +158,13 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             true,
             "Queue host intent on HostKey and auto-complete when the server becomes connected and ready.");
 
-        EnableLocalServerReadinessCheck = config.Bind(
+        EnableLanServerReadinessCheck = BindWithLegacyFallback(
+            config,
             "LanWorkflow",
+            "EnableLanServerReadinessCheck",
             "EnableLocalServerReadinessCheck",
             true,
-            "Wait for local NameServer readiness before direct host/join connect attempts in LocalServer mode.");
+            "Wait for local NameServer readiness before direct host/join connect attempts in LanServer mode.");
 
         AutoSkipPhotonFailureDialog = config.Bind(
             "LanWorkflow",
@@ -148,13 +172,13 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             true,
             "Auto-apply offline fallback to bypass the default Photon retry/offline popup on menu entry and post-room return.");
 
-        LocalServerReadinessTimeoutMs = config.Bind(
+        LanServerReadinessTimeoutMs = config.Bind(
             "LanWorkflow",
             "ReadinessTimeoutMs",
             5000,
             "Maximum milliseconds to wait for local NameServer readiness before connect attempts.");
 
-        LocalServerReadinessPollIntervalMs = config.Bind(
+        LanServerReadinessPollIntervalMs = config.Bind(
             "LanWorkflow",
             "ReadinessPollIntervalMs",
             250,
@@ -164,7 +188,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "LanWorkflow",
             "DiscoveryEnabled",
             false,
-            "Enable UDP LAN session discovery listener and host announcement broadcast in LocalServer mode.");
+            "Enable UDP LAN session discovery listener and host announcement broadcast in LanServer mode.");
 
         LanDiscoveryUdpPort = config.Bind(
             "LanWorkflow",
@@ -208,26 +232,26 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<KeyboardShortcut> JoinKey { get; }
     public ConfigEntry<LanWorkflowMode> WorkflowMode { get; }
     public ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost { get; }
-    public ConfigEntry<string> LocalServerAddress { get; }
-    public ConfigEntry<int> LocalServerPort { get; }
-    public ConfigEntry<ConnectionProtocol> LocalServerProtocol { get; }
+    public ConfigEntry<string> LanServerAddress { get; }
+    public ConfigEntry<int> LanServerPort { get; }
+    public ConfigEntry<ConnectionProtocol> LanServerProtocol { get; }
     public ConfigEntry<bool> AutoDetectHostLanIpv4 { get; }
     public ConfigEntry<string> AllowedHostInterfaces { get; }
     public ConfigEntry<bool> AutoUpdateLuxonConfigOnHost { get; }
     public ConfigEntry<string> LuxonConfigPath { get; }
-    public ConfigEntry<bool> AutoStartLocalServerOnHost { get; }
-    public ConfigEntry<string> LocalServerExecutablePath { get; }
-    public ConfigEntry<string> LocalServerWorkingDirectory { get; }
-    public ConfigEntry<string> LocalServerStartArguments { get; }
-    public ConfigEntry<bool> AutoStopOwnedLocalServerOnExit { get; }
-    public ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom { get; }
-    public ConfigEntry<bool> ForceKillOwnedLocalServerOnExit { get; }
-    public ConfigEntry<int> OwnedLocalServerStopTimeoutMs { get; }
+    public ConfigEntry<bool> AutoStartLanServerOnHost { get; }
+    public ConfigEntry<string> LanServerExecutablePath { get; }
+    public ConfigEntry<string> LanServerWorkingDirectory { get; }
+    public ConfigEntry<string> LanServerStartArguments { get; }
+    public ConfigEntry<bool> AutoStopOwnedLanServerOnExit { get; }
+    public ConfigEntry<bool> AutoStopOwnedLanServerOnLeaveRoom { get; }
+    public ConfigEntry<bool> ForceKillOwnedLanServerOnExit { get; }
+    public ConfigEntry<int> OwnedLanServerStopTimeoutMs { get; }
     public ConfigEntry<bool> AutoRetryDirectHostUntilReady { get; }
     public ConfigEntry<bool> AutoSkipPhotonFailureDialog { get; }
-    public ConfigEntry<bool> EnableLocalServerReadinessCheck { get; }
-    public ConfigEntry<int> LocalServerReadinessTimeoutMs { get; }
-    public ConfigEntry<int> LocalServerReadinessPollIntervalMs { get; }
+    public ConfigEntry<bool> EnableLanServerReadinessCheck { get; }
+    public ConfigEntry<int> LanServerReadinessTimeoutMs { get; }
+    public ConfigEntry<int> LanServerReadinessPollIntervalMs { get; }
     public ConfigEntry<bool> LanDiscoveryEnabled { get; }
     public ConfigEntry<int> LanDiscoveryUdpPort { get; }
     public ConfigEntry<int> LanDiscoveryBroadcastIntervalMs { get; }
@@ -235,4 +259,23 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
     public ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
     public ConfigEntry<bool> EnableStructuredErrorMapping { get; }
+
+    private static ConfigEntry<T> BindWithLegacyFallback<T>(
+        ConfigFile config,
+        string section,
+        string key,
+        string legacyKey,
+        T defaultValue,
+        string description)
+    {
+        if (!config.TryGetEntry(new ConfigDefinition(section, key), out ConfigEntry<T> _)
+            && config.TryGetEntry(new ConfigDefinition(section, legacyKey), out ConfigEntry<T> legacyEntry))
+        {
+            defaultValue = legacyEntry.Value;
+            Plugin.Log.LogInfo(
+                $"Config migration: using legacy {section}.{legacyKey} value for {section}.{key}.");
+        }
+
+        return config.Bind(section, key, defaultValue, description);
+    }
 }

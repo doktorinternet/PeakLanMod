@@ -46,7 +46,7 @@ public sealed class Plugin : BaseUnityPlugin
 
         Logger.LogInfo("PEAK LAN Mod loaded.");
         Logger.LogInfo("Phase 7 compatibility wrapper cleanup active.");
-        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings("Plugin.Awake");
+        LanRuntimeContext.Services.LanServerRuntime.DumpPhotonSettings("Plugin.Awake");
     }
 
     private void Update()
@@ -88,7 +88,7 @@ public sealed class Plugin : BaseUnityPlugin
             LanRuntimeContext.Services;
 
         services.DiscoveryRuntime.ShutdownLanDiscoveryRuntime("Plugin.OnDestroy");
-        services.LocalServerRuntime.StopOwnedLocalServerProcessOnExit("Plugin.OnDestroy");
+        services.LanServerRuntime.StopOwnedLanServerProcessOnExit("Plugin.OnDestroy");
         _harmony?.UnpatchSelf();
     }
 

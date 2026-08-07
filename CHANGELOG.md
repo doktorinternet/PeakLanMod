@@ -4,10 +4,13 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 
 ## 2026-08-07
 
+- Implemented terminology migration milestone: renamed code-facing `LocalServer` concepts to `LanServer` across services, patches, diagnostics, and docs while preserving behavior and direct-connect flow.
+- Added compatibility fallback for renamed config keys: new `LanServer*` keys now inherit values from legacy `LocalServer*` keys when upgrading existing configs.
+- Validation for this milestone: `dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false` succeeded (static compile validation only; two-machine/offline runtime revalidation pending manual test).
 - Completed Plugin separation migration Phase 7: removed remaining Plugin static compatibility wrappers, added `Lan/Services/LanRuntimeContext.cs` for patch/probe service access, and finalized `Plugin.cs` as composition root + metadata/log/Photon diagnostics only (no intended networking behavior change; compile validation passed and user-confirmed physically offline LAN test succeeded as intended).
 - Completed Plugin separation migration Phase 6: extracted LAN overlay rendering/state/style and settings-screen collapse behavior to `Lan/UI/LanOverlayController.cs`, wired through `ILanOverlayController` in compatibility services while preserving existing host/join/discovery intent routing (user-confirmed two-machine host/join validation passed with deployed DLL).
 - Completed Plugin separation migration Phase 5: extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and host/join state transitions to `Lan/Services/DirectConnectCoordinator.cs` while preserving Plugin compatibility wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
-- Completed Plugin separation migration Phase 4: extracted LocalServer endpoint override management, readiness checks, host process lifecycle control, host endpoint/Luxon automation, and Photon AppSettings application to `Lan/Services/LocalServerRuntimeService.cs` while preserving Plugin compatibility wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
+- Completed Plugin separation migration Phase 4: extracted LanServer endpoint override management, readiness checks, host process lifecycle control, host endpoint/Luxon automation, and Photon AppSettings application to `Lan/Services/LanServerRuntimeService.cs` while preserving Plugin compatibility wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
 - Completed Plugin separation migration Phase 3: extracted LAN discovery runtime coordination to `LanDiscoveryRuntimeCoordinator` and structured error/local-server state handling to `LanErrorStateService`, while preserving Plugin callback wrappers and intended runtime behavior (user-confirmed two-machine host/join validation passed).
 - Completed Plugin separation migration Phase 2: extracted Config.Bind ownership to `LanPluginOptions` and workflow preset/auto-lock policy logic to `LanWorkflowPolicyService`, while preserving Plugin compatibility accessors and intended runtime behavior.
 - Completed Plugin separation migration Phase 1: extracted deterministic identity/validation helpers into `LanIdentityAndValidation` with compatibility wrappers preserved in `Plugin` (no intended runtime behavior change).
@@ -15,12 +18,12 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 - Release tag: `v0.5.0`.
 - Milestone 8 scope correction: removed runtime mode-transition handling after confirming this mod does not switch network modes during runtime.
 - Removed CustomCloud mode and related config parameters (`Photon.Mode`, `Photon.AppIdRealtime`, `Photon.AppIdVoice`).
-- LocalServer is now the only supported endpoint path for both host-create and client-join LAN workflows.
-- Consolidated LocalServer config surface: removed `Direct Connect.Enabled`, `Direct Connect.Region`, `LanWorkflow.PreferredHostIPv4`, and `LanWorkflow.LuxonConfigPath`.
-- LAN UI overlay actions are now always enabled in LocalServer mode; removed `LanWorkflow.EnableLanUiActions` toggle.
-- `LanWorkflow.AutoSkipPhotonFailureDialog` naming is now canonical (legacy `...InLocalServer` key is no longer used).
+- LanServer is now the only supported endpoint path for both host-create and client-join LAN workflows.
+- Consolidated LanServer config surface: removed `Direct Connect.Enabled`, `Direct Connect.Region`, `LanWorkflow.PreferredHostIPv4`, and `LanWorkflow.LuxonConfigPath`.
+- LAN UI overlay actions are now always enabled in LanServer mode; removed `LanWorkflow.EnableLanUiActions` toggle.
+- `LanWorkflow.AutoSkipPhotonFailureDialog` naming is now canonical (legacy `...InLanServer` key is no longer used).
 - Follow-up consolidation adjustment: restored explicit `LanWorkflow.LuxonConfigPath` so Luxon rewrite target remains explicit and decoupled from launch arguments.
-- Improved launch-path intuition: relative `LocalServerExecutablePath` now resolves against `LocalServerWorkingDirectory` first when that setting is present.
+- Improved launch-path intuition: relative `LanServerExecutablePath` now resolves against `LanServerWorkingDirectory` first when that setting is present.
 - LAN release package no longer ships a static `BadHorse.PeakLanMod.cfg.template`; config is generated from plugin defaults on first launch.
 
 ## 2026-08-06
@@ -44,7 +47,7 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 - Updated M6 server list UX to be scrollable with no fixed session-count cap.
 - Added M6 UX Part 2 polish: `Join Selected` is disabled until a compatible session is selected, panel now shows inline join-unavailable reasons, and `Last refresh` timestamp is displayed with lightweight periodic auto-refresh plus manual refresh.
 - Removed legacy in-game local-server status text notifications and UI reflection fallback probes; M6 LAN session panel is now the primary in-game status surface.
-- Clarified `Photon.LocalServerAddress` as a bootstrap fallback endpoint (auto-managed in typical M6 discovery/join-selected flow).
+- Clarified `Photon.LanServerAddress` as a bootstrap fallback endpoint (auto-managed in typical M6 discovery/join-selected flow).
 - Switched M6 LAN UI interactions from shortcut-only to clickable overlay controls (`Host LAN`, `Join Selected`, `Refresh`) with clickable session rows; removed M6-specific shortcut config keys.
 - Implemented Milestone 6 UI integration: added config-gated LAN UI panel rendering, join-selected session application, and connection-phase status snapshots from the LAN state store while preserving pre-M6 behavior behind `LanWorkflow.EnableLanUiActions`.
 - Further reduced M5 discovery diagnostics noise: snapshot status now logs on change only, and incompatible-session updates log only when payload compatibility state changes.
@@ -55,10 +58,10 @@ TODO: You can follow this format for your changelog: <https://keepachangelog.com
 - Reduced queued-host log spam while waiting for Photon readiness: host preflight now runs once per queued host request and repeated not-ready state logs are throttled.
 - Implemented Milestone 4 local NameServer readiness gating: optional pre-connect probe/wait for direct host/join with timeout, polling controls, queued-host compatibility, and focused readiness diagnostics.
 - Implemented Milestone 3 Luxon process lifecycle control: optional host auto-start with owned/unowned process detection, plus stop-only-owned behavior on plugin unload.
-- Fixed M3 host auto-start path handling: `LocalServerWorkingDirectory` now defaults to empty (use executable directory), with fallback and explicit working-directory diagnostics when relative paths are invalid.
-- Improved M3 executable path resolution for profile-based installs: relative `LocalServerExecutablePath` now searches from current directory plus `BepInEx/config` ancestry before requiring absolute paths.
+- Fixed M3 host auto-start path handling: `LanServerWorkingDirectory` now defaults to empty (use executable directory), with fallback and explicit working-directory diagnostics when relative paths are invalid.
+- Improved M3 executable path resolution for profile-based installs: relative `LanServerExecutablePath` now searches from current directory plus `BepInEx/config` ancestry before requiring absolute paths.
 - Improved M3 host usability: single `HostKey` press now queues host intent and auto-completes once Photon becomes connected and ready (`LanWorkflow.AutoRetryDirectHostUntilReady`, default `true`).
-- Renamed mode value `LocalPhotonServer` to `LocalServer` and added startup config migration to rewrite legacy `Mode = LocalPhotonServer` entries.
+- Renamed mode value `LocalPhotonServer` to `LanServer` and added startup config migration to rewrite legacy `Mode = LocalPhotonServer` entries.
 - Implemented Milestone 2 Luxon config automation: optional host-side rewrite of `external_address` entries for NameServer/MasterServer/GameServer with deterministic port-preserving updates and rollback config guard.
 - Implemented Milestone 1 host LAN IPv4 selection: optional host-side auto-detection with interface filtering, manual override, and sanitized endpoint diagnostics.
 - Added `LanRelease` MSBuild target for offline LAN distribution staging, checksums, and zip packaging.

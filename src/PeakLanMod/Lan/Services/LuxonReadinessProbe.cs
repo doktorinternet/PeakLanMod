@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 
 namespace PeakLanMod.Lan.Services;
 
-internal readonly struct LocalServerReadinessResult
+internal readonly struct LanServerReadinessResult
 {
-    private LocalServerReadinessResult(
+    private LanServerReadinessResult(
         bool success,
         int attemptCount,
         int elapsedMilliseconds,
@@ -30,12 +30,12 @@ internal readonly struct LocalServerReadinessResult
     internal string SuccessMessage { get; }
     internal string LastFailureMessage { get; }
 
-    internal static LocalServerReadinessResult CreateSuccess(
+    internal static LanServerReadinessResult CreateSuccess(
         int attemptCount,
         int elapsedMilliseconds,
         string successMessage)
     {
-        return new LocalServerReadinessResult(
+        return new LanServerReadinessResult(
             success: true,
             attemptCount,
             elapsedMilliseconds,
@@ -43,12 +43,12 @@ internal readonly struct LocalServerReadinessResult
             lastFailureMessage: string.Empty);
     }
 
-    internal static LocalServerReadinessResult CreateFailure(
+    internal static LanServerReadinessResult CreateFailure(
         int attemptCount,
         int elapsedMilliseconds,
         string lastFailureMessage)
     {
-        return new LocalServerReadinessResult(
+        return new LanServerReadinessResult(
             success: false,
             attemptCount,
             elapsedMilliseconds,
@@ -65,7 +65,7 @@ internal static class LuxonReadinessProbe
         ConnectionProtocol protocol,
         int timeoutMs,
         int pollIntervalMs,
-        out LocalServerReadinessResult result)
+        out LanServerReadinessResult result)
     {
         int effectiveTimeoutMs = Math.Max(0, timeoutMs);
         int effectivePollMs = Math.Max(50, pollIntervalMs);
@@ -88,7 +88,7 @@ internal static class LuxonReadinessProbe
                     perAttemptTimeoutMs,
                     out string message))
             {
-                result = LocalServerReadinessResult.CreateSuccess(
+                result = LanServerReadinessResult.CreateSuccess(
                     attempts,
                     (int)stopwatch.ElapsedMilliseconds,
                     message);
@@ -99,7 +99,7 @@ internal static class LuxonReadinessProbe
 
             if (stopwatch.ElapsedMilliseconds >= effectiveTimeoutMs)
             {
-                result = LocalServerReadinessResult.CreateFailure(
+                result = LanServerReadinessResult.CreateFailure(
                     attempts,
                     (int)stopwatch.ElapsedMilliseconds,
                     lastFailure);
@@ -110,7 +110,7 @@ internal static class LuxonReadinessProbe
 
             if (remainingMs <= 0)
             {
-                result = LocalServerReadinessResult.CreateFailure(
+                result = LanServerReadinessResult.CreateFailure(
                     attempts,
                     (int)stopwatch.ElapsedMilliseconds,
                     lastFailure);

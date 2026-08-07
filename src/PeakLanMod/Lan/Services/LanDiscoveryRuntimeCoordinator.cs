@@ -35,7 +35,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     public void SyncLanDiscoveryRuntime(
         string source)
     {
-        if (!LanRuntimeContext.IsLocalServerMode || !_options.LanDiscoveryEnabled.Value)
+        if (!LanRuntimeContext.IsLanServerMode || !_options.LanDiscoveryEnabled.Value)
         {
             if (_broadcaster.IsRunning)
             {
@@ -96,7 +96,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     public void RefreshLanDiscoveryBroadcast(
         string source)
     {
-        if (!LanRuntimeContext.IsLocalServerMode || !_options.LanDiscoveryEnabled.Value)
+        if (!LanRuntimeContext.IsLanServerMode || !_options.LanDiscoveryEnabled.Value)
         {
             return;
         }
@@ -225,9 +225,9 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
             modVersion: _pluginVersion,
             roomName: roomName,
             hostDisplayName: PhotonNetwork.NickName ?? string.Empty,
-            nameServerAddress: _options.LocalServerAddress.Value.Trim(),
-            nameServerPort: _options.LocalServerPort.Value,
-            transport: _options.LocalServerProtocol.Value.ToString(),
+            nameServerAddress: _options.LanServerAddress.Value.Trim(),
+            nameServerPort: _options.LanServerPort.Value,
+            transport: _options.LanServerProtocol.Value.ToString(),
             scene: scene,
             serverInstanceId: _serverInstanceId,
             sentAtUtc: DateTime.UtcNow);

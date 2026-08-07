@@ -33,11 +33,11 @@ Current reality summary:
 - Phase 1 extracted deterministic identity/validation helpers into `src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs` with wrapper-preserving calls through `Plugin` methods.
 - Phase 2 extracted config entry ownership into `src/PeakLanMod/Lan/Services/LanPluginOptions.cs` and workflow preset/auto-lock policy into `src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs`.
 - Phase 3 extracted listener/broadcaster lifecycle and compatibility evaluation into `src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs`, and extracted photon state transition logging plus structured LAN error state handling into `src/PeakLanMod/Lan/Services/LanErrorStateService.cs`.
-- Phase 4 extracted local server endpoint override management, host LAN endpoint/Luxon automation, local process ensure/stop, readiness probes (including queued-host readiness window state), and Photon local-server AppSettings application into `src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs`.
+- Phase 4 extracted local server endpoint override management, host LAN endpoint/Luxon automation, local process ensure/stop, readiness probes (including queued-host readiness window state), and Photon local-server AppSettings application into `src/PeakLanMod/Lan/Services/LanServerRuntimeService.cs`.
 - Phase 5 extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and host/join state transitions into `src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs`.
 - Phase 6 extracted LAN overlay rendering/state/style ownership and settings-screen auto-collapse behavior into `src/PeakLanMod/Lan/UI/LanOverlayController.cs` and wired it through `ILanOverlayController` in `PluginCompatibilityServices`.
 - Phase 7 migrated remaining external callers away from Plugin static wrappers to service facades through `src/PeakLanMod/Lan/Services/LanRuntimeContext.cs`.
-- Post-migration cleanup moved workflow mode typing to `src/PeakLanMod/Lan/Model/LanWorkflowMode.cs`, moved Photon settings diagnostics ownership to `LocalServerRuntimeService`, and centralized mode-gate semantics behind `ILanModePolicyService`.
+- Post-migration cleanup moved workflow mode typing to `src/PeakLanMod/Lan/Model/LanWorkflowMode.cs`, moved Photon settings diagnostics ownership to `LanServerRuntimeService`, and centralized mode-gate semantics behind `ILanModePolicyService`.
 - Plugin is now a thin composition root plus metadata/logging.
 
 Target direction summary:
@@ -52,7 +52,7 @@ Target direction summary:
 | Config binding and config defaults | LanPluginOptions | UI controllers, patches |
 | Workflow presets and auto-lock policy | LanWorkflowPolicyService | UI classes |
 | Host/join intent orchestration | DirectConnectCoordinator | Plugin root |
-| Local server readiness/process/endpoint settings | LocalServerRuntimeService | UI classes |
+| Local server readiness/process/endpoint settings | LanServerRuntimeService | UI classes |
 | Discovery listener/broadcaster lifecycle | LanDiscoveryRuntimeCoordinator | Plugin root |
 | LAN overlay rendering and input state | LanOverlayController | Networking services |
 | Structured LAN error set/clear | LanErrorStateService | UI view models |
@@ -110,7 +110,7 @@ Add new interfaces here as they are introduced.
 | ILanOverlayController | LanOverlayController | LAN overlay rendering, UI view state, settings-screen collapse policy, and UI intent dispatch. |
 | ILanDiscoveryRuntimeCoordinator | LanDiscoveryRuntimeCoordinator | Discovery runtime lifecycle, host announce broadcast, and compatibility evaluation surface. |
 | ILanErrorStateService | LanErrorStateService | Photon state transition tracking and structured LAN error/local-server state surface. |
-| ILocalServerRuntimeService | LocalServerRuntimeService | Local server endpoint overrides, readiness probes, local process lifecycle, host endpoint/Luxon automation, and Photon app-settings application. |
+| ILanServerRuntimeService | LanServerRuntimeService | Local server endpoint overrides, readiness probes, local process lifecycle, host endpoint/Luxon automation, and Photon app-settings application. |
 | ILanIdentityAndValidation | LanIdentityAndValidation | Normalization, host room-name validation, endpoint sanitization, fingerprint, and identity helper compatibility surface. |
 
 ## Phase update log
@@ -141,7 +141,7 @@ Append one entry whenever a migration phase is completed.
 - Phase completed: Phase 0
 - Architecture snapshot updated sections: phase state and current reality summary
 - Routing table changes: added transitional service adapter routing row
-- New interfaces introduced: IPluginCompatibilityServices, ILanPluginOptions, ILanWorkflowPolicyService, IDirectConnectCoordinator, ILanOverlayController, ILanDiscoveryRuntimeCoordinator, ILanErrorStateService, ILocalServerRuntimeService, ILanIdentityAndValidation
+- New interfaces introduced: IPluginCompatibilityServices, ILanPluginOptions, ILanWorkflowPolicyService, IDirectConnectCoordinator, ILanOverlayController, ILanDiscoveryRuntimeCoordinator, ILanErrorStateService, ILanServerRuntimeService, ILanIdentityAndValidation
 - Compatibility wrappers added/removed: added Plugin.Services transitional wrapper surface; no removals
 - Notes for future agents: keep Plugin static wrapper call sites unchanged until Phase 1+ implementation extraction starts.
 
@@ -172,9 +172,9 @@ Append one entry whenever a migration phase is completed.
 - 2026-08-07
 - Phase completed: Phase 4
 - Architecture snapshot updated sections: phase state, current reality summary
-- Routing table changes: local server runtime ownership now implemented in LocalServerRuntimeService instead of Plugin method bodies.
+- Routing table changes: local server runtime ownership now implemented in LanServerRuntimeService instead of Plugin method bodies.
 - New interfaces introduced: none
-- Compatibility wrappers added/removed: no removals; Plugin local-server wrappers now delegate to LocalServerRuntimeService.
+- Compatibility wrappers added/removed: no removals; Plugin local-server wrappers now delegate to LanServerRuntimeService.
 - Notes for future agents: keep Plugin wrapper signatures stable for callback/patch compatibility while Phase 5 extracts direct host/join orchestration. User confirmed Phase 4 two-machine host/join runtime verification passed.
 
 - 2026-08-07
@@ -204,7 +204,7 @@ Append one entry whenever a migration phase is completed.
 - 2026-08-07
 - Phase completed: Post-migration cleanup - deviations backlog closure
 - Architecture snapshot updated sections: current reality summary, transition compatibility wrappers
-- Routing table changes: no new responsibility categories; diagnostics ownership normalized to LocalServerRuntimeService.
+- Routing table changes: no new responsibility categories; diagnostics ownership normalized to LanServerRuntimeService.
 - New interfaces introduced: ILanModePolicyService
 - Compatibility wrappers added/removed: removed unused placeholder types in PluginCompatibilityScaffolding; retained startup-safe placeholders required before LanRuntimeContext.Initialize.
 - Notes for future agents: workflow mode typing is now service/model-owned and mode-gating has a single authoritative policy source. Runtime behavior for this refactor was validated by static build only.

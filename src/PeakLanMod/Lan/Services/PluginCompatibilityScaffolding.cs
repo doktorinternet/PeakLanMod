@@ -15,26 +15,26 @@ internal interface ILanPluginOptions
     ConfigEntry<KeyboardShortcut> JoinKey { get; }
     ConfigEntry<LanWorkflowMode> WorkflowMode { get; }
     ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost { get; }
-    ConfigEntry<string> LocalServerAddress { get; }
-    ConfigEntry<int> LocalServerPort { get; }
-    ConfigEntry<ConnectionProtocol> LocalServerProtocol { get; }
+    ConfigEntry<string> LanServerAddress { get; }
+    ConfigEntry<int> LanServerPort { get; }
+    ConfigEntry<ConnectionProtocol> LanServerProtocol { get; }
     ConfigEntry<bool> AutoDetectHostLanIpv4 { get; }
     ConfigEntry<string> AllowedHostInterfaces { get; }
     ConfigEntry<bool> AutoUpdateLuxonConfigOnHost { get; }
     ConfigEntry<string> LuxonConfigPath { get; }
-    ConfigEntry<bool> AutoStartLocalServerOnHost { get; }
-    ConfigEntry<string> LocalServerExecutablePath { get; }
-    ConfigEntry<string> LocalServerWorkingDirectory { get; }
-    ConfigEntry<string> LocalServerStartArguments { get; }
-    ConfigEntry<bool> AutoStopOwnedLocalServerOnExit { get; }
-    ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom { get; }
-    ConfigEntry<bool> ForceKillOwnedLocalServerOnExit { get; }
-    ConfigEntry<int> OwnedLocalServerStopTimeoutMs { get; }
+    ConfigEntry<bool> AutoStartLanServerOnHost { get; }
+    ConfigEntry<string> LanServerExecutablePath { get; }
+    ConfigEntry<string> LanServerWorkingDirectory { get; }
+    ConfigEntry<string> LanServerStartArguments { get; }
+    ConfigEntry<bool> AutoStopOwnedLanServerOnExit { get; }
+    ConfigEntry<bool> AutoStopOwnedLanServerOnLeaveRoom { get; }
+    ConfigEntry<bool> ForceKillOwnedLanServerOnExit { get; }
+    ConfigEntry<int> OwnedLanServerStopTimeoutMs { get; }
     ConfigEntry<bool> AutoRetryDirectHostUntilReady { get; }
     ConfigEntry<bool> AutoSkipPhotonFailureDialog { get; }
-    ConfigEntry<bool> EnableLocalServerReadinessCheck { get; }
-    ConfigEntry<int> LocalServerReadinessTimeoutMs { get; }
-    ConfigEntry<int> LocalServerReadinessPollIntervalMs { get; }
+    ConfigEntry<bool> EnableLanServerReadinessCheck { get; }
+    ConfigEntry<int> LanServerReadinessTimeoutMs { get; }
+    ConfigEntry<int> LanServerReadinessPollIntervalMs { get; }
     ConfigEntry<bool> LanDiscoveryEnabled { get; }
     ConfigEntry<int> LanDiscoveryUdpPort { get; }
     ConfigEntry<int> LanDiscoveryBroadcastIntervalMs { get; }
@@ -55,7 +55,7 @@ internal interface IDirectConnectCoordinator
     void RequestDirectHostStart(string source);
     void TryProcessQueuedDirectHostStart(string source);
     void StartDirectJoin();
-    void RequestDirectJoinStart(string roomName, string source, LocalServerEndpoint endpoint);
+    void RequestDirectJoinStart(string roomName, string source, LanServerEndpoint endpoint);
     void TryProcessQueuedDirectJoinStart(string source);
 }
 
@@ -79,29 +79,29 @@ internal interface ILanDiscoveryRuntimeCoordinator
 internal interface ILanErrorStateService
 {
     void LogPhotonStateChanges();
-    void NotifyLocalServerDetected();
-    void NotifyLocalServerNotDetected(string reason);
+    void NotifyLanServerDetected();
+    void NotifyLanServerNotDetected(string reason);
     void ReportStructuredLanError(LanErrorCode code, string source, string message, string context);
     void ClearStructuredLanError(string source, string reason);
     void HandleLeftRoom();
     LanErrorDetail? GetConnectionErrorSnapshot();
 }
 
-internal interface ILocalServerRuntimeService
+internal interface ILanServerRuntimeService
 {
-    bool EnsureHostLocalServerProcess();
-    void StopOwnedLocalServerProcessOnExit(string source);
+    bool EnsureHostLanServerProcess();
+    void StopOwnedLanServerProcessOnExit(string source);
     void ApplyHostLanIpv4Selection();
     void ApplyHostLuxonConfigAutomation();
-    bool EnsureLocalServerReadinessBeforeConnect(string source, bool queuedHostFlow, LocalServerEndpoint? endpointOverride = null);
+    bool EnsureLanServerReadinessBeforeConnect(string source, bool queuedHostFlow, LanServerEndpoint? endpointOverride = null);
     bool WasLastQueuedHostReadinessTimeout { get; }
     void ResetQueuedHostReadinessWindow();
     string GetConfiguredLocalEndpoint();
     string GetEffectiveLocalEndpoint();
-    LocalServerEndpoint GetConfiguredLocalServerEndpoint();
-    LocalServerEndpoint GetEffectiveLocalServerEndpointForConnection();
+    LanServerEndpoint GetConfiguredLanServerEndpoint();
+    LanServerEndpoint GetEffectiveLanServerEndpointForConnection();
     bool IsJoinEndpointOverrideActive { get; }
-    void ApplyTransientJoinEndpointOverride(LocalServerEndpoint endpoint, string source);
+    void ApplyTransientJoinEndpointOverride(LanServerEndpoint endpoint, string source);
     void ClearTransientJoinEndpointOverride(string source);
     void ApplyConfiguredPhotonSettings();
     void DumpPhotonSettings(string source);
@@ -109,7 +109,7 @@ internal interface ILocalServerRuntimeService
 
 internal interface ILanModePolicyService
 {
-    bool IsLocalServerModeEnabled { get; }
+    bool IsLanServerModeEnabled { get; }
 }
 
 internal interface ILanIdentityAndValidation
@@ -135,7 +135,7 @@ internal interface IPluginCompatibilityServices
     ILanOverlayController Overlay { get; }
     ILanDiscoveryRuntimeCoordinator DiscoveryRuntime { get; }
     ILanErrorStateService ErrorState { get; }
-    ILocalServerRuntimeService LocalServerRuntime { get; }
+    ILanServerRuntimeService LanServerRuntime { get; }
     ILanIdentityAndValidation IdentityAndValidation { get; }
 }
 
@@ -158,9 +158,9 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
             options,
             connectionStateStore);
         IdentityAndValidation = new LanIdentityAndValidation();
-        LocalServerRuntime = options is PlaceholderLanPluginOptions
-            ? new PlaceholderLocalServerRuntimeService()
-            : new LocalServerRuntimeService(
+        LanServerRuntime = options is PlaceholderLanPluginOptions
+            ? new PlaceholderLanServerRuntimeService()
+            : new LanServerRuntimeService(
                 options,
                 ErrorState,
                 IdentityAndValidation);
@@ -168,7 +168,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
             ? new PlaceholderDirectConnectCoordinator()
             : new DirectConnectCoordinator(
                 options,
-                LocalServerRuntime,
+                LanServerRuntime,
                 IdentityAndValidation);
         Overlay = options is PlaceholderLanPluginOptions
             ? new PlaceholderLanOverlayController()
@@ -177,7 +177,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
                 DirectConnect,
                 DiscoveryRuntime,
                 ErrorState,
-                LocalServerRuntime,
+                LanServerRuntime,
                 IdentityAndValidation);
     }
 
@@ -206,7 +206,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
     public ILanOverlayController Overlay { get; }
     public ILanDiscoveryRuntimeCoordinator DiscoveryRuntime { get; }
     public ILanErrorStateService ErrorState { get; }
-    public ILocalServerRuntimeService LocalServerRuntime { get; }
+    public ILanServerRuntimeService LanServerRuntime { get; }
     public ILanIdentityAndValidation IdentityAndValidation { get; }
 
     private sealed class PlaceholderLanPluginOptions : ILanPluginOptions
@@ -222,26 +222,26 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public ConfigEntry<KeyboardShortcut> JoinKey => NotReady<KeyboardShortcut>();
         public ConfigEntry<LanWorkflowMode> WorkflowMode => NotReady<LanWorkflowMode>();
         public ConfigEntry<bool> AutoLockWorkflowModeAfterSuccessfulHost => NotReady<bool>();
-        public ConfigEntry<string> LocalServerAddress => NotReady<string>();
-        public ConfigEntry<int> LocalServerPort => NotReady<int>();
-        public ConfigEntry<ConnectionProtocol> LocalServerProtocol => NotReady<ConnectionProtocol>();
+        public ConfigEntry<string> LanServerAddress => NotReady<string>();
+        public ConfigEntry<int> LanServerPort => NotReady<int>();
+        public ConfigEntry<ConnectionProtocol> LanServerProtocol => NotReady<ConnectionProtocol>();
         public ConfigEntry<bool> AutoDetectHostLanIpv4 => NotReady<bool>();
         public ConfigEntry<string> AllowedHostInterfaces => NotReady<string>();
         public ConfigEntry<bool> AutoUpdateLuxonConfigOnHost => NotReady<bool>();
         public ConfigEntry<string> LuxonConfigPath => NotReady<string>();
-        public ConfigEntry<bool> AutoStartLocalServerOnHost => NotReady<bool>();
-        public ConfigEntry<string> LocalServerExecutablePath => NotReady<string>();
-        public ConfigEntry<string> LocalServerWorkingDirectory => NotReady<string>();
-        public ConfigEntry<string> LocalServerStartArguments => NotReady<string>();
-        public ConfigEntry<bool> AutoStopOwnedLocalServerOnExit => NotReady<bool>();
-        public ConfigEntry<bool> AutoStopOwnedLocalServerOnLeaveRoom => NotReady<bool>();
-        public ConfigEntry<bool> ForceKillOwnedLocalServerOnExit => NotReady<bool>();
-        public ConfigEntry<int> OwnedLocalServerStopTimeoutMs => NotReady<int>();
+        public ConfigEntry<bool> AutoStartLanServerOnHost => NotReady<bool>();
+        public ConfigEntry<string> LanServerExecutablePath => NotReady<string>();
+        public ConfigEntry<string> LanServerWorkingDirectory => NotReady<string>();
+        public ConfigEntry<string> LanServerStartArguments => NotReady<string>();
+        public ConfigEntry<bool> AutoStopOwnedLanServerOnExit => NotReady<bool>();
+        public ConfigEntry<bool> AutoStopOwnedLanServerOnLeaveRoom => NotReady<bool>();
+        public ConfigEntry<bool> ForceKillOwnedLanServerOnExit => NotReady<bool>();
+        public ConfigEntry<int> OwnedLanServerStopTimeoutMs => NotReady<int>();
         public ConfigEntry<bool> AutoRetryDirectHostUntilReady => NotReady<bool>();
         public ConfigEntry<bool> AutoSkipPhotonFailureDialog => NotReady<bool>();
-        public ConfigEntry<bool> EnableLocalServerReadinessCheck => NotReady<bool>();
-        public ConfigEntry<int> LocalServerReadinessTimeoutMs => NotReady<int>();
-        public ConfigEntry<int> LocalServerReadinessPollIntervalMs => NotReady<int>();
+        public ConfigEntry<bool> EnableLanServerReadinessCheck => NotReady<bool>();
+        public ConfigEntry<int> LanServerReadinessTimeoutMs => NotReady<int>();
+        public ConfigEntry<int> LanServerReadinessPollIntervalMs => NotReady<int>();
         public ConfigEntry<bool> LanDiscoveryEnabled => NotReady<bool>();
         public ConfigEntry<int> LanDiscoveryUdpPort => NotReady<int>();
         public ConfigEntry<int> LanDiscoveryBroadcastIntervalMs => NotReady<int>();
@@ -279,7 +279,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         {
         }
 
-        public void RequestDirectJoinStart(string roomName, string source, LocalServerEndpoint endpoint)
+        public void RequestDirectJoinStart(string roomName, string source, LanServerEndpoint endpoint)
         {
         }
 
@@ -304,14 +304,14 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         }
     }
 
-    private sealed class PlaceholderLocalServerRuntimeService : ILocalServerRuntimeService
+    private sealed class PlaceholderLanServerRuntimeService : ILanServerRuntimeService
     {
-        public bool EnsureHostLocalServerProcess()
+        public bool EnsureHostLanServerProcess()
         {
             return false;
         }
 
-        public void StopOwnedLocalServerProcessOnExit(string source)
+        public void StopOwnedLanServerProcessOnExit(string source)
         {
         }
 
@@ -323,10 +323,10 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         {
         }
 
-        public bool EnsureLocalServerReadinessBeforeConnect(
+        public bool EnsureLanServerReadinessBeforeConnect(
             string source,
             bool queuedHostFlow,
-            LocalServerEndpoint? endpointOverride = null)
+            LanServerEndpoint? endpointOverride = null)
         {
             return false;
         }
@@ -347,20 +347,20 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
             return "<not-initialized>";
         }
 
-        public LocalServerEndpoint GetConfiguredLocalServerEndpoint()
+        public LanServerEndpoint GetConfiguredLanServerEndpoint()
         {
-            return new LocalServerEndpoint(string.Empty, 0, ConnectionProtocol.Udp);
+            return new LanServerEndpoint(string.Empty, 0, ConnectionProtocol.Udp);
         }
 
-        public LocalServerEndpoint GetEffectiveLocalServerEndpointForConnection()
+        public LanServerEndpoint GetEffectiveLanServerEndpointForConnection()
         {
-            return new LocalServerEndpoint(string.Empty, 0, ConnectionProtocol.Udp);
+            return new LanServerEndpoint(string.Empty, 0, ConnectionProtocol.Udp);
         }
 
         public bool IsJoinEndpointOverrideActive => false;
 
         public void ApplyTransientJoinEndpointOverride(
-            LocalServerEndpoint endpoint,
+            LanServerEndpoint endpoint,
             string source)
         {
         }

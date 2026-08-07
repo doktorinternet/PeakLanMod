@@ -13,7 +13,7 @@ internal static class NetworkConnectorPatches
     private static void BeforeStart()
     {
         Plugin.Log.LogInfo("NetworkConnector.Start: PREFIX");
-        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings("before NetworkConnector.Start");
+        LanRuntimeContext.Services.LanServerRuntime.DumpPhotonSettings("before NetworkConnector.Start");
     }
 
     [HarmonyPatch(nameof(NetworkConnector.Start))]
@@ -21,7 +21,7 @@ internal static class NetworkConnectorPatches
     private static void AfterStart()
     {
         Plugin.Log.LogInfo("NetworkConnector.Start: POSTFIX");
-        LanRuntimeContext.Services.LocalServerRuntime.DumpPhotonSettings("after NetworkConnector.Start");
+        LanRuntimeContext.Services.LanServerRuntime.DumpPhotonSettings("after NetworkConnector.Start");
     }
 }
 

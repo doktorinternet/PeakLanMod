@@ -16,7 +16,7 @@ internal static class MainMenuPageHandlerUpdateBypassPatch
     [HarmonyPrefix]
     private static bool Prefix()
     {
-        if (!LanRuntimeContext.IsLocalServerMode
+        if (!LanRuntimeContext.IsLanServerMode
             || !LanRuntimeContext.Options.AutoSkipPhotonFailureDialog.Value)
         {
             _loggedSuppressedFrame = false;
@@ -56,7 +56,7 @@ internal static class MainMenuPageHandlerUpdateBypassPatch
             _loggedSuppressedFrame = true;
 
             Plugin.Log.LogInfo(
-                "LocalServer mode: suppressing MainMenuPageHandler.Update " +
+                "LanServer mode: suppressing MainMenuPageHandler.Update " +
                 "while startup state is disconnected to bypass Photon retry/offline popup.");
         }
 

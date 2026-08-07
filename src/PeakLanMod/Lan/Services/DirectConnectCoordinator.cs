@@ -11,7 +11,7 @@ namespace PeakLanMod.Lan.Services;
 internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
 {
     private readonly ILanPluginOptions _options;
-    private readonly ILocalServerRuntimeService _localServerRuntime;
+    private readonly ILanServerRuntimeService _LanServerRuntime;
     private readonly ILanIdentityAndValidation _identityAndValidation;
     private bool _pendingDirectHostStart;
     private bool _pendingDirectHostConnectRequested;
@@ -20,17 +20,17 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
     private bool _pendingDirectJoinConnectRequested;
     private string _pendingDirectJoinRoomName = string.Empty;
     private string _pendingDirectJoinSource = string.Empty;
-    private LocalServerEndpoint? _pendingDirectJoinEndpoint;
+    private LanServerEndpoint? _pendingDirectJoinEndpoint;
     private float _lastNotReadyLogAt = -999f;
     private float _lastReconnectAttemptAt = -999f;
 
     internal DirectConnectCoordinator(
         ILanPluginOptions options,
-        ILocalServerRuntimeService localServerRuntime,
+        ILanServerRuntimeService LanServerRuntime,
         ILanIdentityAndValidation identityAndValidation)
     {
         _options = options;
-        _localServerRuntime = localServerRuntime;
+        _LanServerRuntime = LanServerRuntime;
         _identityAndValidation = identityAndValidation;
     }
 
@@ -64,7 +64,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         {
             _pendingDirectHostStart = false;
             _queuedHostPreflightCompleted = false;
-            _localServerRuntime.ResetQueuedHostReadinessWindow();
+            _LanServerRuntime.ResetQueuedHostReadinessWindow();
 
             Plugin.Log.LogInfo(
                 $"{source}: queued host request cleared because client is already in a room.");
@@ -80,7 +80,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         _pendingDirectHostStart = false;
         _pendingDirectHostConnectRequested = false;
         _queuedHostPreflightCompleted = false;
-        _localServerRuntime.ResetQueuedHostReadinessWindow();
+        _LanServerRuntime.ResetQueuedHostReadinessWindow();
 
         Plugin.Log.LogInfo(
             $"{source}: queued direct host request completed.");
@@ -96,13 +96,13 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         RequestDirectJoinStart(
             roomName,
             "StartDirectJoin",
-            _localServerRuntime.GetConfiguredLocalServerEndpoint());
+            _LanServerRuntime.GetConfiguredLanServerEndpoint());
     }
 
     public void RequestDirectJoinStart(
         string roomName,
         string source,
-        LocalServerEndpoint endpoint)
+        LanServerEndpoint endpoint)
     {
         _pendingDirectJoinStart = true;
         _pendingDirectJoinConnectRequested = false;
@@ -110,7 +110,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         _pendingDirectJoinSource = source;
         _pendingDirectJoinEndpoint = endpoint;
 
-        _localServerRuntime.ApplyTransientJoinEndpointOverride(
+        _LanServerRuntime.ApplyTransientJoinEndpointOverride(
             endpoint,
             source);
 
@@ -168,7 +168,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         _pendingDirectHostStart = true;
         _pendingDirectHostConnectRequested = false;
         _queuedHostPreflightCompleted = false;
-        _localServerRuntime.ResetQueuedHostReadinessWindow();
+        _LanServerRuntime.ResetQueuedHostReadinessWindow();
 
         Plugin.Log.LogInfo(
             "Queued direct host start request. " +
@@ -192,7 +192,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
 
         if (clearEndpointOverride)
         {
-            _localServerRuntime.ClearTransientJoinEndpointOverride(source);
+            _LanServerRuntime.ClearTransientJoinEndpointOverride(source);
         }
 
         if (!hadPendingJoin)
@@ -212,18 +212,18 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
 
         if (!queuedHostFlow || !_queuedHostPreflightCompleted)
         {
-            _localServerRuntime.ApplyHostLanIpv4Selection();
-            _localServerRuntime.ApplyHostLuxonConfigAutomation();
+            _LanServerRuntime.ApplyHostLanIpv4Selection();
+            _LanServerRuntime.ApplyHostLuxonConfigAutomation();
 
-            if (!_localServerRuntime.EnsureHostLocalServerProcess())
+            if (!_LanServerRuntime.EnsureHostLanServerProcess())
             {
                 _pendingDirectHostStart = false;
                 _queuedHostPreflightCompleted = false;
-                _localServerRuntime.ResetQueuedHostReadinessWindow();
+                _LanServerRuntime.ResetQueuedHostReadinessWindow();
                 return false;
             }
 
-            if (!EnsureLocalServerReadinessBeforeConnect(
+            if (!EnsureLanServerReadinessBeforeConnect(
                     source: "StartDirectHost",
                     queuedHostFlow))
             {
@@ -274,9 +274,9 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
     private bool StartDirectJoinOnce(
         string roomName,
         string source,
-        LocalServerEndpoint endpoint)
+        LanServerEndpoint endpoint)
     {
-        if (!EnsureLocalServerReadinessBeforeConnect(
+        if (!EnsureLanServerReadinessBeforeConnect(
                 source,
                 queuedHostFlow: false,
                 endpointOverride: endpoint))
@@ -313,19 +313,19 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         return true;
     }
 
-    private bool EnsureLocalServerReadinessBeforeConnect(
+    private bool EnsureLanServerReadinessBeforeConnect(
         string source,
         bool queuedHostFlow,
-        LocalServerEndpoint? endpointOverride = null)
+        LanServerEndpoint? endpointOverride = null)
     {
-        bool ready = _localServerRuntime.EnsureLocalServerReadinessBeforeConnect(
+        bool ready = _LanServerRuntime.EnsureLanServerReadinessBeforeConnect(
             source,
             queuedHostFlow,
             endpointOverride);
 
         if (!ready
             && queuedHostFlow
-            && _localServerRuntime.WasLastQueuedHostReadinessTimeout)
+            && _LanServerRuntime.WasLastQueuedHostReadinessTimeout)
         {
             _pendingDirectHostStart = false;
         }

@@ -8,16 +8,16 @@ using System;
 
 namespace PeakLanMod.Lan.Services;
 
-internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
+internal sealed class LanServerRuntimeService : ILanServerRuntimeService
 {
     private readonly ILanPluginOptions _options;
     private readonly ILanErrorStateService _errorState;
     private readonly ILanIdentityAndValidation _identityAndValidation;
-    private LocalServerEndpoint? _transientJoinEndpointOverride;
+    private LanServerEndpoint? _transientJoinEndpointOverride;
     private DateTime _queuedHostReadinessStartedAtUtc;
     private int _queuedHostReadinessAttempts;
 
-    internal LocalServerRuntimeService(
+    internal LanServerRuntimeService(
         ILanPluginOptions options,
         ILanErrorStateService errorState,
         ILanIdentityAndValidation identityAndValidation)
@@ -29,21 +29,21 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
 
     public bool WasLastQueuedHostReadinessTimeout { get; private set; }
 
-    public bool EnsureHostLocalServerProcess()
+    public bool EnsureHostLanServerProcess()
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return true;
         }
 
-        if (!_options.AutoStartLocalServerOnHost.Value)
+        if (!_options.AutoStartLanServerOnHost.Value)
         {
             return true;
         }
 
-        string executablePath = _options.LocalServerExecutablePath.Value.Trim();
-        string workingDirectory = _options.LocalServerWorkingDirectory.Value.Trim();
-        string startArguments = _options.LocalServerStartArguments.Value;
+        string executablePath = _options.LanServerExecutablePath.Value.Trim();
+        string workingDirectory = _options.LanServerWorkingDirectory.Value.Trim();
+        string startArguments = _options.LanServerStartArguments.Value;
 
         if (!LuxonProcessController.TryEnsureRunning(
                 executablePath,
@@ -54,7 +54,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
         {
             _errorState.ReportStructuredLanError(
                 LanErrorClassifier.ClassifyAutoStartFailure(),
-                source: "EnsureHostLocalServerProcess",
+                source: "EnsureHostLanServerProcess",
                 message: "Local server process start/attach failed.",
                 context: result.Message);
 
@@ -64,7 +64,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
                 $"WorkingDirectory={result.WorkingDirectoryForLog}; " +
                 $"Reason={result.Message}");
 
-            _errorState.NotifyLocalServerNotDetected("auto-start failed");
+            _errorState.NotifyLanServerNotDetected("auto-start failed");
             return false;
         }
 
@@ -81,23 +81,23 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
         return true;
     }
 
-    public void StopOwnedLocalServerProcessOnExit(
+    public void StopOwnedLanServerProcessOnExit(
         string source)
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return;
         }
 
-        if (!_options.AutoStopOwnedLocalServerOnExit.Value)
+        if (!_options.AutoStopOwnedLanServerOnExit.Value)
         {
             Plugin.Log.LogInfo(
                 $"{source}: owned local server stop on exit is disabled.");
             return;
         }
 
-        int timeoutMs = Math.Max(0, _options.OwnedLocalServerStopTimeoutMs.Value);
-        bool forceKill = _options.ForceKillOwnedLocalServerOnExit.Value;
+        int timeoutMs = Math.Max(0, _options.OwnedLanServerStopTimeoutMs.Value);
+        bool forceKill = _options.ForceKillOwnedLanServerOnExit.Value;
 
         if (LuxonProcessController.TryStopOwnedProcess(
                 timeoutMs,
@@ -118,7 +118,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
 
     public void ApplyHostLanIpv4Selection()
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return;
         }
@@ -136,13 +136,13 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
             Plugin.Log.LogWarning(
                 "Host LAN IPv4 selection failed. " +
                 $"Reason={reason}; " +
-                $"KeepingLocalServerAddress={_identityAndValidation.SanitizeEndpointForLog(_options.LocalServerAddress.Value)}");
+                $"KeepingLanServerAddress={_identityAndValidation.SanitizeEndpointForLog(_options.LanServerAddress.Value)}");
 
             return;
         }
 
         string previousAddress =
-            _options.LocalServerAddress.Value.Trim();
+            _options.LanServerAddress.Value.Trim();
 
         if (string.Equals(
                 previousAddress,
@@ -150,17 +150,17 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
                 StringComparison.OrdinalIgnoreCase))
         {
             Plugin.Log.LogInfo(
-                "Host LAN IPv4 selection kept existing LocalServerAddress. " +
+                "Host LAN IPv4 selection kept existing LanServerAddress. " +
                 $"Selected={_identityAndValidation.SanitizeEndpointForLog(selectedIpv4)}; " +
                 $"SelectionReason={reason}");
 
             return;
         }
 
-        _options.LocalServerAddress.Value = selectedIpv4;
+        _options.LanServerAddress.Value = selectedIpv4;
 
         Plugin.Log.LogInfo(
-            "Host LAN IPv4 selection updated LocalServerAddress. " +
+            "Host LAN IPv4 selection updated LanServerAddress. " +
             $"Previous={_identityAndValidation.SanitizeEndpointForLog(previousAddress)}; " +
             $"Selected={_identityAndValidation.SanitizeEndpointForLog(selectedIpv4)}; " +
             $"SelectedFingerprint={_identityAndValidation.Fingerprint(selectedIpv4)}; " +
@@ -169,7 +169,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
 
     public void ApplyHostLuxonConfigAutomation()
     {
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return;
         }
@@ -179,7 +179,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
             return;
         }
 
-        string endpointHost = _options.LocalServerAddress.Value.Trim();
+        string endpointHost = _options.LanServerAddress.Value.Trim();
         string configPath = _options.LuxonConfigPath.Value.Trim();
 
         if (!LuxonConfigManager.TryUpdateExternalAddresses(
@@ -205,28 +205,28 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
             $"Changed={result.WasChanged}");
     }
 
-    public bool EnsureLocalServerReadinessBeforeConnect(
+    public bool EnsureLanServerReadinessBeforeConnect(
         string source,
         bool queuedHostFlow,
-        LocalServerEndpoint? endpointOverride = null)
+        LanServerEndpoint? endpointOverride = null)
     {
         WasLastQueuedHostReadinessTimeout = false;
 
-        if (!LanRuntimeContext.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLanServerMode)
         {
             return true;
         }
 
-        if (!_options.EnableLocalServerReadinessCheck.Value)
+        if (!_options.EnableLanServerReadinessCheck.Value)
         {
             return true;
         }
 
-        int timeoutMs = Math.Max(0, _options.LocalServerReadinessTimeoutMs.Value);
-        int pollIntervalMs = Math.Max(50, _options.LocalServerReadinessPollIntervalMs.Value);
+        int timeoutMs = Math.Max(0, _options.LanServerReadinessTimeoutMs.Value);
+        int pollIntervalMs = Math.Max(50, _options.LanServerReadinessPollIntervalMs.Value);
 
-        LocalServerEndpoint endpoint = endpointOverride
-            ?? GetConfiguredLocalServerEndpoint();
+        LanServerEndpoint endpoint = endpointOverride
+            ?? GetConfiguredLanServerEndpoint();
 
         string host = endpoint.Address.Trim();
         int port = endpoint.Port;
@@ -249,7 +249,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
                 protocol,
                 timeoutMs,
                 pollIntervalMs,
-                out LocalServerReadinessResult result))
+                out LanServerReadinessResult result))
         {
             _errorState.ReportStructuredLanError(
                 LanErrorClassifier.ClassifyReadinessTimeout(),
@@ -265,7 +265,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
                 $"Attempts={result.AttemptCount}; " +
                 $"LastFailure={result.LastFailureMessage}");
 
-            _errorState.NotifyLocalServerNotDetected("readiness timeout");
+            _errorState.NotifyLanServerNotDetected("readiness timeout");
             return false;
         }
 
@@ -293,41 +293,41 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
 
     public string GetConfiguredLocalEndpoint()
     {
-        string address = _options.LocalServerAddress.Value.Trim();
-        int port = _options.LocalServerPort.Value;
-        ConnectionProtocol protocol = _options.LocalServerProtocol.Value;
+        string address = _options.LanServerAddress.Value.Trim();
+        int port = _options.LanServerPort.Value;
+        ConnectionProtocol protocol = _options.LanServerProtocol.Value;
 
         return $"{address}:{port} ({protocol})";
     }
 
     public string GetEffectiveLocalEndpoint()
     {
-        LocalServerEndpoint endpoint =
-            GetEffectiveLocalServerEndpointForConnection();
+        LanServerEndpoint endpoint =
+            GetEffectiveLanServerEndpointForConnection();
 
         return $"{endpoint.Address}:{endpoint.Port} ({endpoint.Protocol})";
     }
 
-    public LocalServerEndpoint GetConfiguredLocalServerEndpoint()
+    public LanServerEndpoint GetConfiguredLanServerEndpoint()
     {
-        string address = _options.LocalServerAddress.Value.Trim();
-        int port = _options.LocalServerPort.Value;
-        ConnectionProtocol protocol = _options.LocalServerProtocol.Value;
+        string address = _options.LanServerAddress.Value.Trim();
+        int port = _options.LanServerPort.Value;
+        ConnectionProtocol protocol = _options.LanServerProtocol.Value;
 
-        return new LocalServerEndpoint(address, port, protocol);
+        return new LanServerEndpoint(address, port, protocol);
     }
 
-    public LocalServerEndpoint GetEffectiveLocalServerEndpointForConnection()
+    public LanServerEndpoint GetEffectiveLanServerEndpointForConnection()
     {
         return _transientJoinEndpointOverride
-            ?? GetConfiguredLocalServerEndpoint();
+            ?? GetConfiguredLanServerEndpoint();
     }
 
     public bool IsJoinEndpointOverrideActive =>
         _transientJoinEndpointOverride is not null;
 
     public void ApplyTransientJoinEndpointOverride(
-        LocalServerEndpoint endpoint,
+        LanServerEndpoint endpoint,
         string source)
     {
         _transientJoinEndpointOverride = endpoint;
@@ -356,7 +356,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
     {
         var settings = PhotonNetwork.PhotonServerSettings.AppSettings;
 
-        ApplyLocalServerSettings(settings);
+        ApplyLanServerSettings(settings);
     }
 
     public void DumpPhotonSettings(string source)
@@ -460,7 +460,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
             "Queued host readiness timed out.",
             probeMessage);
 
-        _errorState.NotifyLocalServerNotDetected("readiness timeout");
+        _errorState.NotifyLanServerNotDetected("readiness timeout");
 
         WasLastQueuedHostReadinessTimeout = true;
         ResetQueuedHostReadinessWindow();
@@ -468,19 +468,19 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
         return false;
     }
 
-    private void ApplyLocalServerSettings(
+    private void ApplyLanServerSettings(
         AppSettings settings)
     {
-        LocalServerEndpoint endpoint =
-            GetEffectiveLocalServerEndpointForConnection();
+        LanServerEndpoint endpoint =
+            GetEffectiveLanServerEndpointForConnection();
 
         string serverAddress = endpoint.Address.Trim();
 
         if (string.IsNullOrWhiteSpace(serverAddress))
         {
             Plugin.Log.LogError(
-                "LocalServerAddress is empty. " +
-                "Cannot apply LocalServer mode.");
+                "LanServerAddress is empty. " +
+                "Cannot apply LanServer mode.");
 
             return;
         }
@@ -490,7 +490,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
         if (configuredPort is < 1 or > 65535)
         {
             Plugin.Log.LogError(
-                $"LocalServerPort '{configuredPort}' is invalid. " +
+                $"LanServerPort '{configuredPort}' is invalid. " +
                 "Expected range 1-65535.");
 
             return;
@@ -503,7 +503,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
         settings.FixedRegion = string.Empty;
 
         Plugin.Log.LogInfo(
-            "Applied Photon mode LocalServer: " +
+            "Applied Photon mode LanServer: " +
             $"Server={serverAddress}; " +
             $"Port={settings.Port}; " +
             $"Protocol={settings.Protocol}; " +

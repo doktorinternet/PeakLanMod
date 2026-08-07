@@ -2,9 +2,9 @@ using ExitGames.Client.Photon;
 
 namespace PeakLanMod.Lan.Model;
 
-internal readonly struct LocalServerEndpoint
+internal readonly struct LanServerEndpoint
 {
-    internal LocalServerEndpoint(
+    internal LanServerEndpoint(
         string address,
         int port,
         ConnectionProtocol protocol)

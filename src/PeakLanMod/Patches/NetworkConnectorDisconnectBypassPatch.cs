@@ -15,14 +15,14 @@ internal static class NetworkConnectorDisconnectBypassPatch
     private static bool Prefix(
         DisconnectCause cause)
     {
-        if (!LanRuntimeContext.IsLocalServerMode
+        if (!LanRuntimeContext.IsLanServerMode
             || !LanRuntimeContext.Options.AutoSkipPhotonFailureDialog.Value)
         {
             return true;
         }
 
         Plugin.Log.LogInfo(
-            "LocalServer mode: bypassing NetworkConnector.OnDisconnected modal. " +
+            "LanServer mode: bypassing NetworkConnector.OnDisconnected modal. " +
             $"Cause={cause}; " +
             $"Scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
 

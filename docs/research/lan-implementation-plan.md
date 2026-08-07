@@ -169,7 +169,7 @@ Rename rule: rename only when file responsibilities have actually changed, not j
 Planned config additions:
 
 - `LanWorkflow.Mode`:
-  - `ManualLocalServer`
+  - `ManualLanServer`
   - `AutoLocalLanHost`
   - `LanClientDiscoveryJoin`
 - `LanWorkflow.AutoStartLuxonOnHost` (bool)
@@ -187,7 +187,7 @@ Planned config additions:
 
 Retained compatibility requirement:
 
-- Existing manual room name/address settings remain usable in `ManualLocalServer` mode.
+- Existing manual room name/address settings remain usable in `ManualLanServer` mode.
 
 ## Process ownership and shutdown rules
 
@@ -348,7 +348,7 @@ M1 implementation notes (2026-08-02):
 - Added optional adapter filtering via CSV (`AllowedHostInterfaces`) using interface name/description/id contains matching.
 - Added host-only config guard (`AutoDetectHostIPv4`) so manual mode remains unchanged by default.
 - Added masked/sanitized endpoint diagnostics and endpoint fingerprint logging.
-- Rollback path confirmed in config: disable `AutoDetectHostIPv4` and continue with manual `Photon.LocalServerAddress`.
+- Rollback path confirmed in config: disable `AutoDetectHostIPv4` and continue with manual `Photon.LanServerAddress`.
 
 ### M2: Automatic Luxon configuration
 
@@ -377,12 +377,12 @@ M2 implementation notes (2026-08-02):
 M3 implementation notes (2026-08-02):
 
 - Added `LuxonProcessController` with explicit ownership states: `NotStartedByPlugin`, `StartedByPlugin`, `StoppedByPlugin`.
-- Added host-only process guard `LanWorkflow.AutoStartLocalServerOnHost` (default `false`) to preserve manual startup baseline.
-- Added process launch settings: `LanWorkflow.LocalServerExecutablePath`, `LanWorkflow.LocalServerWorkingDirectory`, `LanWorkflow.LocalServerStartArguments`.
-- Added stop-on-exit controls for plugin-owned process only: `LanWorkflow.AutoStopOwnedLocalServerOnExit`, `LanWorkflow.ForceKillOwnedLocalServerOnExit`, `LanWorkflow.OwnedLocalServerStopTimeoutMs`.
+- Added host-only process guard `LanWorkflow.AutoStartLanServerOnHost` (default `false`) to preserve manual startup baseline.
+- Added process launch settings: `LanWorkflow.LanServerExecutablePath`, `LanWorkflow.LanServerWorkingDirectory`, `LanWorkflow.LanServerStartArguments`.
+- Added stop-on-exit controls for plugin-owned process only: `LanWorkflow.AutoStopOwnedLanServerOnExit`, `LanWorkflow.ForceKillOwnedLanServerOnExit`, `LanWorkflow.OwnedLanServerStopTimeoutMs`.
 - Wired process check/start into direct host sequence after M1/M2 host-prep steps and before connect sequence.
 - Added ownership-focused diagnostics (started-by-plugin vs already-running external process, with process ID and sanitized executable path fingerprinting).
-- Rollback path confirmed in config: disable `AutoStartLocalServerOnHost` and keep fully manual local server lifecycle.
+- Rollback path confirmed in config: disable `AutoStartLanServerOnHost` and keep fully manual local server lifecycle.
 
 M3 validation update (2026-08-02):
 
@@ -400,12 +400,12 @@ M3 validation update (2026-08-02):
 M4 implementation notes (2026-08-02):
 
 - Added `LuxonReadinessProbe` with protocol-aware NameServer probes and bounded wait loop (`TryProbeNameServer`, `TryWaitForNameServerReady`).
-- Added config guard `LanWorkflow.EnableLocalServerReadinessCheck` (default `false`) so pre-M4 behavior remains available by default.
+- Added config guard `LanWorkflow.EnableLanServerReadinessCheck` (default `false`) so pre-M4 behavior remains available by default.
 - Added readiness timing config: `LanWorkflow.ReadinessTimeoutMs` and `LanWorkflow.ReadinessPollIntervalMs`.
 - Wired readiness gating into both direct host and direct join flows before Photon connect attempts.
 - Integrated queued-host compatibility with `AutoRetryDirectHostUntilReady`: host intent remains queued until readiness succeeds or timeout is reached.
 - Added focused diagnostics for readiness success/failure with sanitized endpoint, protocol, elapsed milliseconds, attempt count, and last probe failure reason.
-- Rollback path confirmed in config: disable `EnableLocalServerReadinessCheck` to return to pre-M4 connect behavior.
+- Rollback path confirmed in config: disable `EnableLanServerReadinessCheck` to return to pre-M4 connect behavior.
 
 M4 validation update (2026-08-02):
 
@@ -513,7 +513,7 @@ M7 integration notes for future milestones (2026-08-07):
 - Classifier ownership and call sites:
   - `Lan/Diagnostics/LanErrorClassifier` is the only place where error-code mapping rules should be added or changed.
   - `PhotonCallbackProbe.OnJoinRoomFailed`, `OnCreateRoomFailed`, and `OnDisconnected` are the callback entry points that feed classifier outputs into state.
-  - `Plugin.EnsureHostLocalServerProcess` and readiness-gate paths (`EnsureLocalServerReadinessBeforeConnect`, `EnsureQueuedHostReadinessBeforeConnect`) are the pre-Photon host/join entry points that must keep using structured mapping.
+  - `Plugin.EnsureHostLanServerProcess` and readiness-gate paths (`EnsureLanServerReadinessBeforeConnect`, `EnsureQueuedHostReadinessBeforeConnect`) are the pre-Photon host/join entry points that must keep using structured mapping.
 - State and UI flow:
   - `LanConnectionStateStore.SetConnectionError` / `ClearConnectionError` hold the single latest structured error snapshot.
   - `LanStatusPresenterBridge.BuildSummaryLine` and `BuildErrorLine` are the intended M6+ rendering surfaces; new UI surfaces should consume the same state snapshot instead of creating parallel error state.
@@ -541,13 +541,13 @@ M7 validation update (2026-08-07):
 - Manual local server mode remains functional and unaffected.
 - Auto local host mode functions with process/readiness workflow.
 - LAN discovery/join mode functions end to end.
-- LocalServer-only runtime behavior is preserved (no runtime endpoint mode switching path).
+- LanServer-only runtime behavior is preserved (no runtime endpoint mode switching path).
 
 M8 implementation notes (2026-08-07):
 
 - Removed runtime endpoint mode-transition handling after confirming the operational model does not switch endpoint modes during runtime.
 - Removed CustomCloud endpoint mode and related configuration parameters from plugin runtime config.
-- LocalServer endpoint settings are now the only applied connection settings path for both host and join flows.
+- LanServer endpoint settings are now the only applied connection settings path for both host and join flows.
 - Preserved ownership rules: externally managed local server processes remain unowned and are never stopped by plugin-controlled shutdown paths.
 - Rollback path remains configuration-based for local-server lifecycle/readiness/discovery/UI features; no runtime endpoint mode toggle is required.
 
@@ -555,7 +555,7 @@ M8 validation update (2026-08-07):
 
 - Validation type: static analysis and local compile.
 - Runtime outcome: pending manual two-machine verification.
-- Remaining scope: execute manual two-machine LocalServer host/join runtime verification.
+- Remaining scope: execute manual two-machine LanServer host/join runtime verification.
 
 ## Unresolved questions
 
@@ -578,13 +578,13 @@ M8 validation update (2026-08-07):
 | 2026-08-02 | Use typed connection phases and structured LAN errors | Accepted | Enables deterministic UI and diagnostics. |
 | 2026-08-02 | Use UDP broadcast with versioned schema for discovery | Accepted | No central service required. |
 | 2026-08-02 | Allow class renaming for patch classes as responsibilities evolve | Accepted | Rename only when function changes justify it. |
-| 2026-08-02 | M1 host endpoint selection policy: `PreferredHostIPv4` override, otherwise active non-loopback IPv4 with optional interface filters | Accepted | Implemented with config guard and sanitized diagnostics; manual LocalServerAddress remains rollback path. |
+| 2026-08-02 | M1 host endpoint selection policy: `PreferredHostIPv4` override, otherwise active non-loopback IPv4 with optional interface filters | Accepted | Implemented with config guard and sanitized diagnostics; manual LanServerAddress remains rollback path. |
 | 2026-08-02 | M2 Luxon config automation rewrites `external_address` host values while preserving ports | Accepted | Implemented as host-only, config-gated behavior with deterministic file updates and manual rollback path. |
 | 2026-08-02 | Local server mode is the only supported runtime baseline | Accepted | No Photon Cloud connection path is required for this mod going forward. |
-| 2026-08-02 | Replace Luxon/Photon-specific mode naming with generic LocalServer naming in planning artifacts | Accepted | Apply as incremental renames in implementation milestones where behavior ownership changes. |
+| 2026-08-02 | Replace Luxon/Photon-specific mode naming with generic LanServer naming in planning artifacts | Accepted | Apply as incremental renames in implementation milestones where behavior ownership changes. |
 | 2026-08-02 | M3 ownership detection uses executable-path match before launch and treats pre-existing process as unowned | Accepted | Prevents plugin from taking ownership of externally managed local server process. |
 | 2026-08-02 | M3 manual two-machine validation passed and PR-03 is merged/accepted | Accepted | M4 may proceed; offline verification remains a separate gate. |
-| 2026-08-02 | M4 readiness gate uses protocol-aware endpoint probes with queue-safe host retry handling and bounded timeout | Accepted | Implemented as config-gated (`EnableLocalServerReadinessCheck`) to preserve rollback and existing baseline behavior. |
+| 2026-08-02 | M4 readiness gate uses protocol-aware endpoint probes with queue-safe host retry handling and bounded timeout | Accepted | Implemented as config-gated (`EnableLanServerReadinessCheck`) to preserve rollback and existing baseline behavior. |
 | 2026-08-02 | M4 physically offline two-machine validation passed | Accepted | Host and client succeeded on separate machines/accounts with internet path removed; milestone status advanced to `VerifiedOffline`. |
 | 2026-08-02 | M5 discovery transport uses UDP broadcast + TTL session store with compatibility tagging | Accepted | Implemented with config gating and callback-driven host broadcast lifecycle; UI consumption deferred to M6. |
 | 2026-08-02 | M6 first-release UI surface uses config-gated overlay + action keys wired to existing host/join flows | Accepted | Minimizes risk to proven networking path while exposing session selection/status without introducing new Photon call sites in UI helpers. |
@@ -593,7 +593,7 @@ M8 validation update (2026-08-07):
 | 2026-08-06 | M7 structured error mapping ships as opt-in and local-server scoped | Accepted | Keeps pre-M7 behavior as default rollback path while enabling deterministic diagnostics when explicitly requested. |
 | 2026-08-06 | M7 status/UI integration reuses existing state store and overlay rather than introducing a new coordinator in this milestone | Accepted | Minimizes behavioral risk and keeps M8 isolation/refactor scope intact. |
 | 2026-08-07 | M7 disconnect-path startup noise suppression keeps low-confidence unknown disconnects out of user-facing error state | Accepted | Preserves actionable diagnostics by logging raw callbacks while avoiding false-positive startup banners. |
-| 2026-08-07 | M8 runtime behavior remains LocalServer-only; runtime endpoint mode switching is removed | Accepted | Removes unused transition complexity and aligns implementation with intended host-create/client-join LocalServer-only LAN operation. |
+| 2026-08-07 | M8 runtime behavior remains LanServer-only; runtime endpoint mode switching is removed | Accepted | Removes unused transition complexity and aligns implementation with intended host-create/client-join LanServer-only LAN operation. |
 
 ## Deviation record
 
@@ -605,7 +605,7 @@ M8 validation update (2026-08-07):
 - 2026-08-02: No deviation from M5 scope. Implemented transport/listener/session-store only; no UI wiring added before M6.
 - 2026-08-02: Minor M6 architectural deviation from long-term plan shape: connection intent execution remains in `Plugin` with `LanStatusPresenterBridge`/view-model presentation helpers. Dedicated coordinator extraction remains deferred to a later refactor milestone.
 - 2026-08-06: No deviation from M7 scope. Implemented structured mapping and UI/state surfacing only; M8 rollback hardening and deeper mode isolation remain unchanged.
-- 2026-08-07: M8 scope clarification applied. Runtime endpoint mode-switch handling was removed to match the intended LocalServer-only operational model.
+- 2026-08-07: M8 scope clarification applied. Runtime endpoint mode-switch handling was removed to match the intended LanServer-only operational model.
 
 ## Recommended small PR sequence
 

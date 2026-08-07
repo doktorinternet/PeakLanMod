@@ -12,6 +12,6 @@ internal static class PhotonAppIdPatch
     [HarmonyPrefix]
     private static void Prefix()
     {
-        LanRuntimeContext.Services.LocalServerRuntime.ApplyConfiguredPhotonSettings();
+        LanRuntimeContext.Services.LanServerRuntime.ApplyConfiguredPhotonSettings();
     }
 }
