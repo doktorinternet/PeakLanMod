@@ -577,3 +577,15 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, compatibility wrappers, interface ownership ledger, phase update log
 - Notes: Plugin OnGUI and update collapse hooks now delegate to ILanOverlayController, with concrete behavior owned by LanOverlayController. No networking behavior changes were introduced in this phase. User confirmed post-change two-machine host/join runtime validation passed with deployed DLL.
+
+- 2026-08-07
+- Phase: Phase 7 - Remove compatibility debt
+- Files changed: src/PeakLanMod/Plugin.cs; src/PeakLanMod/PhotonCallbackProbe.cs; src/PeakLanMod/Patches/PhotonAppIdPatch.cs; src/PeakLanMod/Patches/MainMenuPageHandlerUpdateBypassPatch.cs; src/PeakLanMod/Patches/NetworkConnectorDisconnectBypassPatch.cs; src/PeakLanMod/Patches/PhotonCallTracePatches.cs; src/PeakLanMod/Lan/Services/LanRuntimeContext.cs; src/PeakLanMod/Lan/Services/LanErrorStateService.cs; src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs; src/PeakLanMod/Lan/UI/LanOverlayController.cs; src/PeakLanMod/Lan/Discovery/UdpLanDiscoveryListener.cs; src/PeakLanMod/Lan/Services/LuxonProcessController.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: removing Plugin static compatibility wrappers and rewiring callers to service facades via LanRuntimeContext is behavior-neutral when call targets, ordering, and guards remain identical.
+- Build result: dotnet build succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): offline (user confirmed)
+- First divergent callback/state observed (if any): none observed in user-confirmed offline LAN validation
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, phase update log
+- Notes: Plugin is now a thin composition root plus metadata/log surface. No networking behavior changes were intentionally introduced in this phase; user confirmed a physically offline LAN test passed as intended.

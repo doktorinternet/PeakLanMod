@@ -1,4 +1,5 @@
 using HarmonyLib;
+using PeakLanMod.Lan.Services;
 using Peak.Network;
 
 namespace PeakLanMod.Patches;
@@ -11,6 +12,6 @@ internal static class PhotonAppIdPatch
     [HarmonyPrefix]
     private static void Prefix()
     {
-        Plugin.ApplyConfiguredPhotonSettings();
+        LanRuntimeContext.Services.LocalServerRuntime.ApplyConfiguredPhotonSettings();
     }
 }

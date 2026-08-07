@@ -35,7 +35,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     public void SyncLanDiscoveryRuntime(
         string source)
     {
-        if (!Plugin.IsLocalServerMode || !_options.LanDiscoveryEnabled.Value)
+        if (!LanRuntimeContext.IsLocalServerMode || !_options.LanDiscoveryEnabled.Value)
         {
             if (_broadcaster.IsRunning)
             {
@@ -96,7 +96,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     public void RefreshLanDiscoveryBroadcast(
         string source)
     {
-        if (!Plugin.IsLocalServerMode || !_options.LanDiscoveryEnabled.Value)
+        if (!LanRuntimeContext.IsLocalServerMode || !_options.LanDiscoveryEnabled.Value)
         {
             return;
         }

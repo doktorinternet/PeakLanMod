@@ -1,4 +1,5 @@
 using HarmonyLib;
+using PeakLanMod.Lan.Services;
 using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine.SceneManagement;
@@ -15,8 +16,8 @@ internal static class MainMenuPageHandlerUpdateBypassPatch
     [HarmonyPrefix]
     private static bool Prefix()
     {
-        if (!Plugin.IsLocalServerMode
-            || !Plugin.AutoSkipPhotonFailureDialog.Value)
+        if (!LanRuntimeContext.IsLocalServerMode
+            || !LanRuntimeContext.Options.AutoSkipPhotonFailureDialog.Value)
         {
             _loggedSuppressedFrame = false;
             return true;

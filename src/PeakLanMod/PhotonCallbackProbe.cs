@@ -3,6 +3,7 @@ using Photon.Pun;
 using Photon.Realtime;
 using PeakLanMod.Lan.Diagnostics;
 using PeakLanMod.Lan.Model;
+using PeakLanMod.Lan.Services;
 using PhotonPlayer = Photon.Realtime.Player;
 
 namespace PeakLanMod;
@@ -25,20 +26,20 @@ internal sealed class PhotonCallbackProbe :
             $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
             $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
             $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
-            $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
+            $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
 
-        if (Plugin.IsLocalServerMode)
+        if (LanRuntimeContext.IsLocalServerMode)
         {
             if (PhotonNetwork.OfflineMode)
             {
-                Plugin.NotifyLocalServerNotDetected(
+                LanRuntimeContext.Services.ErrorState.NotifyLocalServerNotDetected(
                     "OfflineMode fallback active");
             }
             else
             {
-                Plugin.NotifyLocalServerDetected();
-                Plugin.ClearStructuredLanError(
+                LanRuntimeContext.Services.ErrorState.NotifyLocalServerDetected();
+                LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
                     source: "OnConnectedToMaster",
                     reason: "connected to master");
             }
@@ -56,12 +57,12 @@ internal sealed class PhotonCallbackProbe :
             $"offlineMode={PhotonNetwork.OfflineMode}; " +
             $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
             $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
-            $"userIdFingerprint={Plugin.Fingerprint(userId)}");
+            $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}");
 
-            Plugin.TryAutoLockWorkflowModeAfterSuccessfulHost(
+            LanRuntimeContext.Services.WorkflowPolicy.TryAutoLockWorkflowModeAfterSuccessfulHost(
                 "PhotonCallbackProbe.OnCreatedRoom");
 
-            Plugin.RefreshLanDiscoveryBroadcast("OnCreatedRoom");
+            LanRuntimeContext.Services.DiscoveryRuntime.RefreshLanDiscoveryBroadcast("OnCreatedRoom");
     }
 
     public override void OnJoinedRoom()
@@ -82,14 +83,14 @@ internal sealed class PhotonCallbackProbe :
             $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
             $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
             $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
-            $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
+            $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
 
-            Plugin.ClearStructuredLanError(
+            LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
                 source: "OnJoinedRoom",
                 reason: "joined room");
 
-            Plugin.RefreshLanDiscoveryBroadcast("OnJoinedRoom");
+            LanRuntimeContext.Services.DiscoveryRuntime.RefreshLanDiscoveryBroadcast("OnJoinedRoom");
     }
 
     public override void OnJoinRoomFailed(
@@ -105,7 +106,7 @@ internal sealed class PhotonCallbackProbe :
             returnCode,
             message);
 
-        Plugin.ReportStructuredLanError(
+        LanRuntimeContext.Services.ErrorState.ReportStructuredLanError(
             code,
             source: "OnJoinRoomFailed",
             message: message,
@@ -122,12 +123,12 @@ internal sealed class PhotonCallbackProbe :
             $"message={message}; " +
             $"state={PhotonNetwork.NetworkClientState}; " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
-            $"server={Plugin.LocalServerAddress.Value}:{Plugin.LocalServerPort.Value}; " +
-            $"protocol={Plugin.LocalServerProtocol.Value}");
+            $"server={LanRuntimeContext.Options.LocalServerAddress.Value}:{LanRuntimeContext.Options.LocalServerPort.Value}; " +
+            $"protocol={LanRuntimeContext.Options.LocalServerProtocol.Value}");
 
-        if (Plugin.IsLocalServerMode)
+        if (LanRuntimeContext.IsLocalServerMode)
         {
-            Plugin.NotifyLocalServerNotDetected(
+            LanRuntimeContext.Services.ErrorState.NotifyLocalServerNotDetected(
                 $"create room failed {returnCode}");
         }
 
@@ -135,7 +136,7 @@ internal sealed class PhotonCallbackProbe :
             returnCode,
             message);
 
-        Plugin.ReportStructuredLanError(
+        LanRuntimeContext.Services.ErrorState.ReportStructuredLanError(
             code,
             source: "OnCreateRoomFailed",
             message: message,
@@ -158,11 +159,11 @@ internal sealed class PhotonCallbackProbe :
             $"state={PhotonNetwork.NetworkClientState}; " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
 
-        Plugin.StopLanDiscoveryBroadcast("OnDisconnected");
+        LanRuntimeContext.Services.DiscoveryRuntime.StopLanDiscoveryBroadcast("OnDisconnected");
 
-        if (Plugin.IsLocalServerMode)
+        if (LanRuntimeContext.IsLocalServerMode)
         {
-            Plugin.NotifyLocalServerNotDetected(
+            LanRuntimeContext.Services.ErrorState.NotifyLocalServerNotDetected(
                 $"disconnect cause {cause}");
         }
 
@@ -172,7 +173,7 @@ internal sealed class PhotonCallbackProbe :
 
         if (code == LanErrorCode.None)
         {
-            Plugin.ClearStructuredLanError(
+            LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
                 source: "OnDisconnected",
                 reason: $"non-actionable disconnect cause {cause}");
             return;
@@ -180,13 +181,13 @@ internal sealed class PhotonCallbackProbe :
 
         if (code == LanErrorCode.UnknownPhotonFailure)
         {
-            Plugin.ClearStructuredLanError(
+            LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
                 source: "OnDisconnected",
                 reason: $"low-confidence disconnect classification {cause}");
             return;
         }
 
-        Plugin.ReportStructuredLanError(
+        LanRuntimeContext.Services.ErrorState.ReportStructuredLanError(
             code,
             source: "OnDisconnected",
             message: cause.ToString(),
@@ -200,11 +201,11 @@ internal sealed class PhotonCallbackProbe :
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
             $"offlineMode={PhotonNetwork.OfflineMode}");
 
-        Plugin.ClearStructuredLanError(
+        LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
             source: "OnLeftRoom",
             reason: "left room");
 
-        Plugin.HandleLeftRoom();
+        LanRuntimeContext.Services.ErrorState.HandleLeftRoom();
     }
 
     public override void OnPlayerEnteredRoom(

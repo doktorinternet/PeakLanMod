@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using PeakLanMod.Lan.Model;
+using PeakLanMod.Lan.Services;
 using PeakLanMod.Lan.State;
 
 namespace PeakLanMod.Lan.Discovery;
@@ -236,7 +237,7 @@ internal sealed class UdpLanDiscoveryListener : IDisposable
                     Plugin.Log.LogInfo(
                         "LAN discovery session added. " +
                         $"Room={announcement.RoomName}; " +
-                        $"Host={Plugin.Fingerprint(announcement.HostDisplayName)}; " +
+                        $"Host={LanRuntimeContext.Fingerprint(announcement.HostDisplayName)}; " +
                         $"Source={SanitizeSource(remote)}; " +
                         $"Compatible={compatibility.IsCompatible}; " +
                         $"Reason={compatibility.Reason}");

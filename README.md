@@ -2,12 +2,12 @@
 
 Repository for developing and distributing a LAN multiplayer mod for PEAK.
 
-## Plugin separation migration status (Phases 0-6)
+## Plugin separation migration status (Phases 0-7)
 
-Phases 0-6 of the `Plugin.cs` separation plan are implemented with behavior-preserving scope.
+Phases 0-7 of the `Plugin.cs` separation plan are implemented with behavior-preserving scope.
 
 - Added transitional service contracts and plugin-backed compatibility adapters in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`.
-- Added composition wiring in `Plugin.Awake` through `Plugin.Services`.
+- Added composition wiring in `Plugin.Awake` through `LanRuntimeContext.Initialize(...)`.
 - Extracted deterministic helper logic into `src/PeakLanMod/Lan/Services/LanIdentityAndValidation.cs`:
   - room-name normalization and validation,
   - blocked-term checks,
@@ -20,17 +20,19 @@ Phases 0-6 of the `Plugin.cs` separation plan are implemented with behavior-pres
 - Extracted local server endpoint override/readiness/process/config runtime behavior to `src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs`.
 - Extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and state transitions to `src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs`.
 - Extracted LAN overlay rendering/state/style and settings-screen collapse behavior to `src/PeakLanMod/Lan/UI/LanOverlayController.cs`, wired via `ILanOverlayController` in compatibility services.
-- Plugin helper method signatures remain available as wrappers for compatibility with existing call sites.
+- Added `src/PeakLanMod/Lan/Services/LanRuntimeContext.cs` and migrated patch/callback callers to service facades.
+- Removed Plugin static compatibility wrappers; Plugin now remains as composition root plus metadata/logging and Photon settings diagnostics.
 - Runtime behavior is intended to remain unchanged in these phases; host/join/discovery/network callback flow was not redesigned.
 - Phase 4 runtime verification: user-confirmed two-machine host/join test passed.
 - Phase 5 runtime verification: user-confirmed two-machine host/join test passed.
 - Phase 6 runtime verification: user-confirmed two-machine host/join test passed.
+- Phase 7 runtime verification: user-confirmed physically offline LAN host/join test passed as intended.
 - No new user configuration keys were introduced in these phases.
 
 Rollback path:
 
-- Revert the Phase 0-6 migration commit(s) to return to the pre-separation single-class helper/config/workflow/discovery/error/local-runtime/direct-connect/ui implementation.
-- Existing static Plugin wrapper call sites remain intact, so rollback is isolated to scaffolding files/wiring.
+- Revert the Phase 7 migration commit(s) to restore Plugin static compatibility wrappers if a caller-level regression is discovered.
+- Revert the Phase 0-7 migration commit(s) to return to the pre-separation single-class helper/config/workflow/discovery/error/local-runtime/direct-connect/ui implementation.
 
 ## LAN release packaging (offline distribution)
 

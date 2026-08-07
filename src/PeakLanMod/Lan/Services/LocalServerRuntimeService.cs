@@ -31,7 +31,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
 
     public bool EnsureHostLocalServerProcess()
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return true;
         }
@@ -84,7 +84,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
     public void StopOwnedLocalServerProcessOnExit(
         string source)
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
@@ -118,7 +118,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
 
     public void ApplyHostLanIpv4Selection()
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
@@ -169,7 +169,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
 
     public void ApplyHostLuxonConfigAutomation()
     {
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return;
         }
@@ -212,7 +212,7 @@ internal sealed class LocalServerRuntimeService : ILocalServerRuntimeService
     {
         WasLastQueuedHostReadinessTimeout = false;
 
-        if (!Plugin.IsLocalServerMode)
+        if (!LanRuntimeContext.IsLocalServerMode)
         {
             return true;
         }

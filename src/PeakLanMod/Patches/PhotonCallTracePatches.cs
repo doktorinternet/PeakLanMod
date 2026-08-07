@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using PeakLanMod.Lan.Services;
 using Photon.Pun;
 using Photon.Realtime;
 
@@ -64,7 +65,7 @@ internal static class PhotonCallTracePatches
             $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
             $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
             $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
-            $"userIdFingerprint={Plugin.Fingerprint(userId)}; " +
+            $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}; " +
             $"userIdLength={userId.Length}");
     }
 
