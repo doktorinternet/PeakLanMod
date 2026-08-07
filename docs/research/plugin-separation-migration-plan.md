@@ -523,8 +523,8 @@ Use this section as append-only log during implementation.
 - Files changed: src/PeakLanMod/Lan/Services/LanPluginOptions.cs; src/PeakLanMod/Lan/Services/LanWorkflowPolicyService.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
 - Behavioral hypothesis for this step: moving Config.Bind ownership and workflow policy evaluation into dedicated services is behavior-neutral when defaults, entry names, and Plugin compatibility wrappers remain unchanged.
 - Build result: dotnet build succeeded (netstandard2.1, local environment)
-- Runtime verification level (static/one-machine/two-machine/offline): static
-- First divergent callback/state observed (if any): none observed in static validation
+- Runtime verification level (static/one-machine/two-machine/offline): two-machine (user confirmed)
+- First divergent callback/state observed (if any): none observed in user-confirmed two-machine validation
 - Rollback applied (yes/no): no
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, interface ownership ledger, phase update log
@@ -565,3 +565,15 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): yes
 - Repository structure guide sections changed: architecture snapshot, routing table notes, compatibility wrappers, interface ownership ledger, phase update log
 - Notes: Plugin direct host/join wrappers now delegate to DirectConnectCoordinator while preserving direct-connect baseline behavior and existing service-backed compatibility surface. User confirmed two-machine host/join runtime validation passed.
+
+- 2026-08-07
+- Phase: Phase 6 - Extract LAN overlay controller
+- Files changed: src/PeakLanMod/Lan/UI/LanOverlayController.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; src/PeakLanMod/Plugin.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: moving LAN overlay rendering/state/style and settings-screen collapse logic into a dedicated controller is behavior-neutral when UI intents still dispatch through the same direct-connect and discovery/error services.
+- Build result: dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false succeeded (netstandard2.1, local environment)
+- Runtime verification level (static/one-machine/two-machine/offline): static
+- First divergent callback/state observed (if any): none observed in static validation
+- Rollback applied (yes/no): no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, compatibility wrappers, interface ownership ledger, phase update log
+- Notes: Plugin OnGUI and update collapse hooks now delegate to ILanOverlayController, with concrete behavior owned by LanOverlayController. No networking behavior changes were introduced in this phase. User confirmed post-change two-machine host/join runtime validation passed with deployed DLL.

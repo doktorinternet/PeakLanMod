@@ -4,6 +4,7 @@ using BepInEx.Configuration;
 using ExitGames.Client.Photon;
 using UnityEngine;
 using PeakLanMod.Lan.State;
+using PeakLanMod.Lan.UI;
 
 namespace PeakLanMod.Lan.Services;
 
@@ -60,6 +61,9 @@ internal interface IDirectConnectCoordinator
 
 internal interface ILanOverlayController
 {
+    void UpdateLanPanelCollapseForSettingsScreen();
+    bool ShouldRenderLanUiOverlay();
+    void RenderLanUiOverlay();
 }
 
 internal interface ILanDiscoveryRuntimeCoordinator
@@ -138,7 +142,6 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
         Options = options;
         WorkflowPolicy = workflowPolicy;
-        Overlay = new PlaceholderLanOverlayController();
         DiscoveryRuntime = new LanDiscoveryRuntimeCoordinator(
             options,
             connectionStateStore,
@@ -157,6 +160,15 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
             ? new PlaceholderDirectConnectCoordinator()
             : new DirectConnectCoordinator(
                 options,
+                LocalServerRuntime,
+                IdentityAndValidation);
+        Overlay = options is PlaceholderLanPluginOptions
+            ? new PlaceholderLanOverlayController()
+            : new LanOverlayController(
+                options,
+                DirectConnect,
+                DiscoveryRuntime,
+                ErrorState,
                 LocalServerRuntime,
                 IdentityAndValidation);
     }
@@ -269,6 +281,18 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
     private sealed class PlaceholderLanOverlayController : ILanOverlayController
     {
+        public void UpdateLanPanelCollapseForSettingsScreen()
+        {
+        }
+
+        public bool ShouldRenderLanUiOverlay()
+        {
+            return false;
+        }
+
+        public void RenderLanUiOverlay()
+        {
+        }
     }
 
     private sealed class PlaceholderLanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoordinator

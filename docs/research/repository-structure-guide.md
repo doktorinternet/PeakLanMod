@@ -24,7 +24,8 @@ Phase state:
 - Phase 3 status: completed.
 - Phase 4 status: completed.
 - Phase 5 status: completed.
-- Phase 6-7 status: not started.
+- Phase 6 status: completed.
+- Phase 7 status: not started.
 
 Current reality summary:
 - Plugin root now delegates config binding to LanPluginOptions, workflow mode policy to LanWorkflowPolicyService, discovery runtime coordination to LanDiscoveryRuntimeCoordinator, and structured error/local-server state handling to LanErrorStateService.
@@ -34,6 +35,7 @@ Current reality summary:
 - Phase 3 extracted listener/broadcaster lifecycle and compatibility evaluation into `src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs`, and extracted photon state transition logging plus structured LAN error state handling into `src/PeakLanMod/Lan/Services/LanErrorStateService.cs`.
 - Phase 4 extracted local server endpoint override management, host LAN endpoint/Luxon automation, local process ensure/stop, readiness probes (including queued-host readiness window state), and Photon local-server AppSettings application into `src/PeakLanMod/Lan/Services/LocalServerRuntimeService.cs`.
 - Phase 5 extracted direct host/join queue orchestration, readiness/connect gating, reconnect throttling, and host/join state transitions into `src/PeakLanMod/Lan/Services/DirectConnectCoordinator.cs`.
+- Phase 6 extracted LAN overlay rendering/state/style ownership and settings-screen auto-collapse behavior into `src/PeakLanMod/Lan/UI/LanOverlayController.cs` and wired it through `ILanOverlayController` in `PluginCompatibilityServices`.
 - External callers still use Plugin static wrappers; callback call paths remain stable by design.
 
 Target direction summary:
@@ -90,7 +92,7 @@ Use this section to track temporary Plugin static wrappers and planned removal p
 | Plugin.NotifyLocalServerDetected / NotDetected | PhotonCallbackProbe | Phase 7 | Move to LanErrorStateService facade. |
 | Plugin.ReportStructuredLanError / ClearStructuredLanError | PhotonCallbackProbe | Phase 7 | Wrappers now delegate to LanErrorStateService (Phase 3). |
 | Plugin.RefreshLanDiscoveryBroadcast / StopLanDiscoveryBroadcast | PhotonCallbackProbe | Phase 7 | Wrappers now delegate to LanDiscoveryRuntimeCoordinator (Phase 3). |
-| Plugin direct-connect private wrapper methods (`RequestDirectHostStart`, `StartDirectJoin`, queued host/join processors) | Plugin update/UI flow | Phase 6/7 | Wrappers now delegate to DirectConnectCoordinator (Phase 5) to keep call sites stable for upcoming UI extraction. |
+| Plugin direct-connect private wrapper methods (`RequestDirectHostStart`, `StartDirectJoin`, queued host/join processors) | Plugin update flow | Phase 7 | Wrappers delegate to DirectConnectCoordinator while Phase 7 removes remaining compatibility debt. |
 | Plugin.Fingerprint | Discovery + process helpers + probes | Phase 7 | Wrapper now delegates to LanIdentityAndValidation (Phase 1). |
 | Plugin.NormalizeRoomName / TryNormalizeRoomName / NormalizeRoomNameInputForUi | Plugin internal host/join + LAN UI | Phase 7 | Wrappers now delegate to LanIdentityAndValidation (Phase 1). |
 | Plugin.TryGetValidatedHostRoomName / TryGetValidatedHostRoomNameFromInput | Plugin host + LAN UI input gate | Phase 7 | Wrappers now delegate to LanIdentityAndValidation (Phase 1). |
@@ -107,7 +109,7 @@ Add new interfaces here as they are introduced.
 | ILanPluginOptions | LanPluginOptions | Config binding ownership and typed ConfigEntry surface for LAN workflow and direct connect keys. |
 | ILanWorkflowPolicyService | LanWorkflowPolicyService | Workflow preset application and auto-lock policy behavior. |
 | IDirectConnectCoordinator | DirectConnectCoordinator | Host/join queue orchestration, readiness/connect gating, reconnect throttling, and state-machine transitions. |
-| ILanOverlayController | PluginCompatibilityServices (placeholder) | Future LAN UI ownership contract. |
+| ILanOverlayController | LanOverlayController | LAN overlay rendering, UI view state, settings-screen collapse policy, and UI intent dispatch. |
 | ILanDiscoveryRuntimeCoordinator | LanDiscoveryRuntimeCoordinator | Discovery runtime lifecycle, host announce broadcast, and compatibility evaluation surface. |
 | ILanErrorStateService | LanErrorStateService | Photon state transition tracking and structured LAN error/local-server state surface. |
 | ILocalServerRuntimeService | LocalServerRuntimeService | Local server endpoint overrides, readiness probes, local process lifecycle, host endpoint/Luxon automation, and Photon app-settings application. |
@@ -184,3 +186,11 @@ Append one entry whenever a migration phase is completed.
 - New interfaces introduced: none
 - Compatibility wrappers added/removed: no removals; Plugin private direct-connect wrappers now delegate to DirectConnectCoordinator.
 - Notes for future agents: keep wrapper entry points stable for upcoming Phase 6 LAN overlay extraction and Phase 7 compatibility cleanup. User confirmed Phase 5 two-machine host/join runtime verification passed.
+
+- 2026-08-07
+- Phase completed: Phase 6
+- Architecture snapshot updated sections: phase state, current reality summary
+- Routing table changes: no new responsibility categories; LAN overlay routing is now implemented by LanOverlayController through ILanOverlayController service wiring.
+- New interfaces introduced: none
+- Compatibility wrappers added/removed: no removals; Plugin now delegates OnGUI/update collapse hooks to ILanOverlayController while preserving DirectConnect and callback wrapper surfaces.
+- Notes for future agents: keep networking behavior unchanged and preserve remaining Plugin compatibility wrappers for Phase 7 caller migration and cleanup. User confirmed Phase 6 two-machine host/join runtime verification passed with deployed DLL.
