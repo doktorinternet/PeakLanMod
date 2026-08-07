@@ -39,7 +39,7 @@ jobs:
         run: dotnet restore PeakLanMod.slnx
 
       - name: Validate PEAK managed assemblies path
-        shell: pwsh
+        shell: powershell
         run: |
           if ([string]::IsNullOrWhiteSpace($env:PEAK_GAME_ROOT)) {
             throw "Repository variable PEAK_GAME_ROOT is not set. Configure it to the PEAK install root, e.g. C:/Program Files (x86)/Steam/steamapps/common/PEAK"
