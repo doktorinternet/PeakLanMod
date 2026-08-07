@@ -2,6 +2,20 @@
 
 Repository for developing and distributing a LAN multiplayer mod for PEAK.
 
+## Plugin separation migration status (Phase 0)
+
+Phase 0 of the `Plugin.cs` separation plan is implemented as scaffolding only.
+
+- Added transitional service contracts and plugin-backed compatibility adapters in `src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs`.
+- Added composition wiring in `Plugin.Awake` through `Plugin.Services`.
+- Runtime behavior is intended to remain unchanged in this phase; host/join/discovery/network callback flow was not redesigned.
+- No new user configuration keys were introduced in this phase.
+
+Rollback path:
+
+- Revert the Phase 0 scaffolding commit(s) to return to the pre-separation single-class structure.
+- Existing static Plugin wrapper call sites remain intact, so rollback is isolated to scaffolding files/wiring.
+
 ## LAN release packaging (offline distribution)
 
 This repository supports a LAN-focused release package that can be copied over local network shares.

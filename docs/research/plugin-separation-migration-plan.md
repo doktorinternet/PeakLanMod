@@ -493,3 +493,15 @@ Use this section as append-only log during implementation.
 - Repository structure guide updated (yes/no): no
 - Repository structure guide sections changed: not applicable
 - Notes: Added explicit PR scope boundaries (in-scope and out-of-scope) under Phase 0 through Phase 7.
+
+- 2026-08-07
+- Phase: Phase 0 - Safety scaffolding and compatibility wrappers
+- Files changed: src/PeakLanMod/Plugin.cs; src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs; docs/research/plugin-separation-migration-plan.md; docs/research/repository-structure-guide.md; CHANGELOG.md; README.md
+- Behavioral hypothesis for this step: no runtime behavior change if Plugin remains behavior source and new services are plugin-backed compatibility adapters.
+- Build result: dotnet build succeeded (netstandard2.1, local environment)
+- Runtime verification level: two-machine (user confirmed)
+- First divergent callback/state observed: not observed in static analysis
+- Rollback applied: no
+- Repository structure guide updated (yes/no): yes
+- Repository structure guide sections changed: architecture snapshot, routing table, compatibility wrappers, interface ownership ledger, phase update log
+- Notes: Added Phase 0 service contracts and plugin-backed adapter wiring only; no networking flow or callback ordering changes. User confirmed post-change two-machine runtime test passed.
