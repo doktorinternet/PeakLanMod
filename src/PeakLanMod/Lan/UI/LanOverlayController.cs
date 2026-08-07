@@ -150,9 +150,6 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         bool showServerRows = !_isLanServerListCollapsed;
         bool p0 = _identityAndValidation.IsCurrentUserInX7GateSet();
-        float adminPanelExtraHeight = p0
-            ? 48f
-            : 0f;
         const float panelMargin = 16f;
         float panelWidth;
         float panelHeight;
@@ -161,7 +158,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         {
             float maxPanelWidth = Math.Max(360f, Screen.width - (panelMargin * 2f));
             panelWidth = Math.Min(960f, maxPanelWidth);
-            float desiredPanelHeight = 136f + adminPanelExtraHeight + (sessions.Count * 24f);
+            float desiredPanelHeight = 136f + (sessions.Count * 24f);
             float maxPanelHeight = Math.Max(170f, Screen.height - (panelMargin * 2f));
             panelHeight = Mathf.Clamp(desiredPanelHeight, 170f, maxPanelHeight);
         }
@@ -265,6 +262,44 @@ internal sealed class LanOverlayController : ILanOverlayController
             return;
         }
 
+        if (p0)
+        {
+            string adminLine = selectedSession is null
+                ? "Admin: select a session to view identity telemetry."
+                : _statusPresenterBridge.BuildAdminIdentityRowLabel(
+                    selectedSession,
+                    BuildSessionIdentitySignature(selectedSession));
+
+            const float adminPanelGap = 12f;
+            const float adminPanelWidth = 420f;
+            const float adminPanelHeight = 70f;
+            float adminPanelX = Math.Max(
+                panelMargin,
+                panelRect.x - adminPanelGap - adminPanelWidth);
+            float adminPanelY = panelRect.y + 24f;
+
+            var adminPanelRect = new Rect(
+                adminPanelX,
+                adminPanelY,
+                adminPanelWidth,
+                adminPanelHeight);
+
+            Color previousAdminPanelColor = GUI.color;
+            GUI.color = new Color(0.08f, 0.08f, 0.1f, 1f);
+            GUI.DrawTexture(adminPanelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
+            GUI.color = previousAdminPanelColor;
+
+            GUI.Label(
+                new Rect(adminPanelRect.x + 10f, adminPanelRect.y + 8f, adminPanelRect.width - 20f, 20f),
+                "Admin Telemetry",
+                _lanUiTitleStyle ?? GUI.skin.label);
+
+            GUI.Label(
+                new Rect(adminPanelRect.x + 10f, adminPanelRect.y + 30f, adminPanelRect.width - 20f, 30f),
+                adminLine,
+                _lanUiLabelStyle ?? GUI.skin.label);
+        }
+
         GUI.Label(
             new Rect(panelRect.x + 12f, panelRect.y + 24f, panelRect.width - 24f, 22f),
             summaryLine,
@@ -317,21 +352,7 @@ internal sealed class LanOverlayController : ILanOverlayController
                 $"LAN UI refresh clicked. SessionCount={_discoveredSessionsViewModel.SessionCount}; RefreshedAtUtc={_lastLanUiRefreshAtUtc:O}");
         }
 
-        if (p0)
-        {
-            string adminLine = selectedSession is null
-                ? "Admin: select a session to view identity telemetry."
-                : _statusPresenterBridge.BuildAdminIdentityRowLabel(
-                    selectedSession,
-                    BuildSessionIdentitySignature(selectedSession));
-
-            GUI.Label(
-                new Rect(panelRect.x + 12f, panelRect.y + 106f, panelRect.width - 24f, 20f),
-                adminLine,
-                _lanUiLabelStyle ?? GUI.skin.label);
-        }
-
-        float rowY = panelRect.y + 106f + adminPanelExtraHeight;
+        float rowY = panelRect.y + 106f;
 
         if (!canHostFromInput)
         {
@@ -352,7 +373,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         float listViewportHeight = Math.Max(
             24f,
-            panelRect.height - 136f - adminPanelExtraHeight);
+            panelRect.height - 136f);
 
         var listViewportRect = new Rect(
             panelRect.x + 12f,
