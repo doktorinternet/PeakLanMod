@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Reflection;
+using System;
 using HarmonyLib;
 using Photon.Pun;
 
@@ -8,6 +8,9 @@ namespace PeakLanMod.Patches;
 [HarmonyPatch]
 internal static class OfflineModeTracePatch
 {
+    private static bool? _lastLoggedValue;
+    private static DateTime _lastLogAtUtc;
+
     private static MethodBase? TargetMethod()
     {
         return AccessTools.PropertySetter(
@@ -17,18 +20,23 @@ internal static class OfflineModeTracePatch
 
     private static void Prefix(bool value)
     {
-        string level = value ? "Warning" : "Info";
+        DateTime nowUtc = DateTime.UtcNow;
 
-        var trace = new StackTrace(
-            skipFrames: 1,
-            fNeedFileInfo: false);
+        if (_lastLoggedValue == value
+            && _lastLogAtUtc != default
+            && (nowUtc - _lastLogAtUtc).TotalMilliseconds < 2000)
+        {
+            return;
+        }
+
+        _lastLoggedValue = value;
+        _lastLogAtUtc = nowUtc;
 
         string message =
             $"PhotonNetwork.OfflineMode set to {value}; " +
             $"currentState={PhotonNetwork.NetworkClientState}; " +
             $"connected={PhotonNetwork.IsConnected}; " +
-            $"ready={PhotonNetwork.IsConnectedAndReady}\n" +
-            $"{trace}";
+            $"ready={PhotonNetwork.IsConnectedAndReady}";
 
         if (value)
         {

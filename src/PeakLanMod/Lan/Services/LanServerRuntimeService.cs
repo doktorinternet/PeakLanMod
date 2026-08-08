@@ -27,8 +27,6 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
         _identityAndValidation = identityAndValidation;
     }
 
-    public bool WasLastQueuedHostReadinessTimeout { get; private set; }
-
     public bool EnsureHostLanServerProcess()
     {
         if (!LanRuntimeContext.IsLanServerMode)
@@ -210,8 +208,6 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
         bool queuedHostFlow,
         LanServerEndpoint? endpointOverride = null)
     {
-        WasLastQueuedHostReadinessTimeout = false;
-
         if (!LanRuntimeContext.IsLanServerMode)
         {
             return true;
@@ -288,7 +284,6 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
     {
         _queuedHostReadinessStartedAtUtc = default;
         _queuedHostReadinessAttempts = 0;
-        WasLastQueuedHostReadinessTimeout = false;
     }
 
     public string GetConfiguredLocalEndpoint()
@@ -446,23 +441,17 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
             return false;
         }
 
-        Plugin.Log.LogError(
-            $"{source}: queued host readiness timed out. " +
+        Plugin.Log.LogWarning(
+            $"{source}: queued host readiness window elapsed. " +
             $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(host)}:{port}; " +
             $"Protocol={protocol}; " +
             $"ElapsedMs={elapsedSinceStartMs}; " +
             $"Attempts={_queuedHostReadinessAttempts}; " +
-            $"LastFailure={probeMessage}");
+            $"LastFailure={probeMessage}; " +
+            "Continuing queued host wait.");
 
-        _errorState.ReportStructuredLanError(
-            LanErrorClassifier.ClassifyReadinessTimeout(),
-            source,
-            "Queued host readiness timed out.",
-            probeMessage);
-
-        _errorState.NotifyLanServerNotDetected("readiness timeout");
-
-        WasLastQueuedHostReadinessTimeout = true;
+        // Queued host flow keeps waiting across timeout windows so a single host press
+        // can cover process startup and eventual NameServer readiness.
         ResetQueuedHostReadinessWindow();
 
         return false;

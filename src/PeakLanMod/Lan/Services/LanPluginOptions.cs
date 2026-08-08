@@ -158,6 +158,18 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             true,
             "Queue host intent on HostKey and auto-complete when the server becomes connected and ready.");
 
+        HostCreateRoomTimeoutSeconds = config.Bind(
+            "LanWorkflow",
+            "HostCreateRoomTimeout",
+            10,
+            "Maximum seconds to keep a host create-room attempt alive across reconnects before canceling with timeout.");
+
+        DirectConnectAttemptIntervalMs = config.Bind(
+            "LanWorkflow",
+            "DirectConnectAttemptIntervalMs",
+            500,
+            "Minimum milliseconds between queued direct host/join attempt processing ticks.");
+
         EnableLanServerReadinessCheck = BindWithLegacyFallback(
             config,
             "LanWorkflow",
@@ -248,6 +260,8 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<bool> ForceKillOwnedLanServerOnExit { get; }
     public ConfigEntry<int> OwnedLanServerStopTimeoutMs { get; }
     public ConfigEntry<bool> AutoRetryDirectHostUntilReady { get; }
+    public ConfigEntry<int> HostCreateRoomTimeoutSeconds { get; }
+    public ConfigEntry<int> DirectConnectAttemptIntervalMs { get; }
     public ConfigEntry<bool> AutoSkipPhotonFailureDialog { get; }
     public ConfigEntry<bool> EnableLanServerReadinessCheck { get; }
     public ConfigEntry<int> LanServerReadinessTimeoutMs { get; }

@@ -5,6 +5,7 @@ using PeakLanMod.Lan.Diagnostics;
 using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.Services;
 using PhotonPlayer = Photon.Realtime.Player;
+using UnityEngine.SceneManagement;
 
 namespace PeakLanMod;
 
@@ -62,6 +63,9 @@ internal sealed class PhotonCallbackProbe :
             LanRuntimeContext.Services.WorkflowPolicy.TryAutoLockWorkflowModeAfterSuccessfulHost(
                 "PhotonCallbackProbe.OnCreatedRoom");
 
+            LanRuntimeContext.Services.DirectConnect.CompletePendingAttempt(
+                "PhotonCallbackProbe.OnCreatedRoom");
+
             LanRuntimeContext.Services.DiscoveryRuntime.RefreshLanDiscoveryBroadcast("OnCreatedRoom");
     }
 
@@ -89,6 +93,9 @@ internal sealed class PhotonCallbackProbe :
             LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
                 source: "OnJoinedRoom",
                 reason: "joined room");
+
+            LanRuntimeContext.Services.DirectConnect.CompletePendingAttempt(
+                "PhotonCallbackProbe.OnJoinedRoom");
 
             LanRuntimeContext.Services.DiscoveryRuntime.RefreshLanDiscoveryBroadcast("OnJoinedRoom");
     }
@@ -148,16 +155,58 @@ internal sealed class PhotonCallbackProbe :
     {
         var client = PhotonNetwork.NetworkingClient;
         var peer = client?.LoadBalancingPeer;
+        string clientState = client?.State.ToString() ?? "<null>";
+        string peerState = peer?.PeerState.ToString() ?? "<null>";
+        string serverAddress = peer?.ServerAddress ?? "<null>";
+        string protocol = peer?.TransportProtocol.ToString() ?? "<null>";
+        bool isAttemptActive = LanRuntimeContext.Services.DirectConnect.IsDirectAttemptActive();
+        bool shouldDeferDisconnectError = LanRuntimeContext.Services.DirectConnect.ShouldDeferDisconnectError(
+            cause,
+            out int deferredElapsedMs,
+            out int deferredTimeoutMs);
+        string sceneName = SceneManager.GetActiveScene().name;
 
-        Plugin.Log.LogError(
+        string disconnectLine =
             $"[{Time}] CALLBACK OnDisconnected: " +
             $"cause={cause}; " +
-            $"clientState={client?.State.ToString() ?? "<null>"}; " +
-            $"peerState={peer?.PeerState.ToString() ?? "<null>"}; " +
-            $"serverAddress={peer?.ServerAddress ?? "<null>"}; " +
-            $"protocol={peer?.TransportProtocol.ToString() ?? "<null>"}; " +
+            $"clientState={clientState}; " +
+            $"peerState={peerState}; " +
+            $"serverAddress={serverAddress}; " +
+            $"protocol={protocol}; " +
             $"state={PhotonNetwork.NetworkClientState}; " +
-            $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+            $"scene={sceneName}; " +
+            $"attemptActive={isAttemptActive}; " +
+            $"deferError={shouldDeferDisconnectError}";
+
+        if (shouldDeferDisconnectError)
+        {
+            Plugin.Log.LogInfo(disconnectLine);
+        }
+        else if (isAttemptActive)
+        {
+            Plugin.Log.LogError(disconnectLine);
+        }
+        else
+        {
+            Plugin.Log.LogWarning(disconnectLine);
+        }
+
+        LanRuntimeContext.Services.DirectConnect.CancelPendingAttemptOnDisconnect(
+            cause,
+            clientState,
+            serverAddress);
+
+        if (shouldDeferDisconnectError)
+        {
+            Plugin.Log.LogInfo(
+                "Deferring disconnect error surfacing during host startup window. " +
+                $"Cause={cause}; " +
+                $"ElapsedMs={deferredElapsedMs}; " +
+                $"TimeoutMs={deferredTimeoutMs}; " +
+                $"Endpoint={serverAddress}");
+
+            return;
+        }
 
         LanRuntimeContext.Services.DiscoveryRuntime.StopLanDiscoveryBroadcast("OnDisconnected");
 
@@ -167,9 +216,27 @@ internal sealed class PhotonCallbackProbe :
                 $"disconnect cause {cause}");
         }
 
+        bool isPassiveStartupDisconnect =
+            !isAttemptActive
+            && !PhotonNetwork.InRoom
+            && string.Equals(sceneName, "Title", StringComparison.Ordinal);
+
+        if (isPassiveStartupDisconnect)
+        {
+            LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
+                source: "OnDisconnected",
+                reason: $"passive startup disconnect {cause}");
+
+            Plugin.Log.LogInfo(
+                "Ignoring passive startup disconnect as non-attempt failure. " +
+                $"Cause={cause}; Endpoint={serverAddress}; Protocol={protocol}");
+
+            return;
+        }
+
         LanErrorCode code = LanErrorClassifier.ClassifyDisconnect(
             cause,
-            client?.State.ToString() ?? string.Empty);
+            clientState);
 
         if (code == LanErrorCode.None)
         {
@@ -179,19 +246,17 @@ internal sealed class PhotonCallbackProbe :
             return;
         }
 
-        if (code == LanErrorCode.UnknownPhotonFailure)
-        {
-            LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
-                source: "OnDisconnected",
-                reason: $"low-confidence disconnect classification {cause}");
-            return;
-        }
+        string detailMessage = BuildBestEffortDisconnectMessage(
+            cause,
+            clientState,
+            serverAddress,
+            protocol);
 
         LanRuntimeContext.Services.ErrorState.ReportStructuredLanError(
             code,
             source: "OnDisconnected",
-            message: cause.ToString(),
-            context: $"clientState={client?.State.ToString() ?? "<null>"}");
+            message: detailMessage,
+            context: $"clientState={clientState}; peerState={peerState}; serverAddress={serverAddress}; protocol={protocol}");
     }
 
     public override void OnLeftRoom()
@@ -228,5 +293,27 @@ internal sealed class PhotonCallbackProbe :
             $"nickname={otherPlayer.NickName}; " +
             $"userId={otherPlayer.UserId}; " +
             $"players={PhotonNetwork.CurrentRoom?.PlayerCount}");
+    }
+
+    private static string BuildBestEffortDisconnectMessage(
+        DisconnectCause cause,
+        string clientState,
+        string serverAddress,
+        string protocol)
+    {
+        if (cause == DisconnectCause.Exception)
+        {
+            return "NameServer/Master connect failed (socket or protocol exception). " +
+                $"Endpoint={serverAddress}; Protocol={protocol}; ClientState={clientState}";
+        }
+
+        if (cause == DisconnectCause.ServerTimeout
+            || cause == DisconnectCause.ClientTimeout)
+        {
+            return "Network timeout while establishing Photon connection. " +
+                $"Endpoint={serverAddress}; Protocol={protocol}; ClientState={clientState}";
+        }
+
+        return $"Photon disconnect cause={cause}; Endpoint={serverAddress}; Protocol={protocol}; ClientState={clientState}";
     }
 }

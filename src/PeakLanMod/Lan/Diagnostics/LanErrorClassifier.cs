@@ -54,6 +54,11 @@ internal static class LanErrorClassifier
             case DisconnectCause.None:
             case DisconnectCause.DisconnectByClientLogic:
                 return LanErrorCode.None;
+            case DisconnectCause.Exception:
+                return LanErrorCode.NameServerUnreachable;
+            case DisconnectCause.ClientTimeout:
+            case DisconnectCause.ServerTimeout:
+                return LanErrorCode.Timeout;
         }
 
         string causeText = cause.ToString();

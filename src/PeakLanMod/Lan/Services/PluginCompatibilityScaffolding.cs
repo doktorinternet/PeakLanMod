@@ -2,6 +2,7 @@ using PeakLanMod.Lan.Model;
 using System;
 using BepInEx.Configuration;
 using ExitGames.Client.Photon;
+using Photon.Realtime;
 using UnityEngine;
 using PeakLanMod.Lan.State;
 using PeakLanMod.Lan.UI;
@@ -31,6 +32,8 @@ internal interface ILanPluginOptions
     ConfigEntry<bool> ForceKillOwnedLanServerOnExit { get; }
     ConfigEntry<int> OwnedLanServerStopTimeoutMs { get; }
     ConfigEntry<bool> AutoRetryDirectHostUntilReady { get; }
+    ConfigEntry<int> HostCreateRoomTimeoutSeconds { get; }
+    ConfigEntry<int> DirectConnectAttemptIntervalMs { get; }
     ConfigEntry<bool> AutoSkipPhotonFailureDialog { get; }
     ConfigEntry<bool> EnableLanServerReadinessCheck { get; }
     ConfigEntry<int> LanServerReadinessTimeoutMs { get; }
@@ -57,6 +60,10 @@ internal interface IDirectConnectCoordinator
     void StartDirectJoin();
     void RequestDirectJoinStart(string roomName, string source, LanServerEndpoint endpoint);
     void TryProcessQueuedDirectJoinStart(string source);
+    void CompletePendingAttempt(string source);
+    void CancelPendingAttemptOnDisconnect(DisconnectCause cause, string clientState, string serverAddress);
+    bool IsDirectAttemptActive();
+    bool ShouldDeferDisconnectError(DisconnectCause cause, out int elapsedMs, out int timeoutMs);
 }
 
 internal interface ILanOverlayController
@@ -94,7 +101,6 @@ internal interface ILanServerRuntimeService
     void ApplyHostLanIpv4Selection();
     void ApplyHostLuxonConfigAutomation();
     bool EnsureLanServerReadinessBeforeConnect(string source, bool queuedHostFlow, LanServerEndpoint? endpointOverride = null);
-    bool WasLastQueuedHostReadinessTimeout { get; }
     void ResetQueuedHostReadinessWindow();
     string GetConfiguredLocalEndpoint();
     string GetEffectiveLocalEndpoint();
@@ -238,6 +244,8 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public ConfigEntry<bool> ForceKillOwnedLanServerOnExit => NotReady<bool>();
         public ConfigEntry<int> OwnedLanServerStopTimeoutMs => NotReady<int>();
         public ConfigEntry<bool> AutoRetryDirectHostUntilReady => NotReady<bool>();
+        public ConfigEntry<int> HostCreateRoomTimeoutSeconds => NotReady<int>();
+        public ConfigEntry<int> DirectConnectAttemptIntervalMs => NotReady<int>();
         public ConfigEntry<bool> AutoSkipPhotonFailureDialog => NotReady<bool>();
         public ConfigEntry<bool> EnableLanServerReadinessCheck => NotReady<bool>();
         public ConfigEntry<int> LanServerReadinessTimeoutMs => NotReady<int>();
@@ -285,6 +293,32 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
         public void TryProcessQueuedDirectJoinStart(string source)
         {
+        }
+
+        public void CompletePendingAttempt(string source)
+        {
+        }
+
+        public void CancelPendingAttemptOnDisconnect(
+            DisconnectCause cause,
+            string clientState,
+            string serverAddress)
+        {
+        }
+
+        public bool IsDirectAttemptActive()
+        {
+            return false;
+        }
+
+        public bool ShouldDeferDisconnectError(
+            DisconnectCause cause,
+            out int elapsedMs,
+            out int timeoutMs)
+        {
+            elapsedMs = 0;
+            timeoutMs = 0;
+            return false;
         }
     }
 
@@ -334,8 +368,6 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public void ResetQueuedHostReadinessWindow()
         {
         }
-
-        public bool WasLastQueuedHostReadinessTimeout => false;
 
         public string GetConfiguredLocalEndpoint()
         {

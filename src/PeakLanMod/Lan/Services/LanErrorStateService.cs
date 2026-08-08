@@ -11,6 +11,9 @@ internal sealed class LanErrorStateService : ILanErrorStateService
     private readonly ILanPluginOptions _options;
     private readonly LanConnectionStateStore _connectionStateStore;
     private ClientState? _previousState;
+    private string _lastNotDetectedReason = string.Empty;
+    private string _lastNotDetectedEndpoint = string.Empty;
+    private DateTime _lastNotDetectedLoggedAtUtc;
 
     internal LanErrorStateService(
         ILanPluginOptions options,
@@ -70,8 +73,35 @@ internal sealed class LanErrorStateService : ILanErrorStateService
             return;
         }
 
+        string endpoint =
+            LanRuntimeContext.GetEffectiveLocalEndpointForLogging();
+
+        DateTime nowUtc = DateTime.UtcNow;
+        bool sameReason = string.Equals(
+            _lastNotDetectedReason,
+            reason,
+            StringComparison.Ordinal);
+        bool sameEndpoint = string.Equals(
+            _lastNotDetectedEndpoint,
+            endpoint,
+            StringComparison.Ordinal);
+        bool insideThrottleWindow =
+            _lastNotDetectedLoggedAtUtc != default
+            && (nowUtc - _lastNotDetectedLoggedAtUtc).TotalMilliseconds < 2000;
+
+        if (sameReason
+            && sameEndpoint
+            && insideThrottleWindow)
+        {
+            return;
+        }
+
+        _lastNotDetectedReason = reason;
+        _lastNotDetectedEndpoint = endpoint;
+        _lastNotDetectedLoggedAtUtc = nowUtc;
+
         Plugin.Log.LogInfo(
-            $"Local server not detected at {LanRuntimeContext.GetEffectiveLocalEndpointForLogging()}: {reason}");
+            $"Local server not detected at {endpoint}: {reason}");
     }
 
     public void ReportStructuredLanError(
