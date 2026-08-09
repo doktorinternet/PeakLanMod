@@ -4,6 +4,7 @@ using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.Services;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -22,6 +23,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private readonly LanDiscoveredSessionsViewModel _discoveredSessionsViewModel = new();
     private readonly LanStatusPresenterBridge _statusPresenterBridge = new();
     private readonly List<LanSessionRowUi> _sessionRows = new();
+    private readonly List<string> _clientStateLogEntries = new();
 
     private bool _isLanServerListCollapsed;
     private bool _lanPanelCollapsedBySettingsAutomation;
@@ -41,7 +43,6 @@ internal sealed class LanOverlayController : ILanOverlayController
     private Button? _collapseButton;
     private TMP_Text? _collapseButtonText;
 
-    private TMP_Text? _summaryText;
     private TMP_Text? _roomNameLabelText;
     private InputField? _roomNameInput;
     private Text? _roomNameInputText;
@@ -55,7 +56,6 @@ internal sealed class LanOverlayController : ILanOverlayController
     private TMP_Text? _refreshButtonText;
 
     private TMP_Text? _hostUnavailableText;
-    private TMP_Text? _errorText;
     private TMP_Text? _emptyText;
     private string _pendingJoinUnavailableLog = string.Empty;
 
@@ -65,6 +65,20 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private TMP_Text? _lastRefreshText;
     private TMP_Text? _modVersionText;
+
+    private RectTransform? _statePanelRect;
+    private Image? _statePanelImage;
+    private TMP_Text? _stateTitleText;
+    private TMP_Text? _stateLatestText;
+    private ScrollRect? _stateLogScrollRect;
+    private RectTransform? _stateLogViewportRect;
+    private RectTransform? _stateLogContentRect;
+    private TMP_Text? _stateLogBodyText;
+
+    private string _lastLoggedConnectionPhase = string.Empty;
+    private string _lastLoggedEndpoint = string.Empty;
+    private string _lastLoggedErrorSignature = string.Empty;
+    private string _lastRenderedStateLogText = string.Empty;
 
     private RectTransform? _adminPanelRect;
     private Image? _adminPanelImage;
@@ -82,6 +96,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private static readonly Color UiDisabledColor = new(0.66f, 0.58f, 0.46f, 0.9f);
     private static readonly Color UiFieldColor = new(0.95f, 0.87f, 0.74f, 1f);
     private static readonly Color UiBorderColor = new(0.15f, 0.11f, 0.08f, 0.32f);
+    private const int MaxClientStateLogEntries = 160;
 
     internal LanOverlayController(
         ILanPluginOptions options,
@@ -182,9 +197,10 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         IReadOnlyList<LanSessionInfo> sessions = _discoveredSessionsViewModel.Sessions;
         int selectedIndex = _discoveredSessionsViewModel.SelectedIndex;
-        (string phase, DateTime _) = _discoveryRuntime.GetConnectionPhaseSnapshot();
+        (string phase, DateTime phaseUpdatedAtUtc) = _discoveryRuntime.GetConnectionPhaseSnapshot();
         LanErrorDetail? connectionError = _errorState.GetConnectionErrorSnapshot();
         LanSessionInfo? selectedSession = _discoveredSessionsViewModel.GetSelectedSessionOrNull();
+        string configuredEndpoint = _lanServerRuntime.GetConfiguredLocalEndpoint();
 
         bool canJoinSelected = TryCanJoinSelectedSession(
             selectedSession,
@@ -195,10 +211,10 @@ internal sealed class LanOverlayController : ILanOverlayController
             out string validatedHostRoomName,
             out string hostUnavailableReason);
 
-        string summaryLine = _statusPresenterBridge.BuildSummaryLine(
+        EnsureClientStateLogUpdated(
             phase,
-            _lanServerRuntime.GetConfiguredLocalEndpoint(),
-            sessions.Count,
+            phaseUpdatedAtUtc,
+            configuredEndpoint,
             connectionError);
 
         string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
@@ -281,14 +297,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             SetLocalTopLeftRect(_refreshButton.GetComponent<RectTransform>(), 344f, actionButtonY, 130f, 26f);
         }
 
-        _summaryText!.gameObject.SetActive(showServerRows);
-        _summaryText.text = summaryLine;
-
-        if (showServerRows)
-        {
-            SetLocalTopLeftRect(_summaryText.GetComponent<RectTransform>(), 12f, 20f, panelWidth - 24f, 26f);
-        }
-
         _lastRefreshText!.gameObject.SetActive(showServerRows);
         _modVersionText!.gameObject.SetActive(showServerRows);
 
@@ -304,14 +312,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             SetLocalTopLeftRect(_modVersionText.GetComponent<RectTransform>(), 12f + footerHalfWidth, footerY, footerHalfWidth, 20f);
         }
 
-        _errorText!.gameObject.SetActive(showServerRows && connectionError is not null);
-
-        if (showServerRows && connectionError is not null)
-        {
-            _errorText.text = _statusPresenterBridge.BuildErrorLine(connectionError);
-            SetLocalTopLeftRect(_errorText.GetComponent<RectTransform>(), 12f, panelHeight - 44f, panelWidth - 24f, 20f);
-        }
-
         _hostUnavailableText!.gameObject.SetActive(showServerRows && !canHostFromInput);
 
         if (showServerRows && !canHostFromInput)
@@ -324,6 +324,13 @@ internal sealed class LanOverlayController : ILanOverlayController
         _pendingJoinUnavailableLog = canJoinSelected
             ? string.Empty
             : $"Join unavailable: {joinUnavailableReason}";
+
+        RenderClientStatePanel(
+            showServerRows,
+            panelX,
+            panelY,
+            panelWidth,
+            panelHeight);
 
         bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
         bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
@@ -444,6 +451,201 @@ internal sealed class LanOverlayController : ILanOverlayController
             Plugin.Log.LogInfo("LAN UI join-selected button clicked.");
             TryJoinSelectedLanSession();
         });
+    }
+
+    private void EnsureClientStateLogUpdated(
+        string phase,
+        DateTime phaseUpdatedAtUtc,
+        string configuredEndpoint,
+        LanErrorDetail? connectionError)
+    {
+        if (_clientStateLogEntries.Count == 0)
+        {
+            AppendClientStateLogEntry("Client state timeline initialized.");
+        }
+
+        string sanitizedEndpoint = _identityAndValidation.SanitizeEndpointForLog(configuredEndpoint);
+
+        if (!string.Equals(_lastLoggedEndpoint, sanitizedEndpoint, StringComparison.Ordinal))
+        {
+            AppendClientStateLogEntry($"Configured endpoint: {sanitizedEndpoint}");
+            _lastLoggedEndpoint = sanitizedEndpoint;
+        }
+
+        string normalizedPhase = string.IsNullOrWhiteSpace(phase)
+            ? "Unknown"
+            : phase.Trim();
+
+        if (!string.Equals(_lastLoggedConnectionPhase, normalizedPhase, StringComparison.Ordinal))
+        {
+            AppendClientStateLogEntry(
+                $"Connection phase: {normalizedPhase} (updated {phaseUpdatedAtUtc:HH:mm:ss} UTC)");
+            _lastLoggedConnectionPhase = normalizedPhase;
+        }
+
+        string errorSignature = BuildErrorSignature(connectionError);
+
+        if (!string.Equals(_lastLoggedErrorSignature, errorSignature, StringComparison.Ordinal))
+        {
+            if (connectionError is null)
+            {
+                AppendClientStateLogEntry("Structured LAN error cleared.");
+            }
+            else
+            {
+                AppendClientStateLogEntry(
+                    $"Error: {connectionError.Code} - {connectionError.Message} (source {connectionError.Source})");
+            }
+
+            _lastLoggedErrorSignature = errorSignature;
+        }
+    }
+
+    private void RenderClientStatePanel(
+        bool showServerRows,
+        float panelX,
+        float panelY,
+        float panelWidth,
+        float panelHeight)
+    {
+        if (_statePanelRect is null
+            || _stateTitleText is null
+            || _stateLatestText is null
+            || _stateLogScrollRect is null
+            || _stateLogViewportRect is null
+            || _stateLogContentRect is null
+            || _stateLogBodyText is null)
+        {
+            return;
+        }
+
+        const float statePanelGap = 10f;
+        float statePanelX = panelX;
+        float statePanelY = panelY + panelHeight + statePanelGap;
+        float availableHeight = Screen.height - statePanelY - PanelMargin;
+
+        if (availableHeight < 90f)
+        {
+            _statePanelRect.gameObject.SetActive(false);
+            return;
+        }
+
+        float desiredPanelHeight = showServerRows
+            ? 188f
+            : 150f;
+        float statePanelHeight = Math.Min(desiredPanelHeight, availableHeight);
+        float statePanelWidth = panelWidth;
+
+        _statePanelRect.gameObject.SetActive(true);
+        SetAbsoluteTopLeftRect(
+            _statePanelRect,
+            statePanelX,
+            statePanelY,
+            statePanelWidth,
+            statePanelHeight);
+
+        _stateTitleText.text = "LOG";
+        SetLocalTopLeftRect(_stateTitleText.GetComponent<RectTransform>(), 10f, 8f, statePanelWidth - 20f, 20f);
+
+        string latestEntry = _clientStateLogEntries.Count == 0
+            ? "Latest: waiting for status updates"
+            : $"Latest: {_clientStateLogEntries[_clientStateLogEntries.Count - 1]}";
+
+        _stateLatestText.text = latestEntry;
+        SetLocalTopLeftRect(_stateLatestText.GetComponent<RectTransform>(), 10f, statePanelHeight - 30f, statePanelWidth - 20f, 20f);
+
+        float logY = 32f;
+        float logHeight = Math.Max(28f, statePanelHeight - 66f);
+        float logWidth = statePanelWidth - 20f;
+
+        SetLocalTopLeftRect(_stateLogScrollRect.GetComponent<RectTransform>(), 10f, logY, logWidth, logHeight);
+        SetLocalTopLeftRect(_stateLogViewportRect, 0f, 0f, logWidth, logHeight);
+
+        bool shouldStickToBottom = _stateLogScrollRect.verticalNormalizedPosition <= 0.05f;
+        string historyText = BuildStateHistoryText();
+
+        if (!string.Equals(_lastRenderedStateLogText, historyText, StringComparison.Ordinal))
+        {
+            _stateLogBodyText.text = historyText;
+            _lastRenderedStateLogText = historyText;
+        }
+
+        float textWidth = Math.Max(100f, logWidth - 12f);
+        Vector2 preferredSize = _stateLogBodyText.GetPreferredValues(
+            _stateLogBodyText.text,
+            textWidth,
+            4096f);
+
+        float contentHeight = Math.Max(logHeight, Mathf.Ceil(preferredSize.y) + 8f);
+        _stateLogContentRect.sizeDelta = new Vector2(logWidth - 2f, contentHeight);
+        SetLocalTopLeftRect(
+            _stateLogBodyText.GetComponent<RectTransform>(),
+            6f,
+            2f,
+            textWidth,
+            contentHeight - 4f);
+
+        if (shouldStickToBottom)
+        {
+            _stateLogScrollRect.verticalNormalizedPosition = 0f;
+        }
+    }
+
+    private string BuildStateHistoryText()
+    {
+        if (_clientStateLogEntries.Count == 0)
+        {
+            return "No client state updates yet.";
+        }
+
+        var builder = new StringBuilder();
+
+        for (int index = 0; index < _clientStateLogEntries.Count; index++)
+        {
+            if (index > 0)
+            {
+                builder.Append(Environment.NewLine);
+            }
+
+            builder.Append(_clientStateLogEntries[index]);
+        }
+
+        return builder.ToString();
+    }
+
+    private void AppendClientStateLogEntry(string message)
+    {
+        string timestamp = DateTime.UtcNow.ToString("HH:mm:ss");
+        string normalizedMessage = string.IsNullOrWhiteSpace(message)
+            ? "(empty update)"
+            : message.Trim();
+
+        _clientStateLogEntries.Add($"[{timestamp}] {normalizedMessage}");
+
+        if (_clientStateLogEntries.Count > MaxClientStateLogEntries)
+        {
+            int removeCount = _clientStateLogEntries.Count - MaxClientStateLogEntries;
+            _clientStateLogEntries.RemoveRange(0, removeCount);
+        }
+    }
+
+    private static string BuildErrorSignature(LanErrorDetail? connectionError)
+    {
+        if (connectionError is null)
+        {
+            return "None";
+        }
+
+        return string.Concat(
+            connectionError.Code,
+            "|",
+            connectionError.Message,
+            "|",
+            connectionError.Source,
+            "|",
+            connectionError.Context,
+            "|",
+            connectionError.OccurredAtUtc.ToString("O"));
     }
 
     private void OnCollapseClicked()
@@ -603,14 +805,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             FontStyles.Normal,
             OnCollapseClicked);
 
-        _summaryText = CreateTmpText(
-            "SummaryText",
-            _panelRect,
-            string.Empty,
-            TextAlignmentOptions.TopLeft,
-            20f,
-            FontStyles.Normal);
-
         _roomNameLabelText = CreateTmpText(
             "RoomNameLabel",
             _panelRect,
@@ -659,14 +853,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             16f,
             FontStyles.Normal);
 
-        _errorText = CreateTmpText(
-            "ErrorText",
-            _panelRect,
-            string.Empty,
-            TextAlignmentOptions.TopLeft,
-            16f,
-            FontStyles.Normal);
-
         _emptyText = CreateTmpText(
             "EmptyText",
             _panelRect,
@@ -694,6 +880,60 @@ internal sealed class LanOverlayController : ILanOverlayController
             TextAlignmentOptions.TopRight,
             16f,
             FontStyles.Normal);
+
+        _statePanelRect = CreateUiRect("ClientStatePanel", canvas.transform);
+        _statePanelImage = _statePanelRect.gameObject.AddComponent<Image>();
+        _statePanelImage.sprite = EnsureRoundedSprite();
+        _statePanelImage.type = Image.Type.Sliced;
+        _statePanelImage.color = UiPanelSecondaryColor;
+        AddFaintBorder(_statePanelImage);
+
+        _stateTitleText = CreateTmpText(
+            "StateTitle",
+            _statePanelRect,
+            "CLIENT STATE",
+            TextAlignmentOptions.TopLeft,
+            18f,
+            FontStyles.Normal);
+
+        _stateLatestText = CreateTmpText(
+            "StateLatest",
+            _statePanelRect,
+            "Latest: waiting for status updates",
+            TextAlignmentOptions.TopLeft,
+            14f,
+            FontStyles.Normal);
+        _stateLatestText.textWrappingMode = TextWrappingModes.NoWrap;
+
+        (_stateLogScrollRect, _stateLogViewportRect, _stateLogContentRect) = CreateScrollRegion(
+            "StateLogScroll",
+            _statePanelRect);
+
+        Image? stateLogRootImage = _stateLogScrollRect.GetComponent<Image>();
+
+        if (stateLogRootImage != null)
+        {
+            stateLogRootImage.color = new Color(0.08f, 0.09f, 0.12f, 0.94f);
+        }
+
+        Image? stateLogViewportImage = _stateLogViewportRect.GetComponent<Image>();
+
+        if (stateLogViewportImage != null)
+        {
+            stateLogViewportImage.color = new Color(0.05f, 0.06f, 0.09f, 0.96f);
+        }
+
+        _stateLogBodyText = CreateTmpText(
+            "StateLogBody",
+            _stateLogContentRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            14f,
+            FontStyles.Normal);
+        _stateLogBodyText.color = new Color(0.93f, 0.97f, 1f, 1f);
+        _stateLogBodyText.textWrappingMode = TextWrappingModes.Normal;
+        _stateLogBodyText.overflowMode = TextOverflowModes.Overflow;
+        _stateLogBodyText.richText = false;
 
         _adminPanelRect = CreateUiRect("AdminPanel", canvas.transform);
         _adminPanelImage = _adminPanelRect.gameObject.AddComponent<Image>();
@@ -1167,6 +1407,11 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (_adminPanelRect != null)
         {
             _adminPanelRect.gameObject.SetActive(active && _adminPanelRect.gameObject.activeSelf);
+        }
+
+        if (_statePanelRect != null)
+        {
+            _statePanelRect.gameObject.SetActive(active && _statePanelRect.gameObject.activeSelf);
         }
     }
 
