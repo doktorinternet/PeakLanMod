@@ -54,7 +54,6 @@ public sealed class Plugin : BaseUnityPlugin
         _harmony.PatchAll();
 
         Logger.LogInfo($"{PluginName} loaded. DisplayVersion={DisplayVersion}; PluginVersion={PluginVersion}");
-        Logger.LogInfo("Phase 7 compatibility wrapper cleanup active.");
         LanRuntimeContext.Services.LanServerRuntime.DumpPhotonSettings("Plugin.Awake");
     }
 
