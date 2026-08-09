@@ -113,6 +113,19 @@ internal sealed class LanOverlayController : ILanOverlayController
     private const float SessionRowPrimaryTop = 8f;
     private const float SessionRowSecondaryTop = 31f;
 
+    private const float StatePanelGap = 12f;
+    private const float StatePanelExpandedHeight = 196f;
+    private const float StatePanelCollapsedHeight = 154f;
+    private const float StatePanelMinVisibleHeight = 92f;
+    private const float StatePanelTopInset = 10f;
+    private const float StatePanelBottomInset = 10f;
+    private const float StateTitleToLogGap = 4f;
+    private const float StateLogToLatestGap = 8f;
+    private const float StateLatestHeight = 20f;
+    private const float StateLogTextInsetX = 8f;
+    private const float StateLogTextInsetTop = 5f;
+    private const float StateLogTextInsetBottom = 6f;
+
     private const float TitleFontSize = 21f;
     private const float LabelFontSize = 15f;
     private const float FooterFontSize = 14f;
@@ -132,6 +145,10 @@ internal sealed class LanOverlayController : ILanOverlayController
     private static readonly Color UiSessionRowColor = new(0.92f, 0.82f, 0.65f, 0.42f);
     private static readonly Color UiSessionRowSelectedColor = new(0.78f, 0.64f, 0.4f, 0.76f);
     private static readonly Color UiSessionRowPrimarySelectedColor = new(0.13f, 0.1f, 0.07f, 1f);
+    private static readonly Color UiStateLatestTextColor = new(0.23f, 0.18f, 0.14f, 0.92f);
+    private static readonly Color UiLogSurfaceColor = new(0.08f, 0.09f, 0.12f, 0.95f);
+    private static readonly Color UiLogViewportColor = new(0.05f, 0.06f, 0.09f, 0.96f);
+    private static readonly Color UiLogBorderColor = new(0.04f, 0.05f, 0.07f, 0.82f);
     private const int MaxClientStateLogEntries = 160;
 
     internal LanOverlayController(
@@ -580,20 +597,19 @@ internal sealed class LanOverlayController : ILanOverlayController
             return;
         }
 
-        const float statePanelGap = 10f;
         float statePanelX = panelX;
-        float statePanelY = panelY + panelHeight + statePanelGap;
+        float statePanelY = panelY + panelHeight + StatePanelGap;
         float availableHeight = Screen.height - statePanelY - PanelMargin;
 
-        if (availableHeight < 90f)
+        if (availableHeight < StatePanelMinVisibleHeight)
         {
             _statePanelRect.gameObject.SetActive(false);
             return;
         }
 
         float desiredPanelHeight = showServerRows
-            ? 188f
-            : 150f;
+            ? StatePanelExpandedHeight
+            : StatePanelCollapsedHeight;
         float statePanelHeight = Math.Min(desiredPanelHeight, availableHeight);
         float statePanelWidth = panelWidth;
 
@@ -606,17 +622,30 @@ internal sealed class LanOverlayController : ILanOverlayController
             statePanelHeight);
 
         _stateTitleText.text = "LOG";
-        SetLocalTopLeftRect(_stateTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, statePanelWidth - (PanelPaddingX * 2f), HeaderHeight);
+        SetLocalTopLeftRect(
+            _stateTitleText.GetComponent<RectTransform>(),
+            PanelPaddingX,
+            StatePanelTopInset,
+            statePanelWidth - (PanelPaddingX * 2f),
+            HeaderHeight);
 
         string latestEntry = _clientStateLogEntries.Count == 0
             ? "Latest: waiting for status updates"
             : $"Latest: {_clientStateLogEntries[_clientStateLogEntries.Count - 1]}";
 
         _stateLatestText.text = latestEntry;
-        SetLocalTopLeftRect(_stateLatestText.GetComponent<RectTransform>(), PanelPaddingX, statePanelHeight - FooterBottomPadding - FooterHeight, statePanelWidth - (PanelPaddingX * 2f), FooterHeight);
+        float latestY = statePanelHeight - StatePanelBottomInset - StateLatestHeight;
+        SetLocalTopLeftRect(
+            _stateLatestText.GetComponent<RectTransform>(),
+            PanelPaddingX,
+            latestY,
+            statePanelWidth - (PanelPaddingX * 2f),
+            StateLatestHeight);
 
-        float logY = PanelPaddingY + HeaderHeight - 2f;
-        float logHeight = Math.Max(28f, statePanelHeight - logY - FooterBottomPadding - FooterHeight - 4f);
+        float logY = StatePanelTopInset + HeaderHeight + StateTitleToLogGap;
+        float logHeight = Math.Max(
+            28f,
+            latestY - StateLogToLatestGap - logY);
         float logWidth = statePanelWidth - (PanelPaddingX * 2f);
 
         SetLocalTopLeftRect(_stateLogScrollRect.GetComponent<RectTransform>(), PanelPaddingX, logY, logWidth, logHeight);
@@ -631,20 +660,22 @@ internal sealed class LanOverlayController : ILanOverlayController
             _lastRenderedStateLogText = historyText;
         }
 
-        float textWidth = Math.Max(100f, logWidth - 12f);
+        float textWidth = Math.Max(100f, logWidth - (StateLogTextInsetX * 2f));
         Vector2 preferredSize = _stateLogBodyText.GetPreferredValues(
             _stateLogBodyText.text,
             textWidth,
             4096f);
 
-        float contentHeight = Math.Max(logHeight, Mathf.Ceil(preferredSize.y) + 8f);
+        float contentHeight = Math.Max(
+            logHeight,
+            Mathf.Ceil(preferredSize.y) + StateLogTextInsetTop + StateLogTextInsetBottom);
         _stateLogContentRect.sizeDelta = new Vector2(logWidth - 2f, contentHeight);
         SetLocalTopLeftRect(
             _stateLogBodyText.GetComponent<RectTransform>(),
-            6f,
-            2f,
+            StateLogTextInsetX,
+            StateLogTextInsetTop,
             textWidth,
-            contentHeight - 4f);
+            contentHeight - StateLogTextInsetTop - StateLogTextInsetBottom);
 
         if (shouldStickToBottom)
         {
@@ -972,7 +1003,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         _stateTitleText = CreateTmpText(
             "StateTitle",
             _statePanelRect,
-            "CLIENT STATE",
+            "LOG",
             TextAlignmentOptions.TopLeft,
             TitleFontSize,
             FontStyles.Normal);
@@ -982,8 +1013,9 @@ internal sealed class LanOverlayController : ILanOverlayController
             _statePanelRect,
             "Latest: waiting for status updates",
             TextAlignmentOptions.TopLeft,
-            FooterFontSize,
+            FooterFontSize + 2f,
             FontStyles.Normal);
+        _stateLatestText.color = UiStateLatestTextColor;
         _stateLatestText.textWrappingMode = TextWrappingModes.NoWrap;
 
         (_stateLogScrollRect, _stateLogViewportRect, _stateLogContentRect) = CreateScrollRegion(
@@ -994,14 +1026,16 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (stateLogRootImage != null)
         {
-            stateLogRootImage.color = new Color(0.08f, 0.09f, 0.12f, 0.94f);
+            stateLogRootImage.color = UiLogSurfaceColor;
+            AddFaintBorder(stateLogRootImage, UiLogBorderColor, new Vector2(1f, -1f));
         }
 
         Image? stateLogViewportImage = _stateLogViewportRect.GetComponent<Image>();
 
         if (stateLogViewportImage != null)
         {
-            stateLogViewportImage.color = new Color(0.05f, 0.06f, 0.09f, 0.96f);
+            stateLogViewportImage.color = UiLogViewportColor;
+            AddFaintBorder(stateLogViewportImage, UiLogBorderColor, new Vector2(1f, -1f));
         }
 
         _stateLogBodyText = CreateTmpText(
@@ -1444,10 +1478,18 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private static void AddFaintBorder(Graphic graphic)
     {
+        AddFaintBorder(graphic, UiBorderColor, new Vector2(1f, -1f));
+    }
+
+    private static void AddFaintBorder(
+        Graphic graphic,
+        Color borderColor,
+        Vector2 effectDistance)
+    {
         Outline border = graphic.gameObject.GetComponent<Outline>()
             ?? graphic.gameObject.AddComponent<Outline>();
-        border.effectColor = UiBorderColor;
-        border.effectDistance = new Vector2(1f, -1f);
+        border.effectColor = borderColor;
+        border.effectDistance = effectDistance;
         border.useGraphicAlpha = true;
     }
 
