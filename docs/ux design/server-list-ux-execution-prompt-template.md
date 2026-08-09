@@ -11,7 +11,8 @@ Implement the next server-list UX pass described in docs/ux design/server-list-u
 
 Scope for this run:
 - Execute only Phase 1 and Phase 2 from the plan.
-- Keep changes UI-only in src/PeakLanMod/Lan/UI/LanOverlayController.cs unless a small helper extraction is clearly needed.
+- Keep changes UI-only in src/PeakLanMod/Lan/UI/LanOverlayController.cs unless helper extraction is useful.
+- Keep configurable constants easily available in one location in code (not config files) for quick tuning and tweaking.
 
 Out of scope:
 - Changes to anything other than presentation of existing features, unless explicitly allowed by user when requested by agent.

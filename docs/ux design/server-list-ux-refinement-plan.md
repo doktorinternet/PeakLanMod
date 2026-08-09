@@ -1,4 +1,4 @@
-# Server List UX Follow-Up Plan
+# Server List UX Refinement Plan
 
 Date: 2026-08-09
 Scope type: Static analysis and planning only (no runtime validation)
@@ -105,6 +105,66 @@ Acceptance checks:
 - No interaction regressions.
 - Build success.
 
+### Phase 6: Server row parity polish
+
+Objective:
+- Close the remaining visual gap between current rows and the design suggestion while keeping existing data semantics and interactions unchanged.
+
+Tasks:
+- Refine row card emphasis for selected vs non-selected states using alpha, border, and typography only.
+- Improve primary/secondary line hierarchy for better scanability at a glance.
+- Keep the visible row cap at six and preserve existing scroll behavior for larger session counts.
+
+Acceptance checks:
+- Session selection behavior remains unchanged.
+- No regressions in join-selected enable/disable behavior.
+- List remains stable with 0, 1-6, and 10+ sessions.
+
+### Phase 7: Header, control, and footer rhythm calibration
+
+Objective:
+- Tighten spacing and typography cadence in the Server List panel to better match the design suggestion.
+
+Tasks:
+- Adjust title, room-name band, action band, and footer vertical rhythm in small tokenized increments.
+- Re-check button widths and inter-button spacing at representative widths.
+- Preserve current host/join/refresh wiring and click areas.
+
+Acceptance checks:
+- Action buttons remain fully visible in expanded mode.
+- No overlap between controls, list viewport, and footer across target resolutions.
+- Build success.
+
+### Phase 8: Cross-panel chrome harmonization
+
+Objective:
+- Finalize visual consistency across Server List, Log, and Admin Telemetry panel chrome.
+
+Tasks:
+- Harmonize border alpha, panel alpha, and corner treatment across all three panels.
+- Fine-tune title rhythm consistency between panel headers.
+- Preserve the high-contrast dark log interior readability.
+
+Acceptance checks:
+- All three panels read as one visual family.
+- Log history and latest status remain highly readable.
+- Admin visibility conditions and telemetry formatting remain unchanged.
+
+### Phase 9: Runtime validation matrix and sign-off
+
+Objective:
+- Complete final runtime validation for layout robustness and interaction reliability.
+
+Tasks:
+- Validate representative resolutions and aspect ratios, including at least one low-height case.
+- Verify expanded/collapsed transitions and settings-driven auto-collapse behavior.
+- Verify button hitboxes and list scrolling under simulation load.
+
+Acceptance checks:
+- No overlap regressions in tested scenarios.
+- No interaction regressions in host/join/refresh/session-selection pathways.
+- Build success and documented manual test notes.
+
 ## Non-goals for next pass
 
 - No truncation engine or clipping policy changes.
@@ -113,9 +173,9 @@ Acceptance checks:
 
 ## Suggested handoff checklist for the next agent chat
 
-1. Read docs/ux design/server-list-ux-follow-up-plan.md.
+1. Read docs/ux design/server-list-ux-refinement-plan.md.
 2. Confirm the deferred list is still deferred.
-3. Implement only Phase 1 and Phase 2 first.
-4. Build and validate UI interaction stability.
-5. Continue to Phase 3 and Phase 4 only after Phase 2 visual review.
-6. Finish with Phase 5 regression checks and note any unresolved edge cases.
+3. Confirm completion status for Phases 1 through 5 before starting additional polish.
+4. Execute Phase 6 and Phase 7 first, then run a build and quick layout sanity check.
+5. Execute Phase 8 after visual review of Phase 6/7.
+6. Complete Phase 9 runtime validation and capture unresolved edge cases.

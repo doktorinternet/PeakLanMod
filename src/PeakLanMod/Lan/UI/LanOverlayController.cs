@@ -109,9 +109,32 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private const float SessionRowHeight = 58f;
     private const float SessionRowGap = 6f;
+    private const int MaxVisibleSessionRows = 6;
     private const float SessionRowInnerPaddingX = 12f;
     private const float SessionRowPrimaryTop = 8f;
     private const float SessionRowSecondaryTop = 31f;
+
+    private const float StatePanelGap = 12f;
+    private const float StatePanelExpandedHeight = 196f;
+    private const float StatePanelCollapsedHeight = 154f;
+    private const float StatePanelMinVisibleHeight = 92f;
+    private const float StatePanelTopInset = 10f;
+    private const float StatePanelBottomInset = 10f;
+    private const float StateTitleToLogGap = 4f;
+    private const float StateLogToLatestGap = 8f;
+    private const float StateLatestHeight = 20f;
+    private const float StateLogTextInsetX = 8f;
+    private const float StateLogTextInsetTop = 5f;
+    private const float StateLogTextInsetBottom = 6f;
+
+    private const float AdminPanelGap = 24f;
+    private const float AdminPanelMinWidth = 340f;
+    private const float AdminPanelMaxWidth = 560f;
+    private const float AdminPanelMinHeight = 112f;
+    private const float AdminPanelTopInset = 10f;
+    private const float AdminPanelBottomInset = 10f;
+    private const float AdminTitleToBodyGap = 4f;
+    private const float AdminBodyFontSize = 14f;
 
     private const float TitleFontSize = 21f;
     private const float LabelFontSize = 15f;
@@ -132,6 +155,10 @@ internal sealed class LanOverlayController : ILanOverlayController
     private static readonly Color UiSessionRowColor = new(0.92f, 0.82f, 0.65f, 0.42f);
     private static readonly Color UiSessionRowSelectedColor = new(0.78f, 0.64f, 0.4f, 0.76f);
     private static readonly Color UiSessionRowPrimarySelectedColor = new(0.13f, 0.1f, 0.07f, 1f);
+    private static readonly Color UiStateLatestTextColor = new(0.23f, 0.18f, 0.14f, 0.92f);
+    private static readonly Color UiLogSurfaceColor = new(0.08f, 0.09f, 0.12f, 0.95f);
+    private static readonly Color UiLogViewportColor = new(0.05f, 0.06f, 0.09f, 0.96f);
+    private static readonly Color UiLogBorderColor = new(0.04f, 0.05f, 0.07f, 0.82f);
     private const int MaxClientStateLogEntries = 160;
 
     internal LanOverlayController(
@@ -261,6 +288,8 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         bool showServerRows = !_isLanServerListCollapsed;
         bool p0 = _identityAndValidation.IsCurrentUserInX7GateSet();
+        bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
+        bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
 
         float panelWidth;
         float panelHeight;
@@ -272,9 +301,25 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (showServerRows)
         {
             float maxPanelWidth = Math.Max(MainPanelExpandedMinWidth, Screen.width - (PanelMargin * 2f));
+
+            // Keep the left admin telemetry rail visible on typical widescreen layouts.
+            if (showAdmin)
+            {
+                float maxPanelWidthWithAdminRail =
+                    Screen.width
+                    - (PanelMargin * 3f)
+                    - AdminPanelGap
+                    - AdminPanelMinWidth;
+
+                if (maxPanelWidthWithAdminRail >= MainPanelExpandedMinWidth)
+                {
+                    maxPanelWidth = Math.Min(maxPanelWidth, maxPanelWidthWithAdminRail);
+                }
+            }
+
             panelWidth = Math.Min(MainPanelExpandedMaxWidth, maxPanelWidth);
-            float rowStride = SessionRowHeight + SessionRowGap;
-            float desiredPanelHeight = expandedMinBodyHeight + (sessions.Count * rowStride);
+            int visibleSessionRows = Math.Min(sessions.Count, MaxVisibleSessionRows);
+            float desiredPanelHeight = expandedMinBodyHeight + CalculateSessionListHeight(visibleSessionRows);
             float maxPanelHeight = Math.Max(MainPanelExpandedMinHeight, Screen.height - (PanelMargin * 2f));
             panelHeight = Mathf.Clamp(desiredPanelHeight, MainPanelExpandedMinHeight, maxPanelHeight);
         }
@@ -390,8 +435,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             panelWidth,
             panelHeight);
 
-        bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
-        bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
         _adminPanelRect!.gameObject.SetActive(showAdmin);
 
         if (showAdmin)
@@ -400,9 +443,8 @@ internal sealed class LanOverlayController : ILanOverlayController
                 ? "ADMIN TELEMETRY"
                 : "ADMIN TELEMETRY (DEBUG)";
 
-            const float adminPanelGap = 24f;
-            float availableAdminWidth = Math.Max(300f, panelX - adminPanelGap - PanelMargin);
-            float adminPanelWidth = Mathf.Clamp(availableAdminWidth, 320f, 560f);
+            float availableAdminWidth = Math.Max(AdminPanelMinWidth, panelX - AdminPanelGap - PanelMargin);
+            float adminPanelWidth = Mathf.Clamp(availableAdminWidth, AdminPanelMinWidth, AdminPanelMaxWidth);
             float adminBodyWidth = adminPanelWidth - (PanelPaddingX * 2f);
             float adminValueColumnOffsetPx = Mathf.Clamp(adminBodyWidth * 0.42f, 120f, adminBodyWidth - 24f);
 
@@ -421,13 +463,18 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminBodyWidth,
                 4096f);
 
-            float adminBodyHeight = Mathf.Ceil(bodyPreferredSize.y) + 2f;
-            float desiredAdminPanelHeight = 36f + adminBodyHeight;
-            float maxAdminPanelHeight = Mathf.Max(96f, Screen.height - (PanelMargin * 2f));
-            float adminPanelHeight = Mathf.Clamp(desiredAdminPanelHeight, 96f, maxAdminPanelHeight);
+            float adminBodyHeight = Mathf.Ceil(bodyPreferredSize.y) + 4f;
+            float desiredAdminPanelHeight =
+                AdminPanelTopInset
+                + HeaderHeight
+                + AdminTitleToBodyGap
+                + adminBodyHeight
+                + AdminPanelBottomInset;
+            float maxAdminPanelHeight = Mathf.Max(AdminPanelMinHeight, Screen.height - (PanelMargin * 2f));
+            float adminPanelHeight = Mathf.Clamp(desiredAdminPanelHeight, AdminPanelMinHeight, maxAdminPanelHeight);
             float adminPanelX = Math.Max(
                 PanelMargin,
-                panelX - adminPanelGap - adminPanelWidth);
+                panelX - AdminPanelGap - adminPanelWidth);
             float adminPanelY = panelY;
 
             SetAbsoluteTopLeftRect(
@@ -437,8 +484,20 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminPanelWidth,
                 adminPanelHeight);
 
-            SetLocalTopLeftRect(_adminTitleText!.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, adminBodyWidth, HeaderHeight);
-            SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY + HeaderHeight - 2f, adminBodyWidth, adminPanelHeight - (PanelPaddingY + HeaderHeight) - 8f);
+            SetLocalTopLeftRect(
+                _adminTitleText!.GetComponent<RectTransform>(),
+                PanelPaddingX,
+                AdminPanelTopInset,
+                adminBodyWidth,
+                HeaderHeight);
+            float adminBodyY = AdminPanelTopInset + HeaderHeight + AdminTitleToBodyGap;
+            float adminBodyRectHeight = Math.Max(20f, adminPanelHeight - adminBodyY - AdminPanelBottomInset);
+            SetLocalTopLeftRect(
+                _adminBodyText.GetComponent<RectTransform>(),
+                PanelPaddingX,
+                adminBodyY,
+                adminBodyWidth,
+                adminBodyRectHeight);
             _adminBodyText!.text = adminData;
         }
 
@@ -448,9 +507,12 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (showServerRows)
         {
             float rowY = listTop;
-            float listViewportHeight = Math.Max(
+            float maxListViewportHeight = Math.Max(
                 24f,
                 panelHeight - rowY - FooterHeight - FooterBottomPadding - SectionGap);
+            int visibleSessionRows = Math.Min(sessions.Count, MaxVisibleSessionRows);
+            float targetListViewportHeight = Math.Max(24f, CalculateSessionListHeight(visibleSessionRows));
+            float listViewportHeight = Math.Min(targetListViewportHeight, maxListViewportHeight);
 
             if (sessions.Count == 0)
             {
@@ -466,7 +528,7 @@ internal sealed class LanOverlayController : ILanOverlayController
                 SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, panelWidth - (PanelPaddingX * 2f), listViewportHeight);
 
                 float rowStride = SessionRowHeight + SessionRowGap;
-                float contentHeight = Math.Max(listViewportHeight, sessions.Count * rowStride);
+                float contentHeight = Math.Max(listViewportHeight, CalculateSessionListHeight(sessions.Count));
                 _sessionContentRect!.sizeDelta = new Vector2(panelWidth - (PanelPaddingX * 2f) - 18f, contentHeight);
 
                 for (int index = 0; index < sessions.Count; index++)
@@ -580,20 +642,19 @@ internal sealed class LanOverlayController : ILanOverlayController
             return;
         }
 
-        const float statePanelGap = 10f;
         float statePanelX = panelX;
-        float statePanelY = panelY + panelHeight + statePanelGap;
+        float statePanelY = panelY + panelHeight + StatePanelGap;
         float availableHeight = Screen.height - statePanelY - PanelMargin;
 
-        if (availableHeight < 90f)
+        if (availableHeight < StatePanelMinVisibleHeight)
         {
             _statePanelRect.gameObject.SetActive(false);
             return;
         }
 
         float desiredPanelHeight = showServerRows
-            ? 188f
-            : 150f;
+            ? StatePanelExpandedHeight
+            : StatePanelCollapsedHeight;
         float statePanelHeight = Math.Min(desiredPanelHeight, availableHeight);
         float statePanelWidth = panelWidth;
 
@@ -606,17 +667,30 @@ internal sealed class LanOverlayController : ILanOverlayController
             statePanelHeight);
 
         _stateTitleText.text = "LOG";
-        SetLocalTopLeftRect(_stateTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, statePanelWidth - (PanelPaddingX * 2f), HeaderHeight);
+        SetLocalTopLeftRect(
+            _stateTitleText.GetComponent<RectTransform>(),
+            PanelPaddingX,
+            StatePanelTopInset,
+            statePanelWidth - (PanelPaddingX * 2f),
+            HeaderHeight);
 
         string latestEntry = _clientStateLogEntries.Count == 0
             ? "Latest: waiting for status updates"
             : $"Latest: {_clientStateLogEntries[_clientStateLogEntries.Count - 1]}";
 
         _stateLatestText.text = latestEntry;
-        SetLocalTopLeftRect(_stateLatestText.GetComponent<RectTransform>(), PanelPaddingX, statePanelHeight - FooterBottomPadding - FooterHeight, statePanelWidth - (PanelPaddingX * 2f), FooterHeight);
+        float latestY = statePanelHeight - StatePanelBottomInset - StateLatestHeight;
+        SetLocalTopLeftRect(
+            _stateLatestText.GetComponent<RectTransform>(),
+            PanelPaddingX,
+            latestY,
+            statePanelWidth - (PanelPaddingX * 2f),
+            StateLatestHeight);
 
-        float logY = PanelPaddingY + HeaderHeight - 2f;
-        float logHeight = Math.Max(28f, statePanelHeight - logY - FooterBottomPadding - FooterHeight - 4f);
+        float logY = StatePanelTopInset + HeaderHeight + StateTitleToLogGap;
+        float logHeight = Math.Max(
+            28f,
+            latestY - StateLogToLatestGap - logY);
         float logWidth = statePanelWidth - (PanelPaddingX * 2f);
 
         SetLocalTopLeftRect(_stateLogScrollRect.GetComponent<RectTransform>(), PanelPaddingX, logY, logWidth, logHeight);
@@ -631,20 +705,22 @@ internal sealed class LanOverlayController : ILanOverlayController
             _lastRenderedStateLogText = historyText;
         }
 
-        float textWidth = Math.Max(100f, logWidth - 12f);
+        float textWidth = Math.Max(100f, logWidth - (StateLogTextInsetX * 2f));
         Vector2 preferredSize = _stateLogBodyText.GetPreferredValues(
             _stateLogBodyText.text,
             textWidth,
             4096f);
 
-        float contentHeight = Math.Max(logHeight, Mathf.Ceil(preferredSize.y) + 8f);
+        float contentHeight = Math.Max(
+            logHeight,
+            Mathf.Ceil(preferredSize.y) + StateLogTextInsetTop + StateLogTextInsetBottom);
         _stateLogContentRect.sizeDelta = new Vector2(logWidth - 2f, contentHeight);
         SetLocalTopLeftRect(
             _stateLogBodyText.GetComponent<RectTransform>(),
-            6f,
-            2f,
+            StateLogTextInsetX,
+            StateLogTextInsetTop,
             textWidth,
-            contentHeight - 4f);
+            contentHeight - StateLogTextInsetTop - StateLogTextInsetBottom);
 
         if (shouldStickToBottom)
         {
@@ -972,7 +1048,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         _stateTitleText = CreateTmpText(
             "StateTitle",
             _statePanelRect,
-            "CLIENT STATE",
+            "LOG",
             TextAlignmentOptions.TopLeft,
             TitleFontSize,
             FontStyles.Normal);
@@ -982,8 +1058,9 @@ internal sealed class LanOverlayController : ILanOverlayController
             _statePanelRect,
             "Latest: waiting for status updates",
             TextAlignmentOptions.TopLeft,
-            FooterFontSize,
+            FooterFontSize + 2f,
             FontStyles.Normal);
+        _stateLatestText.color = UiStateLatestTextColor;
         _stateLatestText.textWrappingMode = TextWrappingModes.NoWrap;
 
         (_stateLogScrollRect, _stateLogViewportRect, _stateLogContentRect) = CreateScrollRegion(
@@ -994,14 +1071,16 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (stateLogRootImage != null)
         {
-            stateLogRootImage.color = new Color(0.08f, 0.09f, 0.12f, 0.94f);
+            stateLogRootImage.color = UiLogSurfaceColor;
+            AddFaintBorder(stateLogRootImage, UiLogBorderColor, new Vector2(1f, -1f));
         }
 
         Image? stateLogViewportImage = _stateLogViewportRect.GetComponent<Image>();
 
         if (stateLogViewportImage != null)
         {
-            stateLogViewportImage.color = new Color(0.05f, 0.06f, 0.09f, 0.96f);
+            stateLogViewportImage.color = UiLogViewportColor;
+            AddFaintBorder(stateLogViewportImage, UiLogBorderColor, new Vector2(1f, -1f));
         }
 
         _stateLogBodyText = CreateTmpText(
@@ -1036,15 +1115,15 @@ internal sealed class LanOverlayController : ILanOverlayController
             _adminPanelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            15f,
+            AdminBodyFontSize,
             FontStyles.Normal);
 
         _adminBodyText.richText = true;
         _adminBodyText.textWrappingMode = TextWrappingModes.Normal;
         _adminBodyText.overflowMode = TextOverflowModes.Ellipsis;
 
-        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, 400f, HeaderHeight);
-        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY + HeaderHeight - 2f, 400f, 30f);
+        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), PanelPaddingX, AdminPanelTopInset, 400f, HeaderHeight);
+        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, AdminPanelTopInset + HeaderHeight + AdminTitleToBodyGap, 400f, 30f);
     }
 
     private void EnsureTemplateText()
@@ -1367,6 +1446,16 @@ internal sealed class LanOverlayController : ILanOverlayController
         return $"{session.RoomName} @ {session.NameServerAddress}:{session.NameServerPort}";
     }
 
+    private static float CalculateSessionListHeight(int rowCount)
+    {
+        if (rowCount <= 0)
+        {
+            return 0f;
+        }
+
+        return (rowCount * SessionRowHeight) + ((rowCount - 1) * SessionRowGap);
+    }
+
     private static string BuildSessionSecondaryLine(LanSessionInfo session)
     {
         string compatibility = session.IsCompatible
@@ -1444,10 +1533,18 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private static void AddFaintBorder(Graphic graphic)
     {
+        AddFaintBorder(graphic, UiBorderColor, new Vector2(1f, -1f));
+    }
+
+    private static void AddFaintBorder(
+        Graphic graphic,
+        Color borderColor,
+        Vector2 effectDistance)
+    {
         Outline border = graphic.gameObject.GetComponent<Outline>()
             ?? graphic.gameObject.AddComponent<Outline>();
-        border.effectColor = UiBorderColor;
-        border.effectDistance = new Vector2(1f, -1f);
+        border.effectColor = borderColor;
+        border.effectDistance = effectDistance;
         border.useGraphicAlpha = true;
     }
 
