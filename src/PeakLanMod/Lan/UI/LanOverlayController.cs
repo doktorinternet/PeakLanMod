@@ -325,20 +325,41 @@ internal sealed class LanOverlayController : ILanOverlayController
             ? string.Empty
             : $"Join unavailable: {joinUnavailableReason}";
 
-        bool showAdmin = showServerRows && p0;
+        bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
+        bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
         _adminPanelRect!.gameObject.SetActive(showAdmin);
 
         if (showAdmin)
         {
-            string adminLine = selectedSession is null
-                ? "Admin: select a session to view identity telemetry."
-                : _statusPresenterBridge.BuildAdminIdentityRowLabel(
-                    selectedSession,
-                    BuildSessionIdentitySignature(selectedSession));
+            _adminTitleText!.text = p0
+                ? "ADMIN TELEMETRY"
+                : "ADMIN TELEMETRY (DEBUG)";
 
             const float adminPanelGap = 24f;
-            const float adminPanelWidth = 460f;
-            const float adminPanelHeight = 70f;
+            float availableAdminWidth = Math.Max(300f, panelX - adminPanelGap - PanelMargin);
+            float adminPanelWidth = Mathf.Clamp(availableAdminWidth, 320f, 560f);
+            float adminBodyWidth = adminPanelWidth - 20f;
+            float adminValueColumnOffsetPx = Mathf.Clamp(adminBodyWidth * 0.42f, 120f, adminBodyWidth - 24f);
+
+            string adminData = selectedSession is null
+                ? "Admin: select a session to view identity telemetry."
+                : _statusPresenterBridge.BuildAdminTelemetryPanelData(
+                    selectedSession,
+                    BuildSessionIdentitySignature(selectedSession),
+                    adminValueColumnOffsetPx);
+
+            _adminBodyText!.textWrappingMode = TextWrappingModes.Normal;
+            _adminBodyText.overflowMode = TextOverflowModes.Ellipsis;
+
+            Vector2 bodyPreferredSize = _adminBodyText.GetPreferredValues(
+                adminData,
+                adminBodyWidth,
+                4096f);
+
+            float adminBodyHeight = Mathf.Ceil(bodyPreferredSize.y) + 2f;
+            float desiredAdminPanelHeight = 36f + adminBodyHeight;
+            float maxAdminPanelHeight = Mathf.Max(96f, Screen.height - (PanelMargin * 2f));
+            float adminPanelHeight = Mathf.Clamp(desiredAdminPanelHeight, 96f, maxAdminPanelHeight);
             float adminPanelX = Math.Max(
                 PanelMargin,
                 panelX - adminPanelGap - adminPanelWidth);
@@ -351,7 +372,9 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminPanelWidth,
                 adminPanelHeight);
 
-            _adminBodyText!.text = adminLine;
+            SetLocalTopLeftRect(_adminTitleText!.GetComponent<RectTransform>(), 10f, 8f, adminBodyWidth, 20f);
+            SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), 10f, 30f, adminBodyWidth, adminPanelHeight - 36f);
+            _adminBodyText!.text = adminData;
         }
 
         _emptyText!.gameObject.SetActive(false);
@@ -692,8 +715,12 @@ internal sealed class LanOverlayController : ILanOverlayController
             _adminPanelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            18f,
+            15f,
             FontStyles.Normal);
+
+        _adminBodyText.richText = true;
+        _adminBodyText.textWrappingMode = TextWrappingModes.Normal;
+        _adminBodyText.overflowMode = TextOverflowModes.Ellipsis;
 
         SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), 10f, 8f, 400f, 20f);
         SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), 10f, 30f, 400f, 30f);
