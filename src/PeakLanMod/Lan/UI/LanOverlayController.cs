@@ -287,6 +287,8 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         bool showServerRows = !_isLanServerListCollapsed;
         bool p0 = _identityAndValidation.IsCurrentUserInX7GateSet();
+        bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
+        bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
 
         float panelWidth;
         float panelHeight;
@@ -298,6 +300,22 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (showServerRows)
         {
             float maxPanelWidth = Math.Max(MainPanelExpandedMinWidth, Screen.width - (PanelMargin * 2f));
+
+            // Keep the left admin telemetry rail visible on typical widescreen layouts.
+            if (showAdmin)
+            {
+                float maxPanelWidthWithAdminRail =
+                    Screen.width
+                    - (PanelMargin * 3f)
+                    - AdminPanelGap
+                    - AdminPanelMinWidth;
+
+                if (maxPanelWidthWithAdminRail >= MainPanelExpandedMinWidth)
+                {
+                    maxPanelWidth = Math.Min(maxPanelWidth, maxPanelWidthWithAdminRail);
+                }
+            }
+
             panelWidth = Math.Min(MainPanelExpandedMaxWidth, maxPanelWidth);
             float rowStride = SessionRowHeight + SessionRowGap;
             float desiredPanelHeight = expandedMinBodyHeight + (sessions.Count * rowStride);
@@ -416,8 +434,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             panelWidth,
             panelHeight);
 
-        bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
-        bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
         _adminPanelRect!.gameObject.SetActive(showAdmin);
 
         if (showAdmin)
