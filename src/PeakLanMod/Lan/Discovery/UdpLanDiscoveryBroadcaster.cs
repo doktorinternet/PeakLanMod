@@ -23,7 +23,9 @@ internal readonly struct LanDiscoveryAnnouncement
         string transport,
         string scene,
         string serverInstanceId,
-        DateTime sentAtUtc)
+        DateTime sentAtUtc,
+        int currentPlayers = -1,
+        int maxPlayers = -1)
     {
         Type = type;
         SchemaVersion = schemaVersion;
@@ -38,6 +40,8 @@ internal readonly struct LanDiscoveryAnnouncement
         Scene = scene;
         ServerInstanceId = serverInstanceId;
         SentAtUtc = sentAtUtc;
+        CurrentPlayers = currentPlayers;
+        MaxPlayers = maxPlayers;
     }
 
     internal string Type { get; }
@@ -53,6 +57,8 @@ internal readonly struct LanDiscoveryAnnouncement
     internal string Scene { get; }
     internal string ServerInstanceId { get; }
     internal DateTime SentAtUtc { get; }
+    internal int CurrentPlayers { get; }
+    internal int MaxPlayers { get; }
 
     internal string SessionKey =>
         $"{ServerInstanceId}|{RoomName}";
@@ -97,6 +103,10 @@ internal static class LanDiscoveryMessageCodec
         AppendString(builder, "scene", announcement.Scene);
         builder.Append(',');
         AppendString(builder, "server_instance_id", announcement.ServerInstanceId);
+        builder.Append(',');
+        AppendInt(builder, "current_players", announcement.CurrentPlayers);
+        builder.Append(',');
+        AppendInt(builder, "max_players", announcement.MaxPlayers);
         builder.Append(',');
         AppendString(builder, "sent_at_utc", announcement.SentAtUtc.ToUniversalTime().ToString("O"));
         builder.Append('}');
@@ -169,6 +179,24 @@ internal static class LanDiscoveryMessageCodec
             return false;
         }
 
+        int currentPlayers = -1;
+        int maxPlayers = -1;
+
+        if (TryReadInt(payload, "current_players", out int parsedCurrentPlayers))
+        {
+            currentPlayers = parsedCurrentPlayers;
+        }
+
+        if (TryReadInt(payload, "max_players", out int parsedMaxPlayers))
+        {
+            maxPlayers = parsedMaxPlayers;
+        }
+
+        if (!TryValidateOccupancy(currentPlayers, maxPlayers, out reason))
+        {
+            return false;
+        }
+
         announcement = new LanDiscoveryAnnouncement(
             type,
             schemaVersion,
@@ -182,7 +210,9 @@ internal static class LanDiscoveryMessageCodec
             transport,
             scene,
             serverInstanceId,
-            sentAtUtc.ToUniversalTime());
+            sentAtUtc.ToUniversalTime(),
+            currentPlayers,
+            maxPlayers);
 
         return true;
     }
@@ -308,6 +338,35 @@ internal static class LanDiscoveryMessageCodec
 
         value = default;
         return false;
+    }
+
+    private static bool TryValidateOccupancy(
+        int currentPlayers,
+        int maxPlayers,
+        out string reason)
+    {
+        if (currentPlayers < -1)
+        {
+            reason = "current_players must be -1 or greater.";
+            return false;
+        }
+
+        if (maxPlayers < -1)
+        {
+            reason = "max_players must be -1 or greater.";
+            return false;
+        }
+
+        if (currentPlayers >= 0
+            && maxPlayers > 0
+            && currentPlayers > maxPlayers)
+        {
+            reason = "current_players cannot exceed max_players when max_players is known.";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
     }
 }
 
