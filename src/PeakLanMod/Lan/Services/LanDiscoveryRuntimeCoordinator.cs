@@ -13,6 +13,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     private readonly LanConnectionStateStore _connectionStateStore;
     private readonly UdpLanDiscoveryListener _listener;
     private readonly UdpLanDiscoveryBroadcaster _broadcaster;
+    private readonly SimulatedLanDiscoverySnapshotProvider _simulatedSnapshotProvider;
     private readonly string _pluginVersion;
     private readonly string _serverInstanceId;
     private int _lastSnapshotCount = -1;
@@ -28,6 +29,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         _connectionStateStore = connectionStateStore;
         _listener = new UdpLanDiscoveryListener(connectionStateStore);
         _broadcaster = new UdpLanDiscoveryBroadcaster();
+        _simulatedSnapshotProvider = new SimulatedLanDiscoverySnapshotProvider();
         _pluginVersion = pluginVersion;
         _serverInstanceId = Guid.NewGuid().ToString("N");
     }
@@ -154,6 +156,12 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
 
     public LanSessionInfo[] GetDiscoverySnapshot()
     {
+        if (_options.UseSimulatedServerListEntries.Value)
+        {
+            return _simulatedSnapshotProvider.BuildSnapshot(
+                _options.SimulatedServerListCount.Value);
+        }
+
         return _listener.GetSnapshot();
     }
 

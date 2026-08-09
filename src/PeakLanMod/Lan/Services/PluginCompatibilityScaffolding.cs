@@ -44,6 +44,8 @@ internal interface ILanPluginOptions
     ConfigEntry<int> LanDiscoveryEntryTtlMs { get; }
     ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
     ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
+    ConfigEntry<bool> UseSimulatedServerListEntries { get; }
+    ConfigEntry<int> SimulatedServerListCount { get; }
     ConfigEntry<bool> EnableStructuredErrorMapping { get; }
     ConfigEntry<bool> EnableVerboseDiagnostics { get; }
     ConfigEntry<bool> PersistCustomizationSelectionOffline { get; }
@@ -269,6 +271,8 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public ConfigEntry<int> LanDiscoveryEntryTtlMs => NotReady<int>();
         public ConfigEntry<string> LanDiscoveryProtocolVersion => NotReady<string>();
         public ConfigEntry<bool> LanDiscoveryRequireVersionMatch => NotReady<bool>();
+        public ConfigEntry<bool> UseSimulatedServerListEntries => NotReady<bool>();
+        public ConfigEntry<int> SimulatedServerListCount => NotReady<int>();
         public ConfigEntry<bool> EnableStructuredErrorMapping => NotReady<bool>();
         public ConfigEntry<bool> EnableVerboseDiagnostics => NotReady<bool>();
         public ConfigEntry<bool> PersistCustomizationSelectionOffline => NotReady<bool>();
