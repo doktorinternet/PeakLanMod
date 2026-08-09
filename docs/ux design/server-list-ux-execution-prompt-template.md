@@ -13,6 +13,9 @@ Scope for this run:
 - Execute only Phase 1 and Phase 2 from the plan.
 - Keep changes UI-only in src/PeakLanMod/Lan/UI/LanOverlayController.cs unless a small helper extraction is clearly needed.
 
+Out of scope:
+- Changes to anything other than presentation of existing features, unless explicitly allowed by user when requested by agent.
+
 Hard constraints:
 - Preserve current host/join/refresh behaviors and wiring.
 - Preserve current state/log and admin telemetry functional behavior.
@@ -28,7 +31,7 @@ Do NOT implement:
 Visual direction:
 - Unify spacing/typography/padding/border/alpha via constants (Phase 1).
 - Improve server list visual hierarchy and panel rhythm (Phase 2).
-- Slight transparency is allowed for panel backgrounds.
+- Slight transparency is preferred for panel backgrounds.
 
 Quality bar:
 - Avoid overlap regressions (buttons, list viewport, footer).
