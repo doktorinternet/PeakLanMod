@@ -112,8 +112,15 @@ Objective:
 
 Tasks:
 - Refine row card emphasis for selected vs non-selected states using alpha, border, and typography only.
+- Align style of implementation with `design_suggestion.png`, in the areas of colors and borders.
 - Improve primary/secondary line hierarchy for better scanability at a glance.
+- Move IP and Port to secondary line.
+- Remove transport
 - Keep the visible row cap at six and preserve existing scroll behavior for larger session counts.
+- Player count rightmost in each row, centered vertically.
+
+Out of scope:
+- Unsolicited new tags, components and text. 
 
 Acceptance checks:
 - Session selection behavior remains unchanged.

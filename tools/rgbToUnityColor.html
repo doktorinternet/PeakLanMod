@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RGB → Unity Color</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 520px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #eee;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      font-size: 16px;
+      background: #2d2d2d;
+      color: #eee;
+      border: 1px solid #555;
+      border-radius: 5px;
+    }
+
+    .slider-row {
+      margin-top: 20px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .color-label {
+      margin-top: 18px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #aaa;
+    }
+
+    .color-preview {
+      height: 55px;
+      border-radius: 5px;
+      border: 1px solid #555;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 12px;
+      background: #2d2d2d;
+      border-radius: 5px;
+      font-family: monospace;
+      cursor: pointer;
+      user-select: all;
+    }
+
+    #error {
+      margin-top: 10px;
+      color: #ff7777;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>RGB → UnityEngine.Color</h2>
+
+  <input
+    id="rgb"
+    type="text"
+    value="rgb(210, 190, 158)"
+    placeholder="rgb(210, 190, 158)"
+  >
+
+  <div class="color-label">Original color</div>
+  <div id="originalPreview" class="color-preview"></div>
+
+  <div class="slider-row">
+    <div class="slider-header">
+      <span>Uniform RGB</span>
+      <span id="uniformValue">1.00</span>
+    </div>
+
+    <input
+      id="uniform"
+      type="range"
+      min="0"
+      max="2"
+      step="0.01"
+      value="1"
+    >
+  </div>
+
+  <div class="slider-row">
+    <div class="slider-header">
+      <span>Opacity</span>
+      <span id="opacityValue">1.00</span>
+    </div>
+
+    <input
+      id="opacity"
+      type="range"
+      min="0"
+      max="1"
+      step="0.01"
+      value="1"
+    >
+  </div>
+
+  <div class="color-label">Final output color</div>
+  <div id="finalPreview" class="color-preview"></div>
+
+  <div id="result" title="Click to copy"></div>
+  <div id="error"></div>
+
+  <script>
+    const input = document.getElementById("rgb");
+
+    const uniform = document.getElementById("uniform");
+    const opacity = document.getElementById("opacity");
+
+    const uniformValue = document.getElementById("uniformValue");
+    const opacityValue = document.getElementById("opacityValue");
+
+    const originalPreview = document.getElementById("originalPreview");
+    const finalPreview = document.getElementById("finalPreview");
+
+    const result = document.getElementById("result");
+    const error = document.getElementById("error");
+
+    function convert() {
+      const match = input.value.match(
+        /rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i
+      );
+
+      if (!match) {
+        result.textContent = "";
+        originalPreview.style.background = "transparent";
+        finalPreview.style.background = "transparent";
+        error.textContent = "Invalid RGB format";
+        return;
+      }
+
+      const r = Number(match[1]);
+      const g = Number(match[2]);
+      const b = Number(match[3]);
+
+      if ([r, g, b].some(x => x < 0 || x > 255)) {
+        error.textContent = "RGB values must be between 0 and 255";
+        return;
+      }
+
+      error.textContent = "";
+
+      const multiplier = Number(uniform.value);
+      const alpha = Number(opacity.value);
+
+      uniformValue.textContent = multiplier.toFixed(2);
+      opacityValue.textContent = alpha.toFixed(2);
+
+      // Original RGB values converted to Unity's 0–1 range
+      const originalR = r / 255;
+      const originalG = g / 255;
+      const originalB = b / 255;
+
+      // Apply uniform multiplier and clamp to 0–1
+      const finalR = Math.min(1, originalR * multiplier);
+      const finalG = Math.min(1, originalG * multiplier);
+      const finalB = Math.min(1, originalB * multiplier);
+
+      originalPreview.style.background =
+        `rgb(${r}, ${g}, ${b})`;
+
+      finalPreview.style.background =
+        `rgba(
+          ${Math.round(finalR * 255)},
+          ${Math.round(finalG * 255)},
+          ${Math.round(finalB * 255)},
+          ${alpha}
+        )`;
+
+      result.textContent =
+        `new(${finalR.toFixed(2)}f, ` +
+        `${finalG.toFixed(2)}f, ` +
+        `${finalB.toFixed(2)}f, ` +
+        `${alpha.toFixed(2)}f)`;
+    }
+
+    input.addEventListener("input", convert);
+    uniform.addEventListener("input", convert);
+    opacity.addEventListener("input", convert);
+
+    result.addEventListener("click", () => {
+      navigator.clipboard.writeText(result.textContent);
+    });
+
+    convert();
+  </script>
+
+</body>
+</html>
