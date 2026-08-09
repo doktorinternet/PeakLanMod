@@ -87,16 +87,51 @@ internal sealed class LanOverlayController : ILanOverlayController
     private TMP_Text? _adminBodyText;
 
     private const float PanelMargin = 16f;
-    private const float RowHeight = 24f;
+    private const float MainPanelExpandedMinWidth = 760f;
+    private const float MainPanelExpandedMaxWidth = 1160f;
+    private const float MainPanelCollapsedWidth = 380f;
+    private const float MainPanelExpandedMinHeight = 236f;
+    private const float MainPanelCollapsedHeight = 72f;
+
+    private const float PanelPaddingX = 14f;
+    private const float PanelPaddingY = 10f;
+    private const float SectionGap = 8f;
+    private const float HeaderHeight = 28f;
+    private const float InputBandHeight = 34f;
+    private const float ActionBandHeight = 34f;
+    private const float FooterHeight = 22f;
+    private const float FooterBottomPadding = 10f;
+
+    private const float ControlGap = 8f;
+    private const float HostButtonWidth = 172f;
+    private const float JoinButtonWidth = 248f;
+    private const float RefreshButtonWidth = 172f;
+
+    private const float SessionRowHeight = 58f;
+    private const float SessionRowGap = 6f;
+    private const float SessionRowInnerPaddingX = 12f;
+    private const float SessionRowPrimaryTop = 8f;
+    private const float SessionRowSecondaryTop = 31f;
+
+    private const float TitleFontSize = 21f;
+    private const float LabelFontSize = 15f;
+    private const float FooterFontSize = 14f;
+    private const float SessionPrimaryFontSize = 18f;
+    private const float SessionSecondaryFontSize = 14f;
+
     private static readonly Color UiTextColor = new(0.16f, 0.12f, 0.08f, 1f);
-    private static readonly Color UiPanelColor = new(0.9f, 0.81f, 0.66f, 0.96f);
-    private static readonly Color UiPanelSecondaryColor = new(0.87f, 0.78f, 0.63f, 0.96f);
-    private static readonly Color UiButtonColor = new(0.84f, 0.69f, 0.42f, 1f);
-    private static readonly Color UiButtonHoverColor = new(0.9f, 0.76f, 0.5f, 1f);
-    private static readonly Color UiButtonPressedColor = new(0.76f, 0.58f, 0.33f, 1f);
-    private static readonly Color UiDisabledColor = new(0.66f, 0.58f, 0.46f, 0.9f);
-    private static readonly Color UiFieldColor = new(0.95f, 0.87f, 0.74f, 1f);
-    private static readonly Color UiBorderColor = new(0.15f, 0.11f, 0.08f, 0.32f);
+    private static readonly Color UiMutedTextColor = new(0.28f, 0.22f, 0.16f, 0.88f);
+    private static readonly Color UiPanelColor = new(0.9f, 0.81f, 0.66f, 0.70f);
+    private static readonly Color UiPanelSecondaryColor = new(0.87f, 0.78f, 0.63f, 0.65f);
+    private static readonly Color UiButtonColor = new(0.84f, 0.69f, 0.42f, 0.96f);
+    private static readonly Color UiButtonHoverColor = new(0.9f, 0.76f, 0.5f, 0.98f);
+    private static readonly Color UiButtonPressedColor = new(0.76f, 0.58f, 0.33f, 0.98f);
+    private static readonly Color UiDisabledColor = new(0.66f, 0.58f, 0.46f, 0.84f);
+    private static readonly Color UiFieldColor = new(0.95f, 0.87f, 0.74f, 0.94f);
+    private static readonly Color UiBorderColor = new(0.15f, 0.11f, 0.08f, 0.42f);
+    private static readonly Color UiSessionRowColor = new(0.92f, 0.82f, 0.65f, 0.42f);
+    private static readonly Color UiSessionRowSelectedColor = new(0.78f, 0.64f, 0.4f, 0.76f);
+    private static readonly Color UiSessionRowPrimarySelectedColor = new(0.13f, 0.1f, 0.07f, 1f);
     private const int MaxClientStateLogEntries = 160;
 
     internal LanOverlayController(
@@ -230,18 +265,23 @@ internal sealed class LanOverlayController : ILanOverlayController
         float panelWidth;
         float panelHeight;
 
+        float listTop = PanelPaddingY + HeaderHeight + SectionGap + InputBandHeight + SectionGap + ActionBandHeight + SectionGap;
+        float footerTopOffset = FooterBottomPadding + FooterHeight;
+        float expandedMinBodyHeight = listTop + footerTopOffset + SectionGap;
+
         if (showServerRows)
         {
-            float maxPanelWidth = Math.Max(700f, Screen.width - (PanelMargin * 2f));
-            panelWidth = Math.Min(1160f, maxPanelWidth);
-            float desiredPanelHeight = 152f + (sessions.Count * RowHeight);
-            float maxPanelHeight = Math.Max(170f, Screen.height - (PanelMargin * 2f));
-            panelHeight = Mathf.Clamp(desiredPanelHeight, 170f, maxPanelHeight);
+            float maxPanelWidth = Math.Max(MainPanelExpandedMinWidth, Screen.width - (PanelMargin * 2f));
+            panelWidth = Math.Min(MainPanelExpandedMaxWidth, maxPanelWidth);
+            float rowStride = SessionRowHeight + SessionRowGap;
+            float desiredPanelHeight = expandedMinBodyHeight + (sessions.Count * rowStride);
+            float maxPanelHeight = Math.Max(MainPanelExpandedMinHeight, Screen.height - (PanelMargin * 2f));
+            panelHeight = Mathf.Clamp(desiredPanelHeight, MainPanelExpandedMinHeight, maxPanelHeight);
         }
         else
         {
-            panelWidth = 380f;
-            panelHeight = 72f;
+            panelWidth = MainPanelCollapsedWidth;
+            panelHeight = MainPanelCollapsedHeight;
         }
 
         float panelX = Screen.width - panelWidth - PanelMargin;
@@ -258,29 +298,32 @@ internal sealed class LanOverlayController : ILanOverlayController
             : "+";
 
         _collapseButtonText!.text = collapseToggleLabel;
-        SetLocalTopLeftRect(_collapseButton!.GetComponent<RectTransform>(), panelWidth - 24f, 2f, 22f, 22f);
+        SetLocalTopLeftRect(_collapseButton!.GetComponent<RectTransform>(), panelWidth - 34f, 6f, 28f, 22f);
 
         _serverListTitleText!.gameObject.SetActive(showServerRows);
 
         if (showServerRows)
         {
             _serverListTitleText.text = "SERVER LIST";
-            SetLocalTopLeftRect(_serverListTitleText.GetComponent<RectTransform>(), 12f, 8f, 220f, 20f);
+            SetLocalTopLeftRect(_serverListTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, 260f, HeaderHeight);
         }
 
         float actionButtonY = showServerRows
-            ? 80f
+            ? PanelPaddingY + HeaderHeight + SectionGap + InputBandHeight + SectionGap
             : 34f;
 
         _hostButton!.interactable = canHostFromInput;
-        SetLocalTopLeftRect(_hostButton.GetComponent<RectTransform>(), 12f, actionButtonY, 150f, 26f);
+        SetLocalTopLeftRect(_hostButton.GetComponent<RectTransform>(), PanelPaddingX, actionButtonY, HostButtonWidth, ActionBandHeight);
 
         if (showServerRows)
         {
             _roomNameLabelText!.gameObject.SetActive(true);
             _roomNameInput!.gameObject.SetActive(true);
-            SetLocalTopLeftRect(_roomNameLabelText.GetComponent<RectTransform>(), 12f, 50f, 118f, 20f);
-            SetLocalTopLeftRect(_roomNameInput.GetComponent<RectTransform>(), 132f, 46f, panelWidth - 144f, 30f);
+            float inputBandY = PanelPaddingY + HeaderHeight + SectionGap;
+            float roomLabelWidth = 122f;
+            float roomFieldX = PanelPaddingX + roomLabelWidth + ControlGap;
+            SetLocalTopLeftRect(_roomNameLabelText.GetComponent<RectTransform>(), PanelPaddingX, inputBandY + 6f, roomLabelWidth, 20f);
+            SetLocalTopLeftRect(_roomNameInput.GetComponent<RectTransform>(), roomFieldX, inputBandY, panelWidth - roomFieldX - PanelPaddingX, InputBandHeight);
 
             if (!_roomNameInput.isFocused
                 && !string.Equals(_roomNameInput.text, _lanPreferredRoomNameInput, StringComparison.Ordinal))
@@ -302,8 +345,12 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (showServerRows)
         {
-            SetLocalTopLeftRect(_joinButton.GetComponent<RectTransform>(), 168f, actionButtonY, 170f, 26f);
-            SetLocalTopLeftRect(_refreshButton.GetComponent<RectTransform>(), 344f, actionButtonY, 130f, 26f);
+            float joinX = PanelPaddingX + HostButtonWidth + ControlGap;
+            float refreshX = panelWidth - PanelPaddingX - RefreshButtonWidth;
+            float maxJoinWidth = Math.Max(140f, refreshX - joinX - ControlGap);
+
+            SetLocalTopLeftRect(_joinButton.GetComponent<RectTransform>(), joinX, actionButtonY, Math.Min(JoinButtonWidth, maxJoinWidth), ActionBandHeight);
+            SetLocalTopLeftRect(_refreshButton.GetComponent<RectTransform>(), refreshX, actionButtonY, RefreshButtonWidth, ActionBandHeight);
         }
 
         _lastRefreshText!.gameObject.SetActive(showServerRows);
@@ -311,14 +358,14 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (showServerRows)
         {
-            float footerY = panelHeight - 24f;
-            float footerWidth = panelWidth - 24f;
+            float footerY = panelHeight - FooterBottomPadding - FooterHeight;
+            float footerWidth = panelWidth - (PanelPaddingX * 2f);
             float footerHalfWidth = footerWidth * 0.5f;
 
             _lastRefreshText.text = lastRefreshLabel;
             _modVersionText.text = modVersionLabel;
-            SetLocalTopLeftRect(_lastRefreshText.GetComponent<RectTransform>(), 12f, footerY, footerHalfWidth, 20f);
-            SetLocalTopLeftRect(_modVersionText.GetComponent<RectTransform>(), 12f + footerHalfWidth, footerY, footerHalfWidth, 20f);
+            SetLocalTopLeftRect(_lastRefreshText.GetComponent<RectTransform>(), PanelPaddingX, footerY, footerHalfWidth, FooterHeight);
+            SetLocalTopLeftRect(_modVersionText.GetComponent<RectTransform>(), PanelPaddingX + footerHalfWidth, footerY, footerHalfWidth, FooterHeight);
         }
 
         _hostUnavailableText!.gameObject.SetActive(showServerRows && !canHostFromInput);
@@ -326,7 +373,9 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (showServerRows && !canHostFromInput)
         {
             _hostUnavailableText.text = $"Cannot host: {hostUnavailableReason}";
-            SetLocalTopLeftRect(_hostUnavailableText.GetComponent<RectTransform>(), 490f, 74f, panelWidth - 502f, 20f);
+            float warningX = PanelPaddingX + HostButtonWidth + ControlGap;
+            float warningWidth = panelWidth - warningX - PanelPaddingX;
+            SetLocalTopLeftRect(_hostUnavailableText.GetComponent<RectTransform>(), warningX, actionButtonY - 20f, warningWidth, 18f);
         }
 
         // Keep for future dedicated in-game log surface; do not overlay on top of room input.
@@ -354,7 +403,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             const float adminPanelGap = 24f;
             float availableAdminWidth = Math.Max(300f, panelX - adminPanelGap - PanelMargin);
             float adminPanelWidth = Mathf.Clamp(availableAdminWidth, 320f, 560f);
-            float adminBodyWidth = adminPanelWidth - 20f;
+            float adminBodyWidth = adminPanelWidth - (PanelPaddingX * 2f);
             float adminValueColumnOffsetPx = Mathf.Clamp(adminBodyWidth * 0.42f, 120f, adminBodyWidth - 24f);
 
             string adminData = selectedSession is null
@@ -388,8 +437,8 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminPanelWidth,
                 adminPanelHeight);
 
-            SetLocalTopLeftRect(_adminTitleText!.GetComponent<RectTransform>(), 10f, 8f, adminBodyWidth, 20f);
-            SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), 10f, 30f, adminBodyWidth, adminPanelHeight - 36f);
+            SetLocalTopLeftRect(_adminTitleText!.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, adminBodyWidth, HeaderHeight);
+            SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY + HeaderHeight - 2f, adminBodyWidth, adminPanelHeight - (PanelPaddingY + HeaderHeight) - 8f);
             _adminBodyText!.text = adminData;
         }
 
@@ -398,43 +447,46 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (showServerRows)
         {
-            float rowY = 106f;
+            float rowY = listTop;
             float listViewportHeight = Math.Max(
                 24f,
-                panelHeight - 136f);
+                panelHeight - rowY - FooterHeight - FooterBottomPadding - SectionGap);
 
             if (sessions.Count == 0)
             {
                 _emptyText.gameObject.SetActive(true);
                 _emptyText.text = "No discovered sessions yet. Keep host in-room and click Refresh.";
-                SetLocalTopLeftRect(_emptyText.GetComponent<RectTransform>(), 12f, rowY, panelWidth - 24f, 22f);
+                SetLocalTopLeftRect(_emptyText.GetComponent<RectTransform>(), PanelPaddingX, rowY + 8f, panelWidth - (PanelPaddingX * 2f), 22f);
                 HideUnusedRows(0);
             }
             else
             {
                 _sessionScrollRect.gameObject.SetActive(true);
-                SetLocalTopLeftRect(_sessionScrollRect.GetComponent<RectTransform>(), 12f, rowY, panelWidth - 24f, listViewportHeight);
-                SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, panelWidth - 24f, listViewportHeight);
+                SetLocalTopLeftRect(_sessionScrollRect.GetComponent<RectTransform>(), PanelPaddingX, rowY, panelWidth - (PanelPaddingX * 2f), listViewportHeight);
+                SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, panelWidth - (PanelPaddingX * 2f), listViewportHeight);
 
-                float contentHeight = Math.Max(listViewportHeight, sessions.Count * RowHeight);
-                _sessionContentRect!.sizeDelta = new Vector2(panelWidth - 42f, contentHeight);
+                float rowStride = SessionRowHeight + SessionRowGap;
+                float contentHeight = Math.Max(listViewportHeight, sessions.Count * rowStride);
+                _sessionContentRect!.sizeDelta = new Vector2(panelWidth - (PanelPaddingX * 2f) - 18f, contentHeight);
 
                 for (int index = 0; index < sessions.Count; index++)
                 {
                     LanSessionRowUi row = EnsureSessionRow(index);
                     row.Root.gameObject.SetActive(true);
-                    SetLocalTopLeftRect(row.Root, 0f, index * RowHeight, _sessionContentRect.sizeDelta.x, 22f);
-                    row.Label.text = _statusPresenterBridge.BuildSessionRowLabel(
-                        sessions[index],
-                        index + 1);
+                    SetLocalTopLeftRect(row.Root, 0f, index * rowStride, _sessionContentRect.sizeDelta.x, SessionRowHeight);
+
+                    LanSessionInfo session = sessions[index];
+                    row.PrimaryLabel.text = BuildSessionPrimaryLine(session);
+                    row.SecondaryLabel.text = BuildSessionSecondaryLine(session);
 
                     bool isSelected = index == selectedIndex;
                     row.Background.color = isSelected
-                        ? new Color(0.78f, 0.64f, 0.4f, 1f)
-                        : new Color(0.91f, 0.8f, 0.62f, 1f);
-                    row.Label.color = isSelected
-                        ? new Color(0.13f, 0.1f, 0.07f, 1f)
+                        ? UiSessionRowSelectedColor
+                        : UiSessionRowColor;
+                    row.PrimaryLabel.color = isSelected
+                        ? UiSessionRowPrimarySelectedColor
                         : UiTextColor;
+                    row.SecondaryLabel.color = UiMutedTextColor;
                 }
 
                 HideUnusedRows(sessions.Count);
@@ -554,20 +606,20 @@ internal sealed class LanOverlayController : ILanOverlayController
             statePanelHeight);
 
         _stateTitleText.text = "LOG";
-        SetLocalTopLeftRect(_stateTitleText.GetComponent<RectTransform>(), 10f, 8f, statePanelWidth - 20f, 20f);
+        SetLocalTopLeftRect(_stateTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, statePanelWidth - (PanelPaddingX * 2f), HeaderHeight);
 
         string latestEntry = _clientStateLogEntries.Count == 0
             ? "Latest: waiting for status updates"
             : $"Latest: {_clientStateLogEntries[_clientStateLogEntries.Count - 1]}";
 
         _stateLatestText.text = latestEntry;
-        SetLocalTopLeftRect(_stateLatestText.GetComponent<RectTransform>(), 10f, statePanelHeight - 30f, statePanelWidth - 20f, 20f);
+        SetLocalTopLeftRect(_stateLatestText.GetComponent<RectTransform>(), PanelPaddingX, statePanelHeight - FooterBottomPadding - FooterHeight, statePanelWidth - (PanelPaddingX * 2f), FooterHeight);
 
-        float logY = 32f;
-        float logHeight = Math.Max(28f, statePanelHeight - 66f);
-        float logWidth = statePanelWidth - 20f;
+        float logY = PanelPaddingY + HeaderHeight - 2f;
+        float logHeight = Math.Max(28f, statePanelHeight - logY - FooterBottomPadding - FooterHeight - 4f);
+        float logWidth = statePanelWidth - (PanelPaddingX * 2f);
 
-        SetLocalTopLeftRect(_stateLogScrollRect.GetComponent<RectTransform>(), 10f, logY, logWidth, logHeight);
+        SetLocalTopLeftRect(_stateLogScrollRect.GetComponent<RectTransform>(), PanelPaddingX, logY, logWidth, logHeight);
         SetLocalTopLeftRect(_stateLogViewportRect, 0f, 0f, logWidth, logHeight);
 
         bool shouldStickToBottom = _stateLogScrollRect.verticalNormalizedPosition <= 0.05f;
@@ -756,21 +808,33 @@ internal sealed class LanOverlayController : ILanOverlayController
             ConfigureButtonColors(rowButton);
             rowButton.onClick.AddListener(() => OnSessionRowClicked(rowIndex));
 
-            TMP_Text rowLabel = CreateTmpText(
-                "Label",
+            TMP_Text primaryLabel = CreateTmpText(
+                "PrimaryLabel",
                 rowRoot,
                 string.Empty,
                 TextAlignmentOptions.MidlineLeft,
-                16f,
+                SessionPrimaryFontSize,
                 FontStyles.Normal);
-            rowLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            SetLocalTopLeftRect(rowLabel.GetComponent<RectTransform>(), 8f, 0f, 1000f, 22f);
+            primaryLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            SetLocalTopLeftRect(primaryLabel.GetComponent<RectTransform>(), SessionRowInnerPaddingX, SessionRowPrimaryTop, 1200f, 22f);
+
+            TMP_Text secondaryLabel = CreateTmpText(
+                "SecondaryLabel",
+                rowRoot,
+                string.Empty,
+                TextAlignmentOptions.MidlineLeft,
+                SessionSecondaryFontSize,
+                FontStyles.Normal);
+            secondaryLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            secondaryLabel.color = UiMutedTextColor;
+            SetLocalTopLeftRect(secondaryLabel.GetComponent<RectTransform>(), SessionRowInnerPaddingX, SessionRowSecondaryTop, 1200f, 20f);
 
             _sessionRows.Add(new LanSessionRowUi(
                 rowRoot,
                 rowImage,
                 rowButton,
-                rowLabel));
+                primaryLabel,
+                secondaryLabel));
         }
 
         return _sessionRows[index];
@@ -819,7 +883,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             "SERVER LIST",
             TextAlignmentOptions.TopLeft,
-            18f,
+            TitleFontSize,
             FontStyles.Normal);
 
         _roomNameLabelText = CreateTmpText(
@@ -827,7 +891,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             "ROOM NAME:",
             TextAlignmentOptions.TopLeft,
-            16f,
+            LabelFontSize,
             FontStyles.Normal);
 
         _roomNameInput = CreateInputField(
@@ -842,7 +906,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             "HostButton",
             _panelRect,
             "HOST LAN",
-            20f,
+            22f,
             FontStyles.Normal,
             null);
 
@@ -850,7 +914,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             "JoinButton",
             _panelRect,
             "JOIN SELECTED",
-            20f,
+            22f,
             FontStyles.Normal,
             null);
 
@@ -858,7 +922,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             "RefreshButton",
             _panelRect,
             "REFRESH",
-            20f,
+            22f,
             FontStyles.Normal,
             OnRefreshClicked);
 
@@ -867,7 +931,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            16f,
+            14f,
             FontStyles.Normal);
 
         _emptyText = CreateTmpText(
@@ -875,7 +939,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            18f,
+            16f,
             FontStyles.Normal);
 
         (_sessionScrollRect, _sessionViewportRect, _sessionContentRect) = CreateScrollRegion(
@@ -887,7 +951,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            16f,
+            FooterFontSize,
             FontStyles.Normal);
 
         _modVersionText = CreateTmpText(
@@ -895,7 +959,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopRight,
-            16f,
+            FooterFontSize,
             FontStyles.Normal);
 
         _statePanelRect = CreateUiRect("ClientStatePanel", canvas.transform);
@@ -910,7 +974,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _statePanelRect,
             "CLIENT STATE",
             TextAlignmentOptions.TopLeft,
-            18f,
+            TitleFontSize,
             FontStyles.Normal);
 
         _stateLatestText = CreateTmpText(
@@ -918,7 +982,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _statePanelRect,
             "Latest: waiting for status updates",
             TextAlignmentOptions.TopLeft,
-            14f,
+            FooterFontSize,
             FontStyles.Normal);
         _stateLatestText.textWrappingMode = TextWrappingModes.NoWrap;
 
@@ -964,7 +1028,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _adminPanelRect,
             "ADMIN TELEMETRY",
             TextAlignmentOptions.TopLeft,
-            21f,
+            TitleFontSize,
             FontStyles.Normal);
 
         _adminBodyText = CreateTmpText(
@@ -979,8 +1043,8 @@ internal sealed class LanOverlayController : ILanOverlayController
         _adminBodyText.textWrappingMode = TextWrappingModes.Normal;
         _adminBodyText.overflowMode = TextOverflowModes.Ellipsis;
 
-        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), 10f, 8f, 400f, 20f);
-        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), 10f, 30f, 400f, 30f);
+        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, 400f, HeaderHeight);
+        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY + HeaderHeight - 2f, 400f, 30f);
     }
 
     private void EnsureTemplateText()
@@ -1170,8 +1234,8 @@ internal sealed class LanOverlayController : ILanOverlayController
         textViewport.anchorMin = new Vector2(0f, 0f);
         textViewport.anchorMax = new Vector2(1f, 1f);
         textViewport.pivot = new Vector2(0.5f, 0.5f);
-        textViewport.offsetMin = new Vector2(6f, 3f);
-        textViewport.offsetMax = new Vector2(-6f, -3f);
+        textViewport.offsetMin = new Vector2(8f, 4f);
+        textViewport.offsetMax = new Vector2(-8f, -4f);
 
         Font textFont = ResolveLegacyInputFont();
 
@@ -1180,7 +1244,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             textViewport,
             initialValue,
             textFont,
-            20,
+            18,
             FontStyle.Normal,
             TextAnchor.MiddleLeft);
         inputText.raycastTarget = false;
@@ -1193,7 +1257,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             textViewport,
             "Enter room name",
             textFont,
-            20,
+            18,
             FontStyle.Italic,
             TextAnchor.MiddleLeft);
         placeholder.color = new Color(0.33f, 0.26f, 0.19f, 0.72f);
@@ -1266,7 +1330,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         Image viewportImage = viewport.gameObject.AddComponent<Image>();
         viewportImage.sprite = EnsureRoundedSprite();
         viewportImage.type = Image.Type.Sliced;
-        viewportImage.color = new Color(1f, 1f, 1f, 0.04f);
+        viewportImage.color = new Color(1f, 1f, 1f, 0.06f);
         AddFaintBorder(viewportImage);
         viewport.gameObject.AddComponent<RectMask2D>();
 
@@ -1296,6 +1360,19 @@ internal sealed class LanOverlayController : ILanOverlayController
         colors.selectedColor = colors.highlightedColor;
         colors.fadeDuration = 0.1f;
         button.colors = colors;
+    }
+
+    private static string BuildSessionPrimaryLine(LanSessionInfo session)
+    {
+        return $"{session.RoomName} @ {session.NameServerAddress}:{session.NameServerPort}";
+    }
+
+    private static string BuildSessionSecondaryLine(LanSessionInfo session)
+    {
+        string compatibility = session.IsCompatible
+            ? "Compatible"
+            : session.IncompatibilityReason;
+        return $"{session.Transport} | {compatibility} | Scene: {session.Scene}";
     }
 
     private Sprite EnsureRoundedSprite()
@@ -1649,12 +1726,14 @@ internal sealed class LanOverlayController : ILanOverlayController
             RectTransform root,
             Image background,
             Button button,
-            TMP_Text label)
+            TMP_Text primaryLabel,
+            TMP_Text secondaryLabel)
         {
             Root = root;
             Background = background;
             Button = button;
-            Label = label;
+            PrimaryLabel = primaryLabel;
+            SecondaryLabel = secondaryLabel;
         }
 
         internal RectTransform Root { get; }
@@ -1663,6 +1742,8 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         internal Button Button { get; }
 
-        internal TMP_Text Label { get; }
+        internal TMP_Text PrimaryLabel { get; }
+
+        internal TMP_Text SecondaryLabel { get; }
     }
 }
