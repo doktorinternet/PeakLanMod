@@ -218,8 +218,16 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
 
     private LanDiscoveryAnnouncement BuildLanDiscoveryAnnouncement()
     {
-        string roomName = PhotonNetwork.CurrentRoom?.Name
+        Photon.Realtime.Room? currentRoom = PhotonNetwork.CurrentRoom;
+
+        string roomName = currentRoom?.Name
             ?? string.Empty;
+
+        int currentPlayers = currentRoom?.PlayerCount
+            ?? -1;
+
+        int maxPlayers = currentRoom?.MaxPlayers
+            ?? -1;
 
         string scene = UnityEngine.SceneManagement.SceneManager
             .GetActiveScene()
@@ -238,6 +246,8 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
             transport: _options.LanServerProtocol.Value.ToString(),
             scene: scene,
             serverInstanceId: _serverInstanceId,
-            sentAtUtc: DateTime.UtcNow);
+            sentAtUtc: DateTime.UtcNow,
+            currentPlayers: currentPlayers,
+            maxPlayers: maxPlayers);
     }
 }
