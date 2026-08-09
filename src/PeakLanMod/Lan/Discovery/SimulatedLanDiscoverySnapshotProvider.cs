@@ -65,6 +65,8 @@ internal sealed class SimulatedLanDiscoverySnapshotProvider
                 gameVersion: "simulated",
                 modVersion: Plugin.DisplayVersion,
                 schemaVersion: 1,
+                currentPlayers: -1,
+                maxPlayers: -1,
                 sentAtUtc: sentAt,
                 firstSeenUtc: sentAt,
                 lastSeenUtc: now,

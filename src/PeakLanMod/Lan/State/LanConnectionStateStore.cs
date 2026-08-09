@@ -48,6 +48,8 @@ internal sealed class LanConnectionStateStore
                     gameVersion: session.GameVersion,
                     modVersion: session.ModVersion,
                     schemaVersion: session.SchemaVersion,
+                    currentPlayers: session.CurrentPlayers,
+                    maxPlayers: session.MaxPlayers,
                     sentAtUtc: session.SentAtUtc,
                     firstSeenUtc: existing.FirstSeenUtc,
                     lastSeenUtc: session.LastSeenUtc,
@@ -73,6 +75,8 @@ internal sealed class LanConnectionStateStore
                 gameVersion: session.GameVersion,
                 modVersion: session.ModVersion,
                 schemaVersion: session.SchemaVersion,
+                currentPlayers: session.CurrentPlayers,
+                maxPlayers: session.MaxPlayers,
                 sentAtUtc: session.SentAtUtc,
                 firstSeenUtc: existing.FirstSeenUtc,
                 lastSeenUtc: session.LastSeenUtc,
@@ -185,6 +189,8 @@ internal sealed class LanConnectionStateStore
             && string.Equals(current.GameVersion, incoming.GameVersion, StringComparison.Ordinal)
             && string.Equals(current.ModVersion, incoming.ModVersion, StringComparison.Ordinal)
             && current.SchemaVersion == incoming.SchemaVersion
+            && current.CurrentPlayers == incoming.CurrentPlayers
+            && current.MaxPlayers == incoming.MaxPlayers
             && current.IsCompatible == incoming.IsCompatible
             && string.Equals(current.IncompatibilityReason, incoming.IncompatibilityReason, StringComparison.Ordinal);
     }
