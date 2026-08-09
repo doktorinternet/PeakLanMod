@@ -26,8 +26,8 @@ jobs:
       - X64
     env:
       PEAK_GAME_ROOT: ${{ vars.PEAK_GAME_ROOT }}
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
-      DOTNET_ROOT: ${{ runner.temp }}/dotnet
+      DOTNET_INSTALL_DIR: ${{ github.workspace }}/.dotnet
+      DOTNET_ROOT: ${{ github.workspace }}/.dotnet
     steps:
       - name: Checkout
         uses: actions/checkout@v4
