@@ -126,6 +126,15 @@ internal sealed class LanOverlayController : ILanOverlayController
     private const float StateLogTextInsetTop = 5f;
     private const float StateLogTextInsetBottom = 6f;
 
+    private const float AdminPanelGap = 24f;
+    private const float AdminPanelMinWidth = 340f;
+    private const float AdminPanelMaxWidth = 560f;
+    private const float AdminPanelMinHeight = 112f;
+    private const float AdminPanelTopInset = 10f;
+    private const float AdminPanelBottomInset = 10f;
+    private const float AdminTitleToBodyGap = 4f;
+    private const float AdminBodyFontSize = 14f;
+
     private const float TitleFontSize = 21f;
     private const float LabelFontSize = 15f;
     private const float FooterFontSize = 14f;
@@ -417,9 +426,8 @@ internal sealed class LanOverlayController : ILanOverlayController
                 ? "ADMIN TELEMETRY"
                 : "ADMIN TELEMETRY (DEBUG)";
 
-            const float adminPanelGap = 24f;
-            float availableAdminWidth = Math.Max(300f, panelX - adminPanelGap - PanelMargin);
-            float adminPanelWidth = Mathf.Clamp(availableAdminWidth, 320f, 560f);
+            float availableAdminWidth = Math.Max(AdminPanelMinWidth, panelX - AdminPanelGap - PanelMargin);
+            float adminPanelWidth = Mathf.Clamp(availableAdminWidth, AdminPanelMinWidth, AdminPanelMaxWidth);
             float adminBodyWidth = adminPanelWidth - (PanelPaddingX * 2f);
             float adminValueColumnOffsetPx = Mathf.Clamp(adminBodyWidth * 0.42f, 120f, adminBodyWidth - 24f);
 
@@ -438,13 +446,18 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminBodyWidth,
                 4096f);
 
-            float adminBodyHeight = Mathf.Ceil(bodyPreferredSize.y) + 2f;
-            float desiredAdminPanelHeight = 36f + adminBodyHeight;
-            float maxAdminPanelHeight = Mathf.Max(96f, Screen.height - (PanelMargin * 2f));
-            float adminPanelHeight = Mathf.Clamp(desiredAdminPanelHeight, 96f, maxAdminPanelHeight);
+            float adminBodyHeight = Mathf.Ceil(bodyPreferredSize.y) + 4f;
+            float desiredAdminPanelHeight =
+                AdminPanelTopInset
+                + HeaderHeight
+                + AdminTitleToBodyGap
+                + adminBodyHeight
+                + AdminPanelBottomInset;
+            float maxAdminPanelHeight = Mathf.Max(AdminPanelMinHeight, Screen.height - (PanelMargin * 2f));
+            float adminPanelHeight = Mathf.Clamp(desiredAdminPanelHeight, AdminPanelMinHeight, maxAdminPanelHeight);
             float adminPanelX = Math.Max(
                 PanelMargin,
-                panelX - adminPanelGap - adminPanelWidth);
+                panelX - AdminPanelGap - adminPanelWidth);
             float adminPanelY = panelY;
 
             SetAbsoluteTopLeftRect(
@@ -454,8 +467,20 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminPanelWidth,
                 adminPanelHeight);
 
-            SetLocalTopLeftRect(_adminTitleText!.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, adminBodyWidth, HeaderHeight);
-            SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY + HeaderHeight - 2f, adminBodyWidth, adminPanelHeight - (PanelPaddingY + HeaderHeight) - 8f);
+            SetLocalTopLeftRect(
+                _adminTitleText!.GetComponent<RectTransform>(),
+                PanelPaddingX,
+                AdminPanelTopInset,
+                adminBodyWidth,
+                HeaderHeight);
+            float adminBodyY = AdminPanelTopInset + HeaderHeight + AdminTitleToBodyGap;
+            float adminBodyRectHeight = Math.Max(20f, adminPanelHeight - adminBodyY - AdminPanelBottomInset);
+            SetLocalTopLeftRect(
+                _adminBodyText.GetComponent<RectTransform>(),
+                PanelPaddingX,
+                adminBodyY,
+                adminBodyWidth,
+                adminBodyRectHeight);
             _adminBodyText!.text = adminData;
         }
 
@@ -1070,15 +1095,15 @@ internal sealed class LanOverlayController : ILanOverlayController
             _adminPanelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            15f,
+            AdminBodyFontSize,
             FontStyles.Normal);
 
         _adminBodyText.richText = true;
         _adminBodyText.textWrappingMode = TextWrappingModes.Normal;
         _adminBodyText.overflowMode = TextOverflowModes.Ellipsis;
 
-        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, 400f, HeaderHeight);
-        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY + HeaderHeight - 2f, 400f, 30f);
+        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), PanelPaddingX, AdminPanelTopInset, 400f, HeaderHeight);
+        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, AdminPanelTopInset + HeaderHeight + AdminTitleToBodyGap, 400f, 30f);
     }
 
     private void EnsureTemplateText()
