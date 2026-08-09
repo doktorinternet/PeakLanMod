@@ -1644,6 +1644,12 @@ internal sealed class LanOverlayController : ILanOverlayController
             return false;
         }
 
+        if (IsKnownFullSession(selectedSession))
+        {
+            reason = "Selected session is full.";
+            return false;
+        }
+
         if (!TryResolveDiscoverySessionTransport(
                 selectedSession.Transport,
                 out _))
@@ -1686,6 +1692,15 @@ internal sealed class LanOverlayController : ILanOverlayController
             return;
         }
 
+        if (IsKnownFullSession(selected))
+        {
+            Plugin.Log.LogWarning(
+                "LAN UI join-selected blocked because selected session is full. " +
+                $"Room={selected.RoomName}; " +
+                $"Players={selected.CurrentPlayers}/{selected.MaxPlayers}");
+            return;
+        }
+
         if (!TryResolveDiscoverySessionTransport(
                 selected.Transport,
                 out ConnectionProtocol protocol))
@@ -1722,6 +1737,14 @@ internal sealed class LanOverlayController : ILanOverlayController
                 selected.NameServerAddress,
                 selected.NameServerPort,
                 protocol));
+    }
+
+    private static bool IsKnownFullSession(
+        LanSessionInfo session)
+    {
+        return session.CurrentPlayers >= 0
+            && session.MaxPlayers > 0
+            && session.CurrentPlayers >= session.MaxPlayers;
     }
 
     private static bool IsMainMenuScene()
