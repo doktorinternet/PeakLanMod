@@ -28,7 +28,7 @@ Requirements:
      * `dotnet build PeakLanMod.slnx --configuration Release --no-restore -p:DeployModFiles=false -p:RunThunderPipePackAfterBuild=false`
    * If this fails, stop and report the compile errors.
 
-2. Read and normalize the current development version:
+2. Read, normalize, and prepare the release version:
 
    * Read only `src/PeakLanMod/PeakLanMod.csproj` `<Version>`.
    * Accept:
@@ -37,19 +37,22 @@ Requirements:
      * `X.Y.Z-preview.N`
      * `X.Y.Z-rc.N`
      * `X.Y.Z`
-   * Normalize to numeric core `X.Y.Z` before computing the release version.
+
+   * Compute the release version from the current using this rule set:
+
+     * If the original current version is prerelease (`-preview`, `-preview.N`, or `-rc.N`) and bump mode is `patch`, only remove any prerelease suffix.
+       Example: `0.6.0-preview` + `patch` -> release `0.6.0`.
+     * Otherwise, also apply the requested bump from the normalized base:
+
+       * `minor`: `X.(Y+1).0`
+       * `major`: `(X+1).0.0`
+     * Example: `0.6.0-preview` + `major` -> release `1.0.0`.
+     * Example: `0.6.0-preview` + `minor` -> release `0.7.0`.
    * Do not modify BepInEx version constants or metadata directly.
 
-3. Compute and set the version to be released now:
+3. Set the version to be released now:
 
-   * Determine release bump mode from `${input:releaseBump}`.
-   * If omitted or invalid, use `patch`.
-   * Compute release version from normalized base `X.Y.Z`:
-
-     * `patch`: `X.Y.(Z+1)`
-     * `minor`: `X.(Y+1).0`
-     * `major`: `(X+1).0.0`
-   * Write release version as plain `X.Y.Z` to `<Version>`.
+   * Write the computed release version as plain `X.Y.Z` to `<Version>`.
 
 4. Validate release-version metadata:
 
@@ -67,7 +70,21 @@ Requirements:
      * `dotnet build -c Release -t:LanRelease -p:RunThunderPipePackAfterBuild=false`
    * Report generated output paths from the build log.
 
-6. Bump to next development version:
+6. Commit the release version:
+
+   * After the release package build succeeds, commit the release-version change.
+   * Commit only the intended version file changes required for this step.
+   * Use a non-interactive commit message in the form:
+
+     * `Release X.Y.Z`
+
+7. Tag the release version:
+
+   * After the release-version commit succeeds, tag the release version.
+   * Use a non-interactive tag message in the form:
+   
+     * `git tag vX.Y.Z`
+8. Bump to next development version:
 
    * Parse the release version as `major.minor.patch`.
    * Always apply a patch bump for post-release development:
@@ -78,13 +95,20 @@ Requirements:
      * `major.minor.(patch+1)-preview`
        to `src/PeakLanMod/PeakLanMod.csproj` `<Version>`.
 
-7. Validate post-release development metadata:
+9. Validate post-release development metadata:
 
    * Verify that:
 
      * `.csproj <Version>` contains the full `-preview` version,
      * BepInEx plugin metadata resolves to numeric core only,
      * user-facing assembly informational/display version retains `-preview`.
+
+10. Commit the new development version:
+
+   * Commit the post-release preview bump from step 8 using message:
+
+     * `Start of [major.minor.patch-preview]`
+   * Example: `Start of 1.0.1-preview`.
 
 Behavioral constraints:
 
@@ -93,6 +117,7 @@ Behavioral constraints:
 * Do not modify unrelated files.
 * Do not duplicate version strings manually if the project/build system can derive them.
 * Keep BepInEx numeric version and display/package SemVer clearly separated.
+* Use non-interactive git commands for commit operations.
 
 Final report format:
 
@@ -103,5 +128,7 @@ Final report format:
 5. BepInEx plugin version verified
 6. Assembly/display version verified
 7. Release package build result and artifact locations
-8. New development version written
-9. Any manual follow-up needed
+8. Release-version commit result (commit hash and message)
+9. New development version written
+10. Post-release bump commit result (commit hash and message)
+11. Any manual follow-up needed
