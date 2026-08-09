@@ -109,6 +109,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private const float SessionRowHeight = 58f;
     private const float SessionRowGap = 6f;
+    private const int MaxVisibleSessionRows = 6;
     private const float SessionRowInnerPaddingX = 12f;
     private const float SessionRowPrimaryTop = 8f;
     private const float SessionRowSecondaryTop = 31f;
@@ -317,8 +318,8 @@ internal sealed class LanOverlayController : ILanOverlayController
             }
 
             panelWidth = Math.Min(MainPanelExpandedMaxWidth, maxPanelWidth);
-            float rowStride = SessionRowHeight + SessionRowGap;
-            float desiredPanelHeight = expandedMinBodyHeight + (sessions.Count * rowStride);
+            int visibleSessionRows = Math.Min(sessions.Count, MaxVisibleSessionRows);
+            float desiredPanelHeight = expandedMinBodyHeight + CalculateSessionListHeight(visibleSessionRows);
             float maxPanelHeight = Math.Max(MainPanelExpandedMinHeight, Screen.height - (PanelMargin * 2f));
             panelHeight = Mathf.Clamp(desiredPanelHeight, MainPanelExpandedMinHeight, maxPanelHeight);
         }
@@ -506,9 +507,12 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (showServerRows)
         {
             float rowY = listTop;
-            float listViewportHeight = Math.Max(
+            float maxListViewportHeight = Math.Max(
                 24f,
                 panelHeight - rowY - FooterHeight - FooterBottomPadding - SectionGap);
+            int visibleSessionRows = Math.Min(sessions.Count, MaxVisibleSessionRows);
+            float targetListViewportHeight = Math.Max(24f, CalculateSessionListHeight(visibleSessionRows));
+            float listViewportHeight = Math.Min(targetListViewportHeight, maxListViewportHeight);
 
             if (sessions.Count == 0)
             {
@@ -524,7 +528,7 @@ internal sealed class LanOverlayController : ILanOverlayController
                 SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, panelWidth - (PanelPaddingX * 2f), listViewportHeight);
 
                 float rowStride = SessionRowHeight + SessionRowGap;
-                float contentHeight = Math.Max(listViewportHeight, sessions.Count * rowStride);
+                float contentHeight = Math.Max(listViewportHeight, CalculateSessionListHeight(sessions.Count));
                 _sessionContentRect!.sizeDelta = new Vector2(panelWidth - (PanelPaddingX * 2f) - 18f, contentHeight);
 
                 for (int index = 0; index < sessions.Count; index++)
@@ -1440,6 +1444,16 @@ internal sealed class LanOverlayController : ILanOverlayController
     private static string BuildSessionPrimaryLine(LanSessionInfo session)
     {
         return $"{session.RoomName} @ {session.NameServerAddress}:{session.NameServerPort}";
+    }
+
+    private static float CalculateSessionListHeight(int rowCount)
+    {
+        if (rowCount <= 0)
+        {
+            return 0f;
+        }
+
+        return (rowCount * SessionRowHeight) + ((rowCount - 1) * SessionRowGap);
     }
 
     private static string BuildSessionSecondaryLine(LanSessionInfo session)
