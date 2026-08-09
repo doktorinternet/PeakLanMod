@@ -185,28 +185,14 @@ Acceptance:
 Rollback:
 - Remove full-room branch from join eligibility.
 
-### Commit 6: Add optional policy gate for capacity above validated baseline
+### Commit 6: Removed by product decision
 
-Hypothesis:
-- Guarding >4 capacity sessions behind policy reduces user exposure to known cross-system risks.
+Decision:
+- Removed as unnecessary complexity. No capacity-above-4 hard block or incompatibility classification will be added.
 
-Files:
-- src/PeakLanMod/Lan/Services/LanPluginOptions.cs
-- src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs
-- src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs
-
-Checklist:
-- Add config flag, default conservative value chosen by project owner.
-  - Suggested key: LanWorkflow.BlockJoinForCapacityAboveValidatedBaseline
-- In discovery compatibility evaluation, classify sessions with max_players > 4 when policy enabled.
-- Preserve rollback path by config toggle.
-
-Acceptance:
-- Policy-off: behavior unchanged for >4 sessions.
-- Policy-on: >4 sessions visibly classified with explicit reason.
-
-Rollback:
-- Disable config or remove check.
+Recorded rationale:
+- Users decide whether to join higher-capacity sessions.
+- Discovery should surface occupancy/capacity data and preserve user agency.
 
 ### Commit 7: Update simulated discovery entries for occupancy-aware UX testing
 
@@ -240,7 +226,7 @@ Files:
 Checklist:
 - Add occupancy fields and semantics to discovery schema section.
 - Add manual checks for occupancy update cadence and full-room join gating.
-- Add note that >4 capacity requires explicit compatibility policy decision.
+- Record that capacity-above-4 remains informational and user-driven.
 
 Acceptance:
 - Documentation reflects runtime expectations and rollback knobs.
@@ -254,13 +240,11 @@ Suggested reason identifiers:
 - RoomFull
 - OccupancyUnknown
 - InvalidOccupancyData
-- ExtendedCapacityRequiresSupport
 
 Suggested UI copy:
 - RoomFull: Selected session is full.
 - OccupancyUnknown: Session occupancy is unavailable.
 - InvalidOccupancyData: Session reported invalid occupancy metadata.
-- ExtendedCapacityRequiresSupport: Session capacity exceeds validated support for this build.
 
 ## Detailed file touchpoint map
 
@@ -282,9 +266,7 @@ Commit 5:
 - src/PeakLanMod/Lan/UI/LanOverlayController.cs
 
 Commit 6:
-- src/PeakLanMod/Lan/Services/LanPluginOptions.cs
-- src/PeakLanMod/Lan/Services/PluginCompatibilityScaffolding.cs
-- src/PeakLanMod/Lan/Services/LanDiscoveryRuntimeCoordinator.cs
+- Removed by product decision.
 
 Commit 7:
 - src/PeakLanMod/Lan/Discovery/SimulatedLanDiscoverySnapshotProvider.cs
@@ -310,24 +292,21 @@ New checks:
 - Occupancy increments/decrements on second client join/leave within one broadcast interval.
 - Full-room sessions disable Join Selected.
 - Mixed-version discovery still lists sessions when occupancy fields are absent.
-- If >4 policy gate enabled, discovered >4 sessions are explicitly marked and blocked.
+- Sessions with capacity above 4 remain visible as informational only.
 
 ## Risk notes and safeguards
 
 - Preserve direct LAN baseline behavior by introducing occupancy as additive metadata first.
 - Do not alter Photon connect/create/join sequencing while introducing schema fields.
-- Keep policy gates configuration-driven for rollback.
 - Avoid broad patching of gameplay systems based solely on capacity metadata; limit this plan to discovery/UI/join gating.
 
 ## Open decisions for project owner
 
-1. Should BlockJoinForCapacityAboveValidatedBaseline default to true or false?
-2. Should max_players > 4 be classified as incompatible or only warning-level non-blocking?
-3. Should OccupancyUnknown allow join by default?
+1. Should occupancy unknown state remain join-allowed by default?
+2. Should additional UI hinting be added for capacity above 4 without hard blocking?
 
 ## Suggested execution order
 
 - Execute commits 1 through 5 first for occupancy metadata and full-room UX safety.
 - Run two-machine validation.
-- Decide on commit 6 policy default based on validation confidence and support scope.
 - Complete commits 7 and 8 for UX parity and durable documentation.

@@ -91,6 +91,25 @@ PEAK host/client
 
 Keep custom Photon Cloud available as a known-good comparison until offline LAN has passed a physically disconnected two-machine test.
 
+## Discovery occupancy/capacity status (static)
+
+Static update date: 2026-08-09
+Validation type for this section: static analysis and compile validation only.
+
+Observed implementation status:
+
+- LAN discovery announcement schema now carries `current_players` and `max_players` fields.
+- Host announcement values are sourced from authoritative Photon room state (`CurrentRoom.PlayerCount` and `CurrentRoom.MaxPlayers`) with unknown sentinel fallback.
+- Discovered session model/state now propagates occupancy fields end-to-end.
+- Server-list row and admin telemetry now render occupancy values using unknown-safe fallback display.
+- Join Selected now blocks known-full sessions (`current >= max`) before attempting join.
+- Simulated discovery entries now include realistic occupancy/capacity values, including near-full and full rows.
+
+Policy decision recorded:
+
+- No hard incompatibility gate is applied solely because discovered `max_players > 4`.
+- Capacity above 4 is informational for user choice in the current rollout.
+
 ## Open questions
 
 - Exact PEAK Photon Realtime/PUN client versions.
