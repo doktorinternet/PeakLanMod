@@ -45,6 +45,8 @@ internal interface ILanPluginOptions
     ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
     ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
     ConfigEntry<bool> EnableStructuredErrorMapping { get; }
+    ConfigEntry<bool> EnableVerboseDiagnostics { get; }
+    ConfigEntry<bool> PersistCustomizationSelectionOffline { get; }
 }
 
 internal interface ILanWorkflowPolicyService
@@ -118,6 +120,12 @@ internal interface ILanModePolicyService
     bool IsLanServerModeEnabled { get; }
 }
 
+internal interface ILanCustomizationPersistenceService
+{
+    void TryCaptureLocalCustomization(CharacterCustomization customization, string source);
+    void TryRestoreLocalCustomization(CharacterCustomization customization, string source);
+}
+
 internal interface ILanIdentityAndValidation
 {
     string NormalizeRoomName(string roomName);
@@ -143,6 +151,7 @@ internal interface IPluginCompatibilityServices
     ILanErrorStateService ErrorState { get; }
     ILanServerRuntimeService LanServerRuntime { get; }
     ILanIdentityAndValidation IdentityAndValidation { get; }
+    ILanCustomizationPersistenceService CustomizationPersistence { get; }
 }
 
 internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
@@ -164,6 +173,9 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
             options,
             connectionStateStore);
         IdentityAndValidation = new LanIdentityAndValidation();
+        CustomizationPersistence = options is PlaceholderLanPluginOptions
+            ? new PlaceholderLanCustomizationPersistenceService()
+            : new LanCustomizationPersistenceService(options);
         LanServerRuntime = options is PlaceholderLanPluginOptions
             ? new PlaceholderLanServerRuntimeService()
             : new LanServerRuntimeService(
@@ -214,6 +226,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
     public ILanErrorStateService ErrorState { get; }
     public ILanServerRuntimeService LanServerRuntime { get; }
     public ILanIdentityAndValidation IdentityAndValidation { get; }
+    public ILanCustomizationPersistenceService CustomizationPersistence { get; }
 
     private sealed class PlaceholderLanPluginOptions : ILanPluginOptions
     {
@@ -257,6 +270,23 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public ConfigEntry<string> LanDiscoveryProtocolVersion => NotReady<string>();
         public ConfigEntry<bool> LanDiscoveryRequireVersionMatch => NotReady<bool>();
         public ConfigEntry<bool> EnableStructuredErrorMapping => NotReady<bool>();
+        public ConfigEntry<bool> EnableVerboseDiagnostics => NotReady<bool>();
+        public ConfigEntry<bool> PersistCustomizationSelectionOffline => NotReady<bool>();
+    }
+
+    private sealed class PlaceholderLanCustomizationPersistenceService : ILanCustomizationPersistenceService
+    {
+        public void TryCaptureLocalCustomization(
+            CharacterCustomization customization,
+            string source)
+        {
+        }
+
+        public void TryRestoreLocalCustomization(
+            CharacterCustomization customization,
+            string source)
+        {
+        }
     }
 
     private sealed class PlaceholderLanWorkflowPolicyService : ILanWorkflowPolicyService

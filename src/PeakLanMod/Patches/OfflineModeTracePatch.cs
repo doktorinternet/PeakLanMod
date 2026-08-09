@@ -2,6 +2,7 @@ using System.Reflection;
 using System;
 using HarmonyLib;
 using Photon.Pun;
+using PeakLanMod.Lan.Services;
 
 namespace PeakLanMod.Patches;
 
@@ -20,6 +21,11 @@ internal static class OfflineModeTracePatch
 
     private static void Prefix(bool value)
     {
+        if (!LanRuntimeContext.Options.EnableVerboseDiagnostics.Value)
+        {
+            return;
+        }
+
         DateTime nowUtc = DateTime.UtcNow;
 
         if (_lastLoggedValue == value

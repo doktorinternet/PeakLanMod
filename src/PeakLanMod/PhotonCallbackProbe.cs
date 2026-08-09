@@ -15,20 +15,26 @@ internal sealed class PhotonCallbackProbe :
     private static string Time =>
         DateTime.Now.ToString("HH:mm:ss.fff");
 
+    private static bool IsVerboseDiagnosticsEnabled =>
+        LanRuntimeContext.Options.EnableVerboseDiagnostics.Value;
+
     public override void OnConnectedToMaster()
     {
         AuthenticationValues? auth = PhotonNetwork.AuthValues;
         string userId = auth?.UserId ?? string.Empty;
 
-        Plugin.Log.LogInfo(
-            $"[{Time}] CALLBACK OnConnectedToMaster: " +
-            $"region={PhotonNetwork.CloudRegion}; " +
-            $"offlineMode={PhotonNetwork.OfflineMode}; " +
-            $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
-            $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
-            $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
-            $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}; " +
-            $"userIdLength={userId.Length}");
+        if (IsVerboseDiagnosticsEnabled || !PhotonNetwork.OfflineMode)
+        {
+            Plugin.Log.LogInfo(
+                $"[{Time}] CALLBACK OnConnectedToMaster: " +
+                $"region={PhotonNetwork.CloudRegion}; " +
+                $"offlineMode={PhotonNetwork.OfflineMode}; " +
+                $"gameVersion={PhotonNetwork.GameVersion ?? "<null>"}; " +
+                $"appVersion={PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion ?? "<null>"}; " +
+                $"authType={auth?.AuthType.ToString() ?? "<null>"}; " +
+                $"userIdFingerprint={LanRuntimeContext.Fingerprint(userId)}; " +
+                $"userIdLength={userId.Length}");
+        }
 
         if (LanRuntimeContext.IsLanServerMode)
         {
@@ -180,7 +186,10 @@ internal sealed class PhotonCallbackProbe :
 
         if (shouldDeferDisconnectError)
         {
-            Plugin.Log.LogInfo(disconnectLine);
+            if (IsVerboseDiagnosticsEnabled)
+            {
+                Plugin.Log.LogInfo(disconnectLine);
+            }
         }
         else if (isAttemptActive)
         {
@@ -198,12 +207,15 @@ internal sealed class PhotonCallbackProbe :
 
         if (shouldDeferDisconnectError)
         {
-            Plugin.Log.LogInfo(
-                "Deferring disconnect error surfacing during host startup window. " +
-                $"Cause={cause}; " +
-                $"ElapsedMs={deferredElapsedMs}; " +
-                $"TimeoutMs={deferredTimeoutMs}; " +
-                $"Endpoint={serverAddress}");
+            if (IsVerboseDiagnosticsEnabled)
+            {
+                Plugin.Log.LogInfo(
+                    "Deferring disconnect error surfacing during host startup window. " +
+                    $"Cause={cause}; " +
+                    $"ElapsedMs={deferredElapsedMs}; " +
+                    $"TimeoutMs={deferredTimeoutMs}; " +
+                    $"Endpoint={serverAddress}");
+            }
 
             return;
         }
@@ -276,6 +288,11 @@ internal sealed class PhotonCallbackProbe :
     public override void OnPlayerEnteredRoom(
         PhotonPlayer newPlayer)
     {
+        if (!IsVerboseDiagnosticsEnabled)
+        {
+            return;
+        }
+
         Plugin.Log.LogInfo(
             $"[{Time}] CALLBACK OnPlayerEnteredRoom: " +
             $"actor={newPlayer.ActorNumber}; " +
@@ -287,6 +304,11 @@ internal sealed class PhotonCallbackProbe :
     public override void OnPlayerLeftRoom(
         PhotonPlayer otherPlayer)
     {
+        if (!IsVerboseDiagnosticsEnabled)
+        {
+            return;
+        }
+
         Plugin.Log.LogWarning(
             $"[{Time}] CALLBACK OnPlayerLeftRoom: " +
             $"actor={otherPlayer.ActorNumber}; " +

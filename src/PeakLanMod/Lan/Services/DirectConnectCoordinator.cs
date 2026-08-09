@@ -546,14 +546,23 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
             return;
         }
 
-        Plugin.Log.LogWarning(
-            $"{source}: OfflineMode was true before direct connect. " +
-            "Forcing OfflineMode=false.");
+        bool verbose =
+            LanRuntimeContext.Options.EnableVerboseDiagnostics.Value;
+
+        if (verbose)
+        {
+            Plugin.Log.LogWarning(
+                $"{source}: OfflineMode was true before direct connect. " +
+                "Forcing OfflineMode=false.");
+        }
 
         PhotonNetwork.OfflineMode = false;
 
-        Plugin.Log.LogInfo(
-            $"{source}: OfflineMode after force={PhotonNetwork.OfflineMode}.");
+        if (verbose)
+        {
+            Plugin.Log.LogInfo(
+                $"{source}: OfflineMode after force={PhotonNetwork.OfflineMode}.");
+        }
     }
 
     private bool TryGetValidatedConfiguredHostRoomName(

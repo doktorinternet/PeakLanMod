@@ -237,6 +237,18 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "EnableStructuredErrorMapping",
             true,
             "Enable deterministic LAN error classification and UI/status surfacing.");
+
+        EnableVerboseDiagnostics = config.Bind(
+            "LanWorkflow",
+            "EnableVerboseDiagnostics",
+            false,
+            "Enable verbose diagnostic logging for callback details and internal retry/offline transitions.");
+
+        PersistCustomizationSelectionOffline = config.Bind(
+            "LanWorkflow",
+            "PersistCustomizationSelectionOffline",
+            true,
+            "Persist local character customization selection to PlayerPrefs and restore it in offline LAN when game-side profile hydration does not populate cosmetics. Adds registry keys in 'Computer\\HKEY_CURRENT_USER\\Software\\LandCrab\\PEAK' which are removed when this flag is disabled");
     }
 
     public ConfigEntry<string> RoomName { get; }
@@ -273,6 +285,8 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
     public ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
     public ConfigEntry<bool> EnableStructuredErrorMapping { get; }
+    public ConfigEntry<bool> EnableVerboseDiagnostics { get; }
+    public ConfigEntry<bool> PersistCustomizationSelectionOffline { get; }
 
     private static ConfigEntry<T> BindWithLegacyFallback<T>(
         ConfigFile config,
