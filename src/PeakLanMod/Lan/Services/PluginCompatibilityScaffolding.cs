@@ -170,7 +170,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         DiscoveryRuntime = new LanDiscoveryRuntimeCoordinator(
             options,
             connectionStateStore,
-            Plugin.PluginVersion);
+            Plugin.DisplayVersion);
         ErrorState = new LanErrorStateService(
             options,
             connectionStateStore);

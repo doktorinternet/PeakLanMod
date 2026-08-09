@@ -14,7 +14,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     private readonly UdpLanDiscoveryListener _listener;
     private readonly UdpLanDiscoveryBroadcaster _broadcaster;
     private readonly SimulatedLanDiscoverySnapshotProvider _simulatedSnapshotProvider;
-    private readonly string _pluginVersion;
+    private readonly string _modDisplayVersion;
     private readonly string _serverInstanceId;
     private int _lastSnapshotCount = -1;
     private bool? _lastListenerRunning;
@@ -23,14 +23,14 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     internal LanDiscoveryRuntimeCoordinator(
         ILanPluginOptions options,
         LanConnectionStateStore connectionStateStore,
-        string pluginVersion)
+        string modDisplayVersion)
     {
         _options = options;
         _connectionStateStore = connectionStateStore;
         _listener = new UdpLanDiscoveryListener(connectionStateStore);
         _broadcaster = new UdpLanDiscoveryBroadcaster();
         _simulatedSnapshotProvider = new SimulatedLanDiscoverySnapshotProvider();
-        _pluginVersion = pluginVersion;
+        _modDisplayVersion = modDisplayVersion;
         _serverInstanceId = Guid.NewGuid().ToString("N");
     }
 
@@ -205,7 +205,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
 
         if (!string.Equals(
                 announcement.ModVersion,
-                _pluginVersion,
+            _modDisplayVersion,
                 StringComparison.Ordinal))
         {
             return new LanSessionCompatibility(
@@ -230,7 +230,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
             schemaVersion: LanDiscoveryMessageCodec.SchemaVersionV1,
             protocolVersion: _options.LanDiscoveryProtocolVersion.Value.Trim(),
             gameVersion: Application.version ?? string.Empty,
-            modVersion: _pluginVersion,
+            modVersion: _modDisplayVersion,
             roomName: roomName,
             hostDisplayName: PhotonNetwork.NickName ?? string.Empty,
             nameServerAddress: _options.LanServerAddress.Value.Trim(),
