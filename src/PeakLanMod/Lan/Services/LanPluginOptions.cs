@@ -232,6 +232,18 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             true,
             "Require exact game/mod version match for discovery session compatibility.");
 
+        UseSimulatedServerListEntries = config.Bind(
+            "LanWorkflow",
+            "UseSimulatedServerListEntries",
+            false,
+            "Temporary UX-only server list simulation. Generates fake LAN sessions in the browser list and keeps them non-joinable.");
+
+        SimulatedServerListCount = config.Bind(
+            "LanWorkflow",
+            "SimulatedServerListCount",
+            8,
+            "Number of fake LAN sessions to generate when UseSimulatedServerListEntries is enabled. Clamped to a safe range.");
+
         EnableStructuredErrorMapping = config.Bind(
             "LanWorkflow",
             "EnableStructuredErrorMapping",
@@ -284,6 +296,8 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<int> LanDiscoveryEntryTtlMs { get; }
     public ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
     public ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
+    public ConfigEntry<bool> UseSimulatedServerListEntries { get; }
+    public ConfigEntry<int> SimulatedServerListCount { get; }
     public ConfigEntry<bool> EnableStructuredErrorMapping { get; }
     public ConfigEntry<bool> EnableVerboseDiagnostics { get; }
     public ConfigEntry<bool> PersistCustomizationSelectionOffline { get; }
