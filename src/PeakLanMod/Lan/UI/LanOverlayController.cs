@@ -4,6 +4,7 @@ using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.Services;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -22,6 +23,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private readonly LanDiscoveredSessionsViewModel _discoveredSessionsViewModel = new();
     private readonly LanStatusPresenterBridge _statusPresenterBridge = new();
     private readonly List<LanSessionRowUi> _sessionRows = new();
+    private readonly List<string> _clientStateLogEntries = new();
 
     private bool _isLanServerListCollapsed;
     private bool _lanPanelCollapsedBySettingsAutomation;
@@ -34,14 +36,14 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private GameObject? _overlayCanvasObject;
     private TMP_Text? _templateText;
-    private Sprite? _solidSprite;
+    private readonly Dictionary<int, Sprite> _roundedSprites = new();
 
     private RectTransform? _panelRect;
     private Image? _panelImage;
     private Button? _collapseButton;
     private TMP_Text? _collapseButtonText;
+    private TMP_Text? _serverListTitleText;
 
-    private TMP_Text? _summaryText;
     private TMP_Text? _roomNameLabelText;
     private InputField? _roomNameInput;
     private Text? _roomNameInputText;
@@ -55,7 +57,6 @@ internal sealed class LanOverlayController : ILanOverlayController
     private TMP_Text? _refreshButtonText;
 
     private TMP_Text? _hostUnavailableText;
-    private TMP_Text? _errorText;
     private TMP_Text? _emptyText;
     private string _pendingJoinUnavailableLog = string.Empty;
 
@@ -66,22 +67,143 @@ internal sealed class LanOverlayController : ILanOverlayController
     private TMP_Text? _lastRefreshText;
     private TMP_Text? _modVersionText;
 
+    private RectTransform? _statePanelRect;
+    private Image? _statePanelImage;
+    private TMP_Text? _stateTitleText;
+    private TMP_Text? _stateLatestText;
+    private ScrollRect? _stateLogScrollRect;
+    private RectTransform? _stateLogViewportRect;
+    private RectTransform? _stateLogContentRect;
+    private TMP_Text? _stateLogBodyText;
+
+    private string _lastLoggedConnectionPhase = string.Empty;
+    private string _lastLoggedEndpoint = string.Empty;
+    private string _lastLoggedErrorSignature = string.Empty;
+    private string _lastRenderedStateLogText = string.Empty;
+
     private RectTransform? _adminPanelRect;
     private Image? _adminPanelImage;
     private TMP_Text? _adminTitleText;
     private TMP_Text? _adminBodyText;
 
     private const float PanelMargin = 16f;
-    private const float RowHeight = 24f;
-    private static readonly Color UiTextColor = new(0.16f, 0.12f, 0.08f, 1f);
-    private static readonly Color UiPanelColor = new(0.9f, 0.81f, 0.66f, 0.96f);
-    private static readonly Color UiPanelSecondaryColor = new(0.87f, 0.78f, 0.63f, 0.96f);
-    private static readonly Color UiButtonColor = new(0.84f, 0.69f, 0.42f, 1f);
-    private static readonly Color UiButtonHoverColor = new(0.9f, 0.76f, 0.5f, 1f);
-    private static readonly Color UiButtonPressedColor = new(0.76f, 0.58f, 0.33f, 1f);
-    private static readonly Color UiDisabledColor = new(0.66f, 0.58f, 0.46f, 0.9f);
-    private static readonly Color UiFieldColor = new(0.95f, 0.87f, 0.74f, 1f);
-    private static readonly Color UiBorderColor = new(0.15f, 0.11f, 0.08f, 0.32f);
+    private const float MainPanelExpandedMinWidth = 760f;
+    private const float MainPanelExpandedMaxWidth = 1160f;
+    private const float MainPanelCollapsedWidth = 380f;
+    private const float MainPanelExpandedMinHeight = 236f;
+    private const float MainPanelCollapsedHeight = 72f;
+
+    private const float PanelPaddingX = 14f;
+    private const float PanelPaddingY = 10f;
+    private const float SectionGap = 8f;
+    private const float HeaderHeight = 28f;
+    private const float InputBandHeight = 34f;
+    private const float ActionBandHeight = 34f;
+    private const float FooterHeight = 22f;
+    private const float FooterBottomPadding = 10f;
+
+    private const float ControlGap = 8f;
+    private const float HostButtonWidth = 172f;
+    private const float JoinButtonWidth = 248f;
+    private const float RefreshButtonWidth = 172f;
+
+    private const float SessionRowHeight = 58f;
+    private const float SessionRowGap = 8f;
+    private const int MaxVisibleSessionRows = 6;
+    private const float SessionListItemBorderGapX = 8f;
+    private const float SessionListItemBorderGapY = 8f;
+    private const float SessionRowInnerPaddingX = 12f;
+    private const float SessionRowPrimaryTop = 8f;
+    private const float SessionRowSecondaryTop = 31f;
+    private const float SessionRowTextBandWidth = 190f;
+    private const float SessionRowPlayerCountWidth = 74f;
+
+    private const int LargeCornerRadius = 15;
+    private const int MediumCornerRadius = 10;
+
+    // Radius knobs for quick UI shape tuning by surface type.
+    private const int MainPanelCornerRadius = LargeCornerRadius;
+    private const int SecondaryPanelCornerRadius = LargeCornerRadius;
+    private const int InputCornerRadius = MediumCornerRadius;
+    private const int ButtonCornerRadius = MediumCornerRadius;
+    private const int SessionRowCornerRadius = MediumCornerRadius;
+    private const int ScrollRegionCornerRadius = MediumCornerRadius;
+    private const int ScrollViewportCornerRadius = MediumCornerRadius;
+    private const float MainPanelFrameThickness = 3f;
+    private const float SecondaryPanelFrameThickness = 3f;
+
+    private const float StatePanelGap = 12f;
+    private const float StatePanelExpandedHeight = 196f;
+    private const float StatePanelCollapsedHeight = 154f;
+    private const float StatePanelMinVisibleHeight = 92f;
+    private const float StatePanelTopInset = 10f;
+    private const float StatePanelBottomInset = 10f;
+    private const float StateTitleToLogGap = 4f;
+    private const float StateLogToLatestGap = 8f;
+    private const float StateLatestHeight = 20f;
+    private const float StateLogTextInsetX = 8f;
+    private const float StateLogTextInsetTop = 5f;
+    private const float StateLogTextInsetBottom = 6f;
+    private const float ScrollbarWidth = 12f;
+    private const float ScrollbarPadding = 2f;
+    private const float ScrollbarOuterPadding = 3f;
+    private const float ButtonFrameThickness = 2f;
+
+    private const float AdminPanelGap = 24f;
+    private const float AdminPanelMinWidth = 340f;
+    private const float AdminPanelMaxWidth = 560f;
+    private const float AdminPanelMinHeight = 112f;
+    private const float AdminPanelTopInset = 10f;
+    private const float AdminPanelBottomInset = 10f;
+    private const float AdminTitleToBodyGap = 4f;
+    private const float AdminBodyFontSize = 14f;
+
+    private const float TitleFontSize = 21f;
+    private const float LabelFontSize = 16f;
+    private const float FooterFontSize = 16f;
+    private const float SessionPrimaryFontSize = 18f;
+    private const float SessionSecondaryFontSize = 14f;
+    private const float ButtonFontSize = 18f;
+
+    private static readonly Color UiTextColor = new(0.88f, 0.82f, 0.71f, 1f);
+    private static readonly Color UiPanelLayerColor = new(0.10f, 0.09f, 0.08f);
+    private static readonly Color UiPanelColor = UiPanelLayerColor;
+    // private static readonly Color UiPanelColor = new(0.01f, 0.01f, 0.01f, 0.90f);
+    private static readonly Color UiButtonColor = new(0.33f, 0.25f, 0.16f, 1f);
+    private static readonly Color UiButtonHoverColor = Brighten(UiButtonColor, 0.05f);
+    private static readonly Color UiButtonPressedColor = Darken(UiButtonColor, 0.08f);
+    private static readonly Color UiDisabledColor = new(0.16f, 0.13f, 0.1f, 0.92f);
+    private static readonly Color UiFieldColor = UiDisabledColor;
+    private static readonly Color UiSessionRowColor = UiPanelLayerColor;
+    private static readonly Color UiSessionRowSelectedColor = new(0.36f, 0.27f, 0.16f, 1.00f);
+    private static readonly Color UiSessionRowPrimarySelectedColor = Brighten(UiTextColor, 0.1f);
+    private static readonly Color UiSessionRowSecondaryColor = Darken(UiTextColor, 0.1f);
+    private static readonly Color UiSessionRowSecondarySelectedColor = UiTextColor;
+    private static readonly Color UiSessionRowCountColor = UiTextColor;
+    private static readonly Color UiSessionRowCountSelectedColor = UiSessionRowPrimarySelectedColor;
+    private static readonly Color UiMainBorderColor = new(0.74f, 0.62f, 0.46f, 0.8f);
+    private static readonly Color UiFaintBorderColor = new(0.43f, 0.35f, 0.27f, 0.62f);
+    private static readonly Color UiButtonBorderColor = new(0.78f, 0.64f, 0.49f, 0.70f);
+    private static readonly Color UiButtonBorderDisabledColor = new(0.33f, 0.28f, 0.22f, 0.85f);
+    private static readonly Color UiButtonTextDisabledColor = new(0.55f, 0.5f, 0.42f, 0.9f);
+    private static readonly Color UiRowBorderColor = UiFaintBorderColor;
+    private static readonly Color UiRowBorderSelectedColor = new(0.95f, 0.81f, 0.61f, 1f);
+    private static readonly Color UiScrollbarTrackColor = new(0.12f, 0.10f, 0.06f, 0.9f);
+    private static readonly Color UiScrollbarHandleColor = new(0.30f, 0.25f, 0.20f, 0.9f);
+    private static readonly Vector2 UiThinBorderEffectDistance = new(1.5f, -1.5f);
+    private static readonly Vector2 UiThickBorderEffectDistance = new(3f, -3f);
+    private static readonly Vector2 UiButtonBorderEffectDistance = new(2f, -2f);
+    private static readonly Vector2 UiRowBorderEffectDistance = new(2f, -2f);
+    private const int MaxClientStateLogEntries = 160;
+
+    private static Color Brighten(Color color, float amount)
+    {
+        return color + new Color(amount, amount, amount);
+    }
+    private static Color Darken(Color color, float amount)
+    {
+        return color + new Color(-amount, -amount, -amount);
+    }
 
     internal LanOverlayController(
         ILanPluginOptions options,
@@ -182,9 +304,10 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         IReadOnlyList<LanSessionInfo> sessions = _discoveredSessionsViewModel.Sessions;
         int selectedIndex = _discoveredSessionsViewModel.SelectedIndex;
-        (string phase, DateTime _) = _discoveryRuntime.GetConnectionPhaseSnapshot();
+        (string phase, DateTime phaseUpdatedAtUtc) = _discoveryRuntime.GetConnectionPhaseSnapshot();
         LanErrorDetail? connectionError = _errorState.GetConnectionErrorSnapshot();
         LanSessionInfo? selectedSession = _discoveredSessionsViewModel.GetSelectedSessionOrNull();
+        string configuredEndpoint = _lanServerRuntime.GetConfiguredLocalEndpoint();
 
         bool canJoinSelected = TryCanJoinSelectedSession(
             selectedSession,
@@ -195,10 +318,10 @@ internal sealed class LanOverlayController : ILanOverlayController
             out string validatedHostRoomName,
             out string hostUnavailableReason);
 
-        string summaryLine = _statusPresenterBridge.BuildSummaryLine(
+        EnsureClientStateLogUpdated(
             phase,
-            _lanServerRuntime.GetConfiguredLocalEndpoint(),
-            sessions.Count,
+            phaseUpdatedAtUtc,
+            configuredEndpoint,
             connectionError);
 
         string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
@@ -209,22 +332,45 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         bool showServerRows = !_isLanServerListCollapsed;
         bool p0 = _identityAndValidation.IsCurrentUserInX7GateSet();
+        bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
+        bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
 
         float panelWidth;
         float panelHeight;
 
+        float listTop = PanelPaddingY + HeaderHeight + SectionGap + InputBandHeight + SectionGap + ActionBandHeight + SectionGap;
+        float footerTopOffset = FooterBottomPadding + FooterHeight;
+        float expandedMinBodyHeight = listTop + footerTopOffset + SectionGap;
+
         if (showServerRows)
         {
-            float maxPanelWidth = Math.Max(700f, Screen.width - (PanelMargin * 2f));
-            panelWidth = Math.Min(1160f, maxPanelWidth);
-            float desiredPanelHeight = 152f + (sessions.Count * RowHeight);
-            float maxPanelHeight = Math.Max(170f, Screen.height - (PanelMargin * 2f));
-            panelHeight = Mathf.Clamp(desiredPanelHeight, 170f, maxPanelHeight);
+            float maxPanelWidth = Math.Max(MainPanelExpandedMinWidth, Screen.width - (PanelMargin * 2f));
+
+            // Keep the left admin telemetry rail visible on typical widescreen layouts.
+            if (showAdmin)
+            {
+                float maxPanelWidthWithAdminRail =
+                    Screen.width
+                    - (PanelMargin * 3f)
+                    - AdminPanelGap
+                    - AdminPanelMinWidth;
+
+                if (maxPanelWidthWithAdminRail >= MainPanelExpandedMinWidth)
+                {
+                    maxPanelWidth = Math.Min(maxPanelWidth, maxPanelWidthWithAdminRail);
+                }
+            }
+
+            panelWidth = Math.Min(MainPanelExpandedMaxWidth, maxPanelWidth);
+            int visibleSessionRows = Math.Min(sessions.Count, MaxVisibleSessionRows);
+            float desiredPanelHeight = expandedMinBodyHeight + CalculateSessionListContentHeight(visibleSessionRows);
+            float maxPanelHeight = Math.Max(MainPanelExpandedMinHeight, Screen.height - (PanelMargin * 2f));
+            panelHeight = Mathf.Clamp(desiredPanelHeight, MainPanelExpandedMinHeight, maxPanelHeight);
         }
         else
         {
-            panelWidth = 380f;
-            panelHeight = 72f;
+            panelWidth = MainPanelCollapsedWidth;
+            panelHeight = MainPanelCollapsedHeight;
         }
 
         float panelX = Screen.width - panelWidth - PanelMargin;
@@ -241,21 +387,34 @@ internal sealed class LanOverlayController : ILanOverlayController
             : "+";
 
         _collapseButtonText!.text = collapseToggleLabel;
-        SetLocalTopLeftRect(_collapseButton!.GetComponent<RectTransform>(), panelWidth - 24f, 2f, 22f, 22f);
+        ApplyButtonVisualState(_collapseButton, _collapseButtonText);
+        SetLocalTopLeftRect(_collapseButton!.GetComponent<RectTransform>(), panelWidth - 34f, 6f, 28f, 22f);
+
+        _serverListTitleText!.gameObject.SetActive(showServerRows);
+
+        if (showServerRows)
+        {
+            _serverListTitleText.text = "SERVER LIST";
+            SetLocalTopLeftRect(_serverListTitleText.GetComponent<RectTransform>(), PanelPaddingX, PanelPaddingY, 260f, HeaderHeight);
+        }
 
         float actionButtonY = showServerRows
-            ? 80f
+            ? PanelPaddingY + HeaderHeight + SectionGap + InputBandHeight + SectionGap
             : 34f;
 
         _hostButton!.interactable = canHostFromInput;
-        SetLocalTopLeftRect(_hostButton.GetComponent<RectTransform>(), 12f, actionButtonY, 150f, 26f);
+        ApplyButtonVisualState(_hostButton, _hostButtonText);
+        SetLocalTopLeftRect(_hostButton.GetComponent<RectTransform>(), PanelPaddingX, actionButtonY, HostButtonWidth, ActionBandHeight);
 
         if (showServerRows)
         {
             _roomNameLabelText!.gameObject.SetActive(true);
             _roomNameInput!.gameObject.SetActive(true);
-            SetLocalTopLeftRect(_roomNameLabelText.GetComponent<RectTransform>(), 12f, 50f, 118f, 20f);
-            SetLocalTopLeftRect(_roomNameInput.GetComponent<RectTransform>(), 132f, 46f, panelWidth - 144f, 30f);
+            float inputBandY = PanelPaddingY + HeaderHeight + SectionGap;
+            float roomLabelWidth = 122f;
+            float roomFieldX = PanelPaddingX + roomLabelWidth + ControlGap;
+            SetLocalTopLeftRect(_roomNameLabelText.GetComponent<RectTransform>(), PanelPaddingX, inputBandY + 6f, roomLabelWidth, 20f);
+            SetLocalTopLeftRect(_roomNameInput.GetComponent<RectTransform>(), roomFieldX, inputBandY, panelWidth - roomFieldX - PanelPaddingX, InputBandHeight);
 
             if (!_roomNameInput.isFocused
                 && !string.Equals(_roomNameInput.text, _lanPreferredRoomNameInput, StringComparison.Ordinal))
@@ -274,19 +433,17 @@ internal sealed class LanOverlayController : ILanOverlayController
         _joinButton!.gameObject.SetActive(showServerRows);
         _refreshButton!.gameObject.SetActive(showServerRows);
         _joinButton.interactable = canJoinSelected;
+        ApplyButtonVisualState(_joinButton, _joinButtonText);
+        ApplyButtonVisualState(_refreshButton, _refreshButtonText);
 
         if (showServerRows)
         {
-            SetLocalTopLeftRect(_joinButton.GetComponent<RectTransform>(), 168f, actionButtonY, 170f, 26f);
-            SetLocalTopLeftRect(_refreshButton.GetComponent<RectTransform>(), 344f, actionButtonY, 130f, 26f);
-        }
+            float joinX = PanelPaddingX + HostButtonWidth + ControlGap;
+            float refreshX = panelWidth - PanelPaddingX - RefreshButtonWidth;
+            float maxJoinWidth = Math.Max(140f, refreshX - joinX - ControlGap);
 
-        _summaryText!.gameObject.SetActive(showServerRows);
-        _summaryText.text = summaryLine;
-
-        if (showServerRows)
-        {
-            SetLocalTopLeftRect(_summaryText.GetComponent<RectTransform>(), 12f, 20f, panelWidth - 24f, 26f);
+            SetLocalTopLeftRect(_joinButton.GetComponent<RectTransform>(), joinX, actionButtonY, Math.Min(JoinButtonWidth, maxJoinWidth), ActionBandHeight);
+            SetLocalTopLeftRect(_refreshButton.GetComponent<RectTransform>(), refreshX, actionButtonY, RefreshButtonWidth, ActionBandHeight);
         }
 
         _lastRefreshText!.gameObject.SetActive(showServerRows);
@@ -294,22 +451,14 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (showServerRows)
         {
-            float footerY = panelHeight - 24f;
-            float footerWidth = panelWidth - 24f;
+            float footerY = panelHeight - FooterBottomPadding - FooterHeight;
+            float footerWidth = panelWidth - (PanelPaddingX * 2f);
             float footerHalfWidth = footerWidth * 0.5f;
 
             _lastRefreshText.text = lastRefreshLabel;
             _modVersionText.text = modVersionLabel;
-            SetLocalTopLeftRect(_lastRefreshText.GetComponent<RectTransform>(), 12f, footerY, footerHalfWidth, 20f);
-            SetLocalTopLeftRect(_modVersionText.GetComponent<RectTransform>(), 12f + footerHalfWidth, footerY, footerHalfWidth, 20f);
-        }
-
-        _errorText!.gameObject.SetActive(showServerRows && connectionError is not null);
-
-        if (showServerRows && connectionError is not null)
-        {
-            _errorText.text = _statusPresenterBridge.BuildErrorLine(connectionError);
-            SetLocalTopLeftRect(_errorText.GetComponent<RectTransform>(), 12f, panelHeight - 44f, panelWidth - 24f, 20f);
+            SetLocalTopLeftRect(_lastRefreshText.GetComponent<RectTransform>(), PanelPaddingX, footerY, footerHalfWidth, FooterHeight);
+            SetLocalTopLeftRect(_modVersionText.GetComponent<RectTransform>(), PanelPaddingX + footerHalfWidth, footerY, footerHalfWidth, FooterHeight);
         }
 
         _hostUnavailableText!.gameObject.SetActive(showServerRows && !canHostFromInput);
@@ -317,7 +466,9 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (showServerRows && !canHostFromInput)
         {
             _hostUnavailableText.text = $"Cannot host: {hostUnavailableReason}";
-            SetLocalTopLeftRect(_hostUnavailableText.GetComponent<RectTransform>(), 490f, 74f, panelWidth - 502f, 20f);
+            float warningX = PanelPaddingX + HostButtonWidth + ControlGap;
+            float warningWidth = panelWidth - warningX - PanelPaddingX;
+            SetLocalTopLeftRect(_hostUnavailableText.GetComponent<RectTransform>(), warningX, actionButtonY - 20f, warningWidth, 18f);
         }
 
         // Keep for future dedicated in-game log surface; do not overlay on top of room input.
@@ -325,8 +476,13 @@ internal sealed class LanOverlayController : ILanOverlayController
             ? string.Empty
             : $"Join unavailable: {joinUnavailableReason}";
 
-        bool allowAdminByDiagnostics = _options.EnableVerboseDiagnostics.Value;
-        bool showAdmin = showServerRows && (p0 || allowAdminByDiagnostics);
+        RenderClientStatePanel(
+            showServerRows,
+            panelX,
+            panelY,
+            panelWidth,
+            panelHeight);
+
         _adminPanelRect!.gameObject.SetActive(showAdmin);
 
         if (showAdmin)
@@ -335,10 +491,9 @@ internal sealed class LanOverlayController : ILanOverlayController
                 ? "ADMIN TELEMETRY"
                 : "ADMIN TELEMETRY (DEBUG)";
 
-            const float adminPanelGap = 24f;
-            float availableAdminWidth = Math.Max(300f, panelX - adminPanelGap - PanelMargin);
-            float adminPanelWidth = Mathf.Clamp(availableAdminWidth, 320f, 560f);
-            float adminBodyWidth = adminPanelWidth - 20f;
+            float availableAdminWidth = Math.Max(AdminPanelMinWidth, panelX - AdminPanelGap - PanelMargin);
+            float adminPanelWidth = Mathf.Clamp(availableAdminWidth, AdminPanelMinWidth, AdminPanelMaxWidth);
+            float adminBodyWidth = adminPanelWidth - (PanelPaddingX * 2f);
             float adminValueColumnOffsetPx = Mathf.Clamp(adminBodyWidth * 0.42f, 120f, adminBodyWidth - 24f);
 
             string adminData = selectedSession is null
@@ -356,13 +511,18 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminBodyWidth,
                 4096f);
 
-            float adminBodyHeight = Mathf.Ceil(bodyPreferredSize.y) + 2f;
-            float desiredAdminPanelHeight = 36f + adminBodyHeight;
-            float maxAdminPanelHeight = Mathf.Max(96f, Screen.height - (PanelMargin * 2f));
-            float adminPanelHeight = Mathf.Clamp(desiredAdminPanelHeight, 96f, maxAdminPanelHeight);
+            float adminBodyHeight = Mathf.Ceil(bodyPreferredSize.y) + 4f;
+            float desiredAdminPanelHeight =
+                AdminPanelTopInset
+                + HeaderHeight
+                + AdminTitleToBodyGap
+                + adminBodyHeight
+                + AdminPanelBottomInset;
+            float maxAdminPanelHeight = Mathf.Max(AdminPanelMinHeight, Screen.height - (PanelMargin * 2f));
+            float adminPanelHeight = Mathf.Clamp(desiredAdminPanelHeight, AdminPanelMinHeight, maxAdminPanelHeight);
             float adminPanelX = Math.Max(
                 PanelMargin,
-                panelX - adminPanelGap - adminPanelWidth);
+                panelX - AdminPanelGap - adminPanelWidth);
             float adminPanelY = panelY;
 
             SetAbsoluteTopLeftRect(
@@ -372,8 +532,20 @@ internal sealed class LanOverlayController : ILanOverlayController
                 adminPanelWidth,
                 adminPanelHeight);
 
-            SetLocalTopLeftRect(_adminTitleText!.GetComponent<RectTransform>(), 10f, 8f, adminBodyWidth, 20f);
-            SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), 10f, 30f, adminBodyWidth, adminPanelHeight - 36f);
+            SetLocalTopLeftRect(
+                _adminTitleText!.GetComponent<RectTransform>(),
+                PanelPaddingX,
+                AdminPanelTopInset,
+                adminBodyWidth,
+                HeaderHeight);
+            float adminBodyY = AdminPanelTopInset + HeaderHeight + AdminTitleToBodyGap;
+            float adminBodyRectHeight = Math.Max(20f, adminPanelHeight - adminBodyY - AdminPanelBottomInset);
+            SetLocalTopLeftRect(
+                _adminBodyText.GetComponent<RectTransform>(),
+                PanelPaddingX,
+                adminBodyY,
+                adminBodyWidth,
+                adminBodyRectHeight);
             _adminBodyText!.text = adminData;
         }
 
@@ -382,43 +554,100 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (showServerRows)
         {
-            float rowY = 106f;
-            float listViewportHeight = Math.Max(
+            float rowY = listTop;
+            float maxListViewportHeight = Math.Max(
                 24f,
-                panelHeight - 136f);
+                panelHeight - rowY - FooterHeight - FooterBottomPadding - SectionGap);
+            int visibleSessionRows = Math.Min(sessions.Count, MaxVisibleSessionRows);
+            float targetListViewportHeight = Math.Max(24f, CalculateSessionListContentHeight(visibleSessionRows));
+            float listViewportHeight = Math.Min(targetListViewportHeight, maxListViewportHeight);
 
             if (sessions.Count == 0)
             {
                 _emptyText.gameObject.SetActive(true);
                 _emptyText.text = "No discovered sessions yet. Keep host in-room and click Refresh.";
-                SetLocalTopLeftRect(_emptyText.GetComponent<RectTransform>(), 12f, rowY, panelWidth - 24f, 22f);
+                SetLocalTopLeftRect(_emptyText.GetComponent<RectTransform>(), PanelPaddingX, rowY + 8f, panelWidth - (PanelPaddingX * 2f), 22f);
                 HideUnusedRows(0);
             }
             else
             {
                 _sessionScrollRect.gameObject.SetActive(true);
-                SetLocalTopLeftRect(_sessionScrollRect.GetComponent<RectTransform>(), 12f, rowY, panelWidth - 24f, listViewportHeight);
-                SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, panelWidth - 24f, listViewportHeight);
+                Image scrollImage = _sessionScrollRect.GetComponent<Image>();
+                scrollImage.color = UiPanelLayerColor;
 
-                float contentHeight = Math.Max(listViewportHeight, sessions.Count * RowHeight);
-                _sessionContentRect!.sizeDelta = new Vector2(panelWidth - 42f, contentHeight);
+                float listViewportWidth = panelWidth - (PanelPaddingX * 2f);
+                SetLocalTopLeftRect(_sessionScrollRect.GetComponent<RectTransform>(), PanelPaddingX, rowY, listViewportWidth, listViewportHeight);
+                SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, listViewportWidth, listViewportHeight);
+                AddFaintBorder(_sessionScrollRect.GetComponent<Image>(), useGraphicAlpha: false);
+
+                float rowStride = SessionRowHeight + SessionRowGap;
+                float contentHeight = Math.Max(listViewportHeight, CalculateSessionListContentHeight(sessions.Count));
+                float contentWidth = listViewportWidth - 18f;
+                _sessionContentRect!.sizeDelta = new Vector2(contentWidth, contentHeight);
+
+                float rowWidth = Math.Max(120f, contentWidth - (SessionListItemBorderGapX * 2f));
+                float rowStartY = SessionListItemBorderGapY;
 
                 for (int index = 0; index < sessions.Count; index++)
                 {
                     LanSessionRowUi row = EnsureSessionRow(index);
                     row.Root.gameObject.SetActive(true);
-                    SetLocalTopLeftRect(row.Root, 0f, index * RowHeight, _sessionContentRect.sizeDelta.x, 22f);
-                    row.Label.text = _statusPresenterBridge.BuildSessionRowLabel(
-                        sessions[index],
-                        index + 1);
+                    SetLocalTopLeftRect(
+                        row.Root,
+                        SessionListItemBorderGapX,
+                        rowStartY + (index * rowStride),
+                        rowWidth,
+                        SessionRowHeight);
+
+                    float countX = Math.Max(
+                        SessionRowInnerPaddingX,
+                        row.Root.sizeDelta.x - SessionRowPlayerCountWidth - SessionRowInnerPaddingX);
+                    float textBandWidth = Math.Max(
+                        120f,
+                        countX - SessionRowInnerPaddingX - 6f);
+
+                    SetLocalTopLeftRect(
+                        row.PrimaryLabel.GetComponent<RectTransform>(),
+                        SessionRowInnerPaddingX,
+                        SessionRowPrimaryTop,
+                        textBandWidth,
+                        22f);
+                    SetLocalTopLeftRect(
+                        row.SecondaryLabel.GetComponent<RectTransform>(),
+                        SessionRowInnerPaddingX,
+                        SessionRowSecondaryTop,
+                        textBandWidth,
+                        20f);
+                    SetLocalTopLeftRect(
+                        row.PlayerCountLabel.GetComponent<RectTransform>(),
+                        countX,
+                        0f,
+                        SessionRowPlayerCountWidth,
+                        SessionRowHeight);
+
+                    LanSessionInfo session = sessions[index];
+                    row.PrimaryLabel.text = BuildSessionPrimaryLine(session);
+                    row.SecondaryLabel.text = BuildSessionSecondaryLine(session);
+                    row.PlayerCountLabel.text = BuildSessionPlayerCountLine(session);
 
                     bool isSelected = index == selectedIndex;
-                    row.Background.color = isSelected
-                        ? new Color(0.78f, 0.64f, 0.4f, 1f)
-                        : new Color(0.91f, 0.8f, 0.62f, 1f);
-                    row.Label.color = isSelected
-                        ? new Color(0.13f, 0.1f, 0.07f, 1f)
-                        : UiTextColor;
+
+                    if (isSelected)
+                    {
+                        row.Background.color = UiSessionRowSelectedColor;
+                        row.PrimaryLabel.color = UiSessionRowPrimarySelectedColor;
+                        row.SecondaryLabel.color = UiSessionRowSecondarySelectedColor;
+                        row.PlayerCountLabel.color = UiSessionRowCountSelectedColor;
+                        AddBorder(row.Background, UiRowBorderSelectedColor, UiRowBorderEffectDistance, false);
+                    }
+                    else
+                    {
+                        row.Background.color = UiSessionRowColor;
+                        row.PrimaryLabel.color = UiTextColor;
+                        row.SecondaryLabel.color = UiSessionRowSecondaryColor;
+                        row.PlayerCountLabel.color = UiSessionRowCountColor;
+                        AddBorder(row.Background, UiRowBorderColor, UiRowBorderEffectDistance, false);
+                    }
                 }
 
                 HideUnusedRows(sessions.Count);
@@ -444,6 +673,215 @@ internal sealed class LanOverlayController : ILanOverlayController
             Plugin.Log.LogInfo("LAN UI join-selected button clicked.");
             TryJoinSelectedLanSession();
         });
+    }
+
+    private void EnsureClientStateLogUpdated(
+        string phase,
+        DateTime phaseUpdatedAtUtc,
+        string configuredEndpoint,
+        LanErrorDetail? connectionError)
+    {
+        if (_clientStateLogEntries.Count == 0)
+        {
+            AppendClientStateLogEntry("Client state timeline initialized.");
+        }
+
+        string sanitizedEndpoint = _identityAndValidation.SanitizeEndpointForLog(configuredEndpoint);
+
+        if (!string.Equals(_lastLoggedEndpoint, sanitizedEndpoint, StringComparison.Ordinal))
+        {
+            AppendClientStateLogEntry($"Configured endpoint: {sanitizedEndpoint}");
+            _lastLoggedEndpoint = sanitizedEndpoint;
+        }
+
+        string normalizedPhase = string.IsNullOrWhiteSpace(phase)
+            ? "Unknown"
+            : phase.Trim();
+
+        if (!string.Equals(_lastLoggedConnectionPhase, normalizedPhase, StringComparison.Ordinal))
+        {
+            AppendClientStateLogEntry(
+                $"Connection phase: {normalizedPhase} (updated {phaseUpdatedAtUtc:HH:mm:ss} UTC)");
+            _lastLoggedConnectionPhase = normalizedPhase;
+        }
+
+        string errorSignature = BuildErrorSignature(connectionError);
+
+        if (!string.Equals(_lastLoggedErrorSignature, errorSignature, StringComparison.Ordinal))
+        {
+            if (connectionError is null)
+            {
+                AppendClientStateLogEntry("Structured LAN error cleared.");
+            }
+            else
+            {
+                AppendClientStateLogEntry(
+                    $"Error: {connectionError.Code} - {connectionError.Message} (source {connectionError.Source})");
+            }
+
+            _lastLoggedErrorSignature = errorSignature;
+        }
+    }
+
+    private void RenderClientStatePanel(
+        bool showServerRows,
+        float panelX,
+        float panelY,
+        float panelWidth,
+        float panelHeight)
+    {
+        if (_statePanelRect is null
+            || _stateTitleText is null
+            || _stateLatestText is null
+            || _stateLogScrollRect is null
+            || _stateLogViewportRect is null
+            || _stateLogContentRect is null
+            || _stateLogBodyText is null)
+        {
+            return;
+        }
+
+        float statePanelX = panelX;
+        float statePanelY = panelY + panelHeight + StatePanelGap;
+        float availableHeight = Screen.height - statePanelY - PanelMargin;
+
+        if (availableHeight < StatePanelMinVisibleHeight)
+        {
+            _statePanelRect.gameObject.SetActive(false);
+            return;
+        }
+
+        float desiredPanelHeight = showServerRows
+            ? StatePanelExpandedHeight
+            : StatePanelCollapsedHeight;
+        float statePanelHeight = Math.Min(desiredPanelHeight, availableHeight);
+        float statePanelWidth = panelWidth;
+
+        _statePanelRect.gameObject.SetActive(true);
+        SetAbsoluteTopLeftRect(
+            _statePanelRect,
+            statePanelX,
+            statePanelY,
+            statePanelWidth,
+            statePanelHeight);
+
+        _stateTitleText.text = "LOG";
+        SetLocalTopLeftRect(
+            _stateTitleText.GetComponent<RectTransform>(),
+            PanelPaddingX,
+            StatePanelTopInset,
+            statePanelWidth - (PanelPaddingX * 2f),
+            HeaderHeight);
+
+        string latestEntry = _clientStateLogEntries.Count == 0
+            ? "Latest: waiting for status updates"
+            : $"Latest: {_clientStateLogEntries[_clientStateLogEntries.Count - 1]}";
+
+        _stateLatestText.text = latestEntry;
+        float latestY = statePanelHeight - StatePanelBottomInset - StateLatestHeight;
+        SetLocalTopLeftRect(
+            _stateLatestText.GetComponent<RectTransform>(),
+            PanelPaddingX,
+            latestY,
+            statePanelWidth - (PanelPaddingX * 2f),
+            StateLatestHeight);
+
+        float logY = StatePanelTopInset + HeaderHeight + StateTitleToLogGap;
+        float logHeight = Math.Max(
+            28f,
+            latestY - StateLogToLatestGap - logY);
+        float logWidth = statePanelWidth - (PanelPaddingX * 2f);
+
+        SetLocalTopLeftRect(_stateLogScrollRect.GetComponent<RectTransform>(), PanelPaddingX, logY, logWidth, logHeight);
+        SetLocalTopLeftRect(_stateLogViewportRect, 0f, 0f, logWidth, logHeight);
+
+        bool shouldStickToBottom = _stateLogScrollRect.verticalNormalizedPosition <= 0.05f;
+        string historyText = BuildStateHistoryText();
+
+        if (!string.Equals(_lastRenderedStateLogText, historyText, StringComparison.Ordinal))
+        {
+            _stateLogBodyText.text = historyText;
+            _lastRenderedStateLogText = historyText;
+        }
+
+        float textWidth = Math.Max(100f, logWidth - (StateLogTextInsetX * 2f));
+        Vector2 preferredSize = _stateLogBodyText.GetPreferredValues(
+            _stateLogBodyText.text,
+            textWidth,
+            4096f);
+
+        float contentHeight = Math.Max(
+            logHeight,
+            Mathf.Ceil(preferredSize.y) + StateLogTextInsetTop + StateLogTextInsetBottom);
+        _stateLogContentRect.sizeDelta = new Vector2(logWidth - 2f, contentHeight);
+        SetLocalTopLeftRect(
+            _stateLogBodyText.GetComponent<RectTransform>(),
+            StateLogTextInsetX,
+            StateLogTextInsetTop,
+            textWidth,
+            contentHeight - StateLogTextInsetTop - StateLogTextInsetBottom);
+
+        if (shouldStickToBottom)
+        {
+            _stateLogScrollRect.verticalNormalizedPosition = 0f;
+        }
+    }
+
+    private string BuildStateHistoryText()
+    {
+        if (_clientStateLogEntries.Count == 0)
+        {
+            return "No client state updates yet.";
+        }
+
+        var builder = new StringBuilder();
+
+        for (int index = 0; index < _clientStateLogEntries.Count; index++)
+        {
+            if (index > 0)
+            {
+                builder.Append(Environment.NewLine);
+            }
+
+            builder.Append(_clientStateLogEntries[index]);
+        }
+
+        return builder.ToString();
+    }
+
+    private void AppendClientStateLogEntry(string message)
+    {
+        string timestamp = DateTime.UtcNow.ToString("HH:mm:ss");
+        string normalizedMessage = string.IsNullOrWhiteSpace(message)
+            ? "(empty update)"
+            : message.Trim();
+
+        _clientStateLogEntries.Add($"[{timestamp}] {normalizedMessage}");
+
+        if (_clientStateLogEntries.Count > MaxClientStateLogEntries)
+        {
+            int removeCount = _clientStateLogEntries.Count - MaxClientStateLogEntries;
+            _clientStateLogEntries.RemoveRange(0, removeCount);
+        }
+    }
+
+    private static string BuildErrorSignature(LanErrorDetail? connectionError)
+    {
+        if (connectionError is null)
+        {
+            return "None";
+        }
+
+        return string.Concat(
+            connectionError.Code,
+            "|",
+            connectionError.Message,
+            "|",
+            connectionError.Source,
+            "|",
+            connectionError.Context,
+            "|",
+            connectionError.OccurredAtUtc.ToString("O"));
     }
 
     private void OnCollapseClicked()
@@ -537,29 +975,54 @@ internal sealed class LanOverlayController : ILanOverlayController
                 $"LanSessionRow-{rowIndex}",
                 _sessionContentRect!);
             Image rowImage = rowRoot.gameObject.AddComponent<Image>();
-            rowImage.sprite = EnsureRoundedSprite();
+            rowImage.sprite = EnsureRoundedSprite(SessionRowCornerRadius);
             rowImage.type = Image.Type.Sliced;
-            AddFaintBorder(rowImage);
+            AddFaintBorder(rowImage, useGraphicAlpha: false);
 
             Button rowButton = rowRoot.gameObject.AddComponent<Button>();
-            ConfigureButtonColors(rowButton);
+            ApplyButtonColors(rowButton);
+            rowButton.transition = Selectable.Transition.None;
             rowButton.onClick.AddListener(() => OnSessionRowClicked(rowIndex));
 
-            TMP_Text rowLabel = CreateTmpText(
-                "Label",
+            TMP_Text primaryLabel = CreateTmpText(
+                "PrimaryLabel",
                 rowRoot,
                 string.Empty,
                 TextAlignmentOptions.MidlineLeft,
-                16f,
+                SessionPrimaryFontSize,
                 FontStyles.Normal);
-            rowLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            SetLocalTopLeftRect(rowLabel.GetComponent<RectTransform>(), 8f, 0f, 1000f, 22f);
+            primaryLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            SetLocalTopLeftRect(primaryLabel.GetComponent<RectTransform>(), SessionRowInnerPaddingX, SessionRowPrimaryTop, SessionRowTextBandWidth, 22f);
+
+            TMP_Text secondaryLabel = CreateTmpText(
+                "SecondaryLabel",
+                rowRoot,
+                string.Empty,
+                TextAlignmentOptions.MidlineLeft,
+                SessionSecondaryFontSize,
+                FontStyles.Normal);
+            secondaryLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            secondaryLabel.color = UiSessionRowSecondaryColor;
+            SetLocalTopLeftRect(secondaryLabel.GetComponent<RectTransform>(), SessionRowInnerPaddingX, SessionRowSecondaryTop, SessionRowTextBandWidth, 20f);
+
+            TMP_Text playerCountLabel = CreateTmpText(
+                "PlayerCountLabel",
+                rowRoot,
+                string.Empty,
+                TextAlignmentOptions.MidlineRight,
+                SessionPrimaryFontSize,
+                FontStyles.Normal);
+            playerCountLabel.color = UiSessionRowCountColor;
+            playerCountLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            SetLocalTopLeftRect(playerCountLabel.GetComponent<RectTransform>(), SessionRowInnerPaddingX, 0f, SessionRowPlayerCountWidth, SessionRowHeight);
 
             _sessionRows.Add(new LanSessionRowUi(
                 rowRoot,
                 rowImage,
                 rowButton,
-                rowLabel));
+                primaryLabel,
+                secondaryLabel,
+                playerCountLabel));
         }
 
         return _sessionRows[index];
@@ -589,11 +1052,12 @@ internal sealed class LanOverlayController : ILanOverlayController
         }
 
         _panelRect = CreateUiRect("LanPanel", canvas.transform);
-        _panelImage = _panelRect.gameObject.AddComponent<Image>();
-        _panelImage.sprite = EnsureRoundedSprite();
-        _panelImage.type = Image.Type.Sliced;
-        _panelImage.color = UiPanelColor;
-        AddFaintBorder(_panelImage);
+        _panelImage = CreateFramedPanelBackground(
+            _panelRect,
+            MainPanelCornerRadius,
+            UiPanelColor,
+            UiMainBorderColor,
+            MainPanelFrameThickness);
 
         (_collapseButton, _collapseButtonText) = CreateButton(
             "CollapseButton",
@@ -603,12 +1067,12 @@ internal sealed class LanOverlayController : ILanOverlayController
             FontStyles.Normal,
             OnCollapseClicked);
 
-        _summaryText = CreateTmpText(
-            "SummaryText",
+        _serverListTitleText = CreateTmpText(
+            "ServerListTitle",
             _panelRect,
-            string.Empty,
+            "SERVER LIST",
             TextAlignmentOptions.TopLeft,
-            20f,
+            TitleFontSize,
             FontStyles.Normal);
 
         _roomNameLabelText = CreateTmpText(
@@ -616,7 +1080,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             "ROOM NAME:",
             TextAlignmentOptions.TopLeft,
-            16f,
+            LabelFontSize,
             FontStyles.Normal);
 
         _roomNameInput = CreateInputField(
@@ -631,7 +1095,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             "HostButton",
             _panelRect,
             "HOST LAN",
-            20f,
+            ButtonFontSize,
             FontStyles.Normal,
             null);
 
@@ -639,7 +1103,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             "JoinButton",
             _panelRect,
             "JOIN SELECTED",
-            20f,
+            ButtonFontSize,
             FontStyles.Normal,
             null);
 
@@ -647,7 +1111,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             "RefreshButton",
             _panelRect,
             "REFRESH",
-            20f,
+            ButtonFontSize,
             FontStyles.Normal,
             OnRefreshClicked);
 
@@ -656,15 +1120,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            16f,
-            FontStyles.Normal);
-
-        _errorText = CreateTmpText(
-            "ErrorText",
-            _panelRect,
-            string.Empty,
-            TextAlignmentOptions.TopLeft,
-            16f,
+            14f,
             FontStyles.Normal);
 
         _emptyText = CreateTmpText(
@@ -672,7 +1128,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            18f,
+            16f,
             FontStyles.Normal);
 
         (_sessionScrollRect, _sessionViewportRect, _sessionContentRect) = CreateScrollRegion(
@@ -684,7 +1140,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            16f,
+            FooterFontSize,
             FontStyles.Normal);
 
         _modVersionText = CreateTmpText(
@@ -692,22 +1148,79 @@ internal sealed class LanOverlayController : ILanOverlayController
             _panelRect,
             string.Empty,
             TextAlignmentOptions.TopRight,
-            16f,
+            FooterFontSize,
             FontStyles.Normal);
 
+        _statePanelRect = CreateUiRect("ClientStatePanel", canvas.transform);
+        _statePanelImage = CreateFramedPanelBackground(
+            _statePanelRect,
+            SecondaryPanelCornerRadius,
+            UiPanelColor,
+            UiMainBorderColor,
+            SecondaryPanelFrameThickness);
+
+        _stateTitleText = CreateTmpText(
+            "StateTitle",
+            _statePanelRect,
+            "LOG",
+            TextAlignmentOptions.TopLeft,
+            TitleFontSize,
+            FontStyles.Normal);
+
+        _stateLatestText = CreateTmpText(
+            "StateLatest",
+            _statePanelRect,
+            "Latest: waiting for status updates",
+            TextAlignmentOptions.TopLeft,
+            FooterFontSize + 2f,
+            FontStyles.Normal);
+        _stateLatestText.color = UiTextColor;
+        _stateLatestText.textWrappingMode = TextWrappingModes.NoWrap;
+
+        (_stateLogScrollRect, _stateLogViewportRect, _stateLogContentRect) = CreateScrollRegion(
+            "StateLogScroll",
+            _statePanelRect);
+
+        Image? stateLogRootImage = _stateLogScrollRect.GetComponent<Image>();
+
+        if (stateLogRootImage != null)
+        {
+            AddBorder(stateLogRootImage, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha: false);
+        }
+
+        Image? stateLogViewportImage = _stateLogViewportRect.GetComponent<Image>();
+
+        if (stateLogViewportImage != null)
+        {
+            AddBorder(stateLogViewportImage, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha: false);
+        }
+
+        _stateLogBodyText = CreateTmpText(
+            "StateLogBody",
+            _stateLogContentRect,
+            string.Empty,
+            TextAlignmentOptions.TopLeft,
+            14f,
+            FontStyles.Normal);
+        _stateLogBodyText.color = UiTextColor;
+        _stateLogBodyText.textWrappingMode = TextWrappingModes.Normal;
+        _stateLogBodyText.overflowMode = TextOverflowModes.Overflow;
+        _stateLogBodyText.richText = false;
+
         _adminPanelRect = CreateUiRect("AdminPanel", canvas.transform);
-        _adminPanelImage = _adminPanelRect.gameObject.AddComponent<Image>();
-        _adminPanelImage.sprite = EnsureRoundedSprite();
-        _adminPanelImage.type = Image.Type.Sliced;
-        _adminPanelImage.color = UiPanelSecondaryColor;
-        AddFaintBorder(_adminPanelImage);
+        _adminPanelImage = CreateFramedPanelBackground(
+            _adminPanelRect,
+            SecondaryPanelCornerRadius,
+            UiPanelColor,
+            UiMainBorderColor,
+            SecondaryPanelFrameThickness);
 
         _adminTitleText = CreateTmpText(
             "AdminTitle",
             _adminPanelRect,
             "ADMIN TELEMETRY",
             TextAlignmentOptions.TopLeft,
-            21f,
+            TitleFontSize,
             FontStyles.Normal);
 
         _adminBodyText = CreateTmpText(
@@ -715,15 +1228,15 @@ internal sealed class LanOverlayController : ILanOverlayController
             _adminPanelRect,
             string.Empty,
             TextAlignmentOptions.TopLeft,
-            15f,
+            AdminBodyFontSize,
             FontStyles.Normal);
 
         _adminBodyText.richText = true;
         _adminBodyText.textWrappingMode = TextWrappingModes.Normal;
         _adminBodyText.overflowMode = TextOverflowModes.Ellipsis;
 
-        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), 10f, 8f, 400f, 20f);
-        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), 10f, 30f, 400f, 30f);
+        SetLocalTopLeftRect(_adminTitleText.GetComponent<RectTransform>(), PanelPaddingX, AdminPanelTopInset, 400f, HeaderHeight);
+        SetLocalTopLeftRect(_adminBodyText.GetComponent<RectTransform>(), PanelPaddingX, AdminPanelTopInset + HeaderHeight + AdminTitleToBodyGap, 400f, 30f);
     }
 
     private void EnsureTemplateText()
@@ -889,7 +1402,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     {
         RectTransform root = CreateUiRect(name, parent);
         Image bg = root.gameObject.AddComponent<Image>();
-        bg.sprite = EnsureRoundedSprite();
+        bg.sprite = EnsureRoundedSprite(InputCornerRadius);
         bg.type = Image.Type.Sliced;
         bg.color = UiFieldColor;
         AddFaintBorder(bg);
@@ -899,22 +1412,22 @@ internal sealed class LanOverlayController : ILanOverlayController
         input.lineType = InputField.LineType.SingleLine;
         input.characterLimit = 64;
         input.customCaretColor = true;
-        input.caretColor = new Color(0.08f, 0.05f, 0.03f, 1f);
-        input.selectionColor = new Color(0.22f, 0.14f, 0.07f, 0.8f);
+        input.caretColor = UiTextColor;
+        input.selectionColor = Darken(UiTextColor, .5f);
         input.caretWidth = 3;
         input.caretBlinkRate = 0.85f;
 
         RectTransform textViewport = CreateUiRect("TextViewport", root);
         Image viewportImage = textViewport.gameObject.AddComponent<Image>();
-        viewportImage.color = new Color(0f, 0f, 0f, 0.002f);
+        viewportImage.color = UiFieldColor;
         textViewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
         // Fill full input width while keeping a small inset for text legibility.
         textViewport.anchorMin = new Vector2(0f, 0f);
         textViewport.anchorMax = new Vector2(1f, 1f);
         textViewport.pivot = new Vector2(0.5f, 0.5f);
-        textViewport.offsetMin = new Vector2(6f, 3f);
-        textViewport.offsetMax = new Vector2(-6f, -3f);
+        textViewport.offsetMin = new Vector2(8f, 4f);
+        textViewport.offsetMax = new Vector2(-8f, -4f);
 
         Font textFont = ResolveLegacyInputFont();
 
@@ -923,7 +1436,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             textViewport,
             initialValue,
             textFont,
-            20,
+            18,
             FontStyle.Normal,
             TextAnchor.MiddleLeft);
         inputText.raycastTarget = false;
@@ -936,10 +1449,10 @@ internal sealed class LanOverlayController : ILanOverlayController
             textViewport,
             "Enter room name",
             textFont,
-            20,
+            18,
             FontStyle.Italic,
             TextAnchor.MiddleLeft);
-        placeholder.color = new Color(0.33f, 0.26f, 0.19f, 0.72f);
+        placeholder.color = Darken(UiTextColor, .2f);
         placeholder.raycastTarget = false;
         placeholder.supportRichText = false;
 
@@ -964,14 +1477,12 @@ internal sealed class LanOverlayController : ILanOverlayController
         Action? onClick)
     {
         RectTransform root = CreateUiRect(name, parent);
-        Image bg = root.gameObject.AddComponent<Image>();
-        bg.sprite = EnsureRoundedSprite();
-        bg.type = Image.Type.Sliced;
-        bg.color = UiButtonColor;
-        AddFaintBorder(bg);
+        root.gameObject.AddComponent<Image>().color = Color.clear;
+        Image bg = CreateFramedButtonBackground(root);
 
         Button button = root.gameObject.AddComponent<Button>();
-        ConfigureButtonColors(button);
+        button.targetGraphic = bg;
+        ApplyButtonColors(button);
 
         if (onClick != null)
         {
@@ -985,7 +1496,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             TextAlignmentOptions.Center,
             fontSize,
             style);
-        label.color = new Color(0.17f, 0.13f, 0.08f, 1f);
+        label.color = UiTextColor;
         SetFillRect(label.GetComponent<RectTransform>());
         return (button, label);
     }
@@ -997,20 +1508,21 @@ internal sealed class LanOverlayController : ILanOverlayController
         RectTransform root = CreateUiRect(name, parent);
 
         Image bg = root.gameObject.AddComponent<Image>();
-        bg.sprite = EnsureRoundedSprite();
+        bg.sprite = EnsureRoundedSprite(ScrollRegionCornerRadius);
         bg.type = Image.Type.Sliced;
-        bg.color = UiPanelSecondaryColor;
-        AddFaintBorder(bg);
+        bg.color = UiPanelLayerColor;
+        AddFaintBorder(bg, useGraphicAlpha: false);
 
         ScrollRect scroll = root.gameObject.AddComponent<ScrollRect>();
         scroll.horizontal = false;
+        scroll.vertical = true;
 
         RectTransform viewport = CreateUiRect("Viewport", root);
         Image viewportImage = viewport.gameObject.AddComponent<Image>();
-        viewportImage.sprite = EnsureRoundedSprite();
+        viewportImage.sprite = EnsureRoundedSprite(ScrollViewportCornerRadius);
         viewportImage.type = Image.Type.Sliced;
-        viewportImage.color = new Color(1f, 1f, 1f, 0.04f);
-        AddFaintBorder(viewportImage);
+        viewportImage.color = UiPanelLayerColor;
+        AddFaintBorder(viewportImage, useGraphicAlpha: false);
         viewport.gameObject.AddComponent<RectMask2D>();
 
         RectTransform content = CreateUiRect("Content", viewport);
@@ -1024,12 +1536,18 @@ internal sealed class LanOverlayController : ILanOverlayController
         scroll.content = content;
         scroll.movementType = ScrollRect.MovementType.Clamped;
 
+        (Scrollbar scrollbar, RectTransform scrollbarRect) = CreateVerticalScrollbar(root);
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        scroll.verticalScrollbarSpacing = 2f;
+        scrollbarRect.SetAsLastSibling();
+
         SetLocalTopLeftRect(viewport, 0f, 0f, 100f, 100f);
 
         return (scroll, viewport, content);
     }
 
-    private void ConfigureButtonColors(Button button)
+    private void ApplyButtonColors(Button button)
     {
         ColorBlock colors = button.colors;
         colors.normalColor = UiButtonColor;
@@ -1038,18 +1556,163 @@ internal sealed class LanOverlayController : ILanOverlayController
         colors.disabledColor = UiDisabledColor;
         colors.selectedColor = colors.highlightedColor;
         colors.fadeDuration = 0.1f;
+        colors.colorMultiplier = 1f;
         button.colors = colors;
     }
 
-    private Sprite EnsureRoundedSprite()
+    private static void ApplyButtonVisualState(Button? button, TMP_Text? label)
     {
-        if (_solidSprite != null)
+        if (button == null)
         {
-            return _solidSprite;
+            return;
+        }
+
+        bool enabled = button.interactable;
+
+        if (label != null)
+        {
+            label.color = enabled
+                ? UiTextColor
+                : UiButtonTextDisabledColor;
+        }
+
+        Transform frameTransform = button.transform.Find("ButtonFrame");
+
+        if (frameTransform?.GetComponent<Image>() is Image frameImage)
+        {
+            frameImage.color = enabled
+                ? UiButtonBorderColor
+                : UiButtonBorderDisabledColor;
+        }
+    }
+
+    private Image CreateFramedButtonBackground(RectTransform buttonRoot)
+    {
+        RectTransform frameRect = CreateUiRect("ButtonFrame", buttonRoot);
+        Image frameImage = frameRect.gameObject.AddComponent<Image>();
+        frameImage.sprite = EnsureRoundedSprite(ButtonCornerRadius);
+        frameImage.type = Image.Type.Sliced;
+        frameImage.color = UiButtonBorderColor;
+        frameImage.raycastTarget = false;
+        SetFillRect(frameRect);
+        frameRect.SetAsFirstSibling();
+
+        RectTransform fillRect = CreateUiRect("ButtonFill", buttonRoot);
+        Image fillImage = fillRect.gameObject.AddComponent<Image>();
+        int fillRadius = Math.Max(0, ButtonCornerRadius - Mathf.CeilToInt(ButtonFrameThickness));
+        fillImage.sprite = EnsureRoundedSprite(fillRadius);
+        fillImage.type = Image.Type.Sliced;
+        fillImage.color = Color.white;
+
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.pivot = new Vector2(0.5f, 0.5f);
+        fillRect.offsetMin = new Vector2(ButtonFrameThickness, ButtonFrameThickness);
+        fillRect.offsetMax = new Vector2(-ButtonFrameThickness, -ButtonFrameThickness);
+        fillRect.anchoredPosition = Vector2.zero;
+        fillRect.SetSiblingIndex(1);
+
+        return fillImage;
+    }
+
+    private (Scrollbar scrollbar, RectTransform root) CreateVerticalScrollbar(RectTransform parent)
+    {
+        RectTransform root = CreateUiRect("VerticalScrollbar", parent);
+        root.anchorMin = new Vector2(1f, 0f);
+        root.anchorMax = new Vector2(1f, 1f);
+        root.pivot = new Vector2(1f, 1f);
+        root.offsetMin = new Vector2(-ScrollbarWidth - ScrollbarOuterPadding, ScrollbarOuterPadding);
+        root.offsetMax = new Vector2(-ScrollbarOuterPadding, -ScrollbarOuterPadding);
+
+        Image trackImage = root.gameObject.AddComponent<Image>();
+        trackImage.sprite = EnsureRoundedSprite(ScrollViewportCornerRadius);
+        trackImage.type = Image.Type.Sliced;
+        trackImage.color = UiScrollbarTrackColor;
+        // AddBorder(trackImage, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha: false);
+
+        Scrollbar scrollbar = root.gameObject.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+        RectTransform slidingArea = CreateUiRect("SlidingArea", root);
+        slidingArea.anchorMin = Vector2.zero;
+        slidingArea.anchorMax = Vector2.one;
+        slidingArea.pivot = new Vector2(0.5f, 0.5f);
+        slidingArea.offsetMin = new Vector2(ScrollbarPadding, ScrollbarPadding);
+        slidingArea.offsetMax = new Vector2(-ScrollbarPadding, -ScrollbarPadding);
+
+        RectTransform handle = CreateUiRect("Handle", slidingArea);
+        handle.anchorMin = Vector2.zero;
+        handle.anchorMax = Vector2.one;
+        handle.pivot = new Vector2(0.5f, 0.5f);
+        handle.offsetMin = Vector2.zero;
+        handle.offsetMax = Vector2.zero;
+
+        Image handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.sprite = EnsureRoundedSprite(ScrollViewportCornerRadius);
+        handleImage.type = Image.Type.Sliced;
+        handleImage.color = UiScrollbarHandleColor;
+
+        scrollbar.targetGraphic = handleImage;
+        scrollbar.handleRect = handle;
+        scrollbar.size = 0.25f;
+
+        return (scrollbar, root);
+    }
+
+    private static string BuildSessionPrimaryLine(LanSessionInfo session)
+    {
+        return $"{session.RoomName} by {session.HostDisplayName}";
+    }
+
+    private static float CalculateSessionListHeight(int rowCount)
+    {
+        if (rowCount <= 0)
+        {
+            return 0f;
+        }
+
+        return (rowCount * SessionRowHeight) + ((rowCount - 1) * SessionRowGap);
+    }
+
+    private static float CalculateSessionListContentHeight(int rowCount)
+    {
+        if (rowCount <= 0)
+        {
+            return 0f;
+        }
+
+        return CalculateSessionListHeight(rowCount)
+            + (SessionListItemBorderGapY * 2f);
+    }
+
+    private static string BuildSessionSecondaryLine(LanSessionInfo session)
+    {
+        string compatibility = session.IsCompatible
+            ? "Compatible"
+            : session.IncompatibilityReason;
+        return $"{session.NameServerAddress}:{session.NameServerPort} | {compatibility} | Scene: {session.Scene}";
+    }
+
+    private static string BuildSessionPlayerCountLine(LanSessionInfo session)
+    {
+        if (session.CurrentPlayers < 0 || session.MaxPlayers <= 0)
+        {
+            return "?/?";
+        }
+
+        return $"{session.CurrentPlayers}/{session.MaxPlayers}";
+    }
+
+    private Sprite EnsureRoundedSprite(int radius)
+    {
+        if (_roundedSprites.TryGetValue(radius, out Sprite? cachedSprite)
+            && cachedSprite != null)
+        {
+            return cachedSprite;
         }
 
         const int size = 24;
-        const int radius = 5;
+        int resolvedRadius = Mathf.Clamp(radius, 0, size / 2);
 
         Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
         {
@@ -1060,24 +1723,25 @@ internal sealed class LanOverlayController : ILanOverlayController
         {
             for (int x = 0; x < size; x++)
             {
-                bool opaque = IsInsideRoundedRect(x, y, size, radius);
+                bool opaque = IsInsideRoundedRect(x, y, size, resolvedRadius);
                 texture.SetPixel(x, y, opaque ? Color.white : Color.clear);
             }
         }
 
         texture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
-        _solidSprite = Sprite.Create(
+        Sprite sprite = Sprite.Create(
             texture,
             new Rect(0f, 0f, size, size),
             new Vector2(0.5f, 0.5f),
             100f,
             0,
             SpriteMeshType.FullRect,
-            new Vector4(radius, radius, radius, radius));
+            new Vector4(resolvedRadius, resolvedRadius, resolvedRadius, resolvedRadius));
 
-        _solidSprite.hideFlags = HideFlags.HideAndDontSave;
-        return _solidSprite;
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        _roundedSprites[resolvedRadius] = sprite;
+        return sprite;
     }
 
     private static bool IsInsideRoundedRect(
@@ -1110,11 +1774,62 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private static void AddFaintBorder(Graphic graphic)
     {
+        AddFaintBorder(graphic, useGraphicAlpha: true);
+    }
+
+    private static void AddFaintBorder(
+        Graphic graphic,
+        bool useGraphicAlpha)
+    {
+        AddBorder(graphic, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha);
+    }
+
+    private static void AddBorder(
+        Graphic graphic,
+        Color borderColor,
+        Vector2 effectDistance,
+        bool useGraphicAlpha = true)
+    {
         Outline border = graphic.gameObject.GetComponent<Outline>()
             ?? graphic.gameObject.AddComponent<Outline>();
-        border.effectColor = UiBorderColor;
-        border.effectDistance = new Vector2(1f, -1f);
-        border.useGraphicAlpha = true;
+        border.effectColor = borderColor;
+        border.effectDistance = effectDistance;
+        border.useGraphicAlpha = useGraphicAlpha;
+    }
+
+    private Image CreateFramedPanelBackground(
+        RectTransform panelRoot,
+        int cornerRadius,
+        Color fillColor,
+        Color borderColor,
+        float borderThickness)
+    {
+        RectTransform frameRect = CreateUiRect("Frame", panelRoot);
+        Image frameImage = frameRect.gameObject.AddComponent<Image>();
+        frameImage.sprite = EnsureRoundedSprite(cornerRadius);
+        frameImage.type = Image.Type.Sliced;
+        frameImage.color = borderColor;
+        frameImage.raycastTarget = false;
+        SetFillRect(frameRect);
+        frameRect.SetAsFirstSibling();
+
+        RectTransform fillRect = CreateUiRect("Fill", panelRoot);
+        Image fillImage = fillRect.gameObject.AddComponent<Image>();
+        int fillRadius = Math.Max(0, cornerRadius - Mathf.CeilToInt(borderThickness));
+        fillImage.sprite = EnsureRoundedSprite(fillRadius);
+        fillImage.type = Image.Type.Sliced;
+        fillImage.color = fillColor;
+        fillImage.raycastTarget = false;
+
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.pivot = new Vector2(0.5f, 0.5f);
+        fillRect.offsetMin = new Vector2(borderThickness, borderThickness);
+        fillRect.offsetMax = new Vector2(-borderThickness, -borderThickness);
+        fillRect.anchoredPosition = Vector2.zero;
+        fillRect.SetSiblingIndex(1);
+
+        return fillImage;
     }
 
     private static void SetAbsoluteTopLeftRect(
@@ -1167,6 +1882,11 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (_adminPanelRect != null)
         {
             _adminPanelRect.gameObject.SetActive(active && _adminPanelRect.gameObject.activeSelf);
+        }
+
+        if (_statePanelRect != null)
+        {
+            _statePanelRect.gameObject.SetActive(active && _statePanelRect.gameObject.activeSelf);
         }
     }
 
@@ -1410,12 +2130,16 @@ internal sealed class LanOverlayController : ILanOverlayController
             RectTransform root,
             Image background,
             Button button,
-            TMP_Text label)
+            TMP_Text primaryLabel,
+            TMP_Text secondaryLabel,
+            TMP_Text playerCountLabel)
         {
             Root = root;
             Background = background;
             Button = button;
-            Label = label;
+            PrimaryLabel = primaryLabel;
+            SecondaryLabel = secondaryLabel;
+            PlayerCountLabel = playerCountLabel;
         }
 
         internal RectTransform Root { get; }
@@ -1424,6 +2148,10 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         internal Button Button { get; }
 
-        internal TMP_Text Label { get; }
+        internal TMP_Text PrimaryLabel { get; }
+
+        internal TMP_Text SecondaryLabel { get; }
+
+        internal TMP_Text PlayerCountLabel { get; }
     }
 }
