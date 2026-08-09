@@ -168,7 +168,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private static readonly Color UiTextColor = new(0.88f, 0.82f, 0.71f, 1f);
     private static readonly Color UiPanelLayerColor = new(0.10f, 0.09f, 0.08f);
     private static readonly Color UiPanelColor = UiPanelLayerColor;
-    // private static readonly Color UiPanelColor = new(0.05f, 0.05f, 0.05f, 0.90f);
+    // private static readonly Color UiPanelColor = new(0.01f, 0.01f, 0.01f, 0.90f);
     private static readonly Color UiButtonColor = new(0.33f, 0.25f, 0.16f, 1f);
     private static readonly Color UiButtonHoverColor = Brighten(UiButtonColor, 0.05f);
     private static readonly Color UiButtonPressedColor = Darken(UiButtonColor, 0.08f);
@@ -181,7 +181,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private static readonly Color UiSessionRowSecondarySelectedColor = UiTextColor;
     private static readonly Color UiSessionRowCountColor = UiTextColor;
     private static readonly Color UiSessionRowCountSelectedColor = UiSessionRowPrimarySelectedColor;
-    private static readonly Color UiMainBorderColor = new(0.74f, 0.62f, 0.46f, 0.7f);
+    private static readonly Color UiMainBorderColor = new(0.74f, 0.62f, 0.46f, 0.8f);
     private static readonly Color UiFaintBorderColor = new(0.43f, 0.35f, 0.27f, 0.62f);
     private static readonly Color UiButtonBorderColor = new(0.78f, 0.64f, 0.49f, 0.70f);
     private static readonly Color UiButtonBorderDisabledColor = new(0.33f, 0.28f, 0.22f, 0.85f);
