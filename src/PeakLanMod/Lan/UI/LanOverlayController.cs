@@ -108,7 +108,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private const float RefreshButtonWidth = 172f;
 
     private const float SessionRowHeight = 58f;
-    private const float SessionRowGap = 6f;
+    private const float SessionRowGap = 8f;
     private const int MaxVisibleSessionRows = 6;
     private const float SessionListItemBorderGapX = 8f;
     private const float SessionListItemBorderGapY = 8f;
@@ -129,6 +129,8 @@ internal sealed class LanOverlayController : ILanOverlayController
     private const int SessionRowCornerRadius = MediumCornerRadius;
     private const int ScrollRegionCornerRadius = MediumCornerRadius;
     private const int ScrollViewportCornerRadius = MediumCornerRadius;
+    private const float MainPanelFrameThickness = 3f;
+    private const float SecondaryPanelFrameThickness = 3f;
 
     private const float StatePanelGap = 12f;
     private const float StatePanelExpandedHeight = 196f;
@@ -142,6 +144,10 @@ internal sealed class LanOverlayController : ILanOverlayController
     private const float StateLogTextInsetX = 8f;
     private const float StateLogTextInsetTop = 5f;
     private const float StateLogTextInsetBottom = 6f;
+    private const float ScrollbarWidth = 12f;
+    private const float ScrollbarPadding = 2f;
+    private const float ScrollbarOuterPadding = 3f;
+    private const float ButtonFrameThickness = 2f;
 
     private const float AdminPanelGap = 24f;
     private const float AdminPanelMinWidth = 340f;
@@ -158,37 +164,45 @@ internal sealed class LanOverlayController : ILanOverlayController
     private const float SessionPrimaryFontSize = 18f;
     private const float SessionSecondaryFontSize = 14f;
     private const float ButtonFontSize = 18f;
-    
-    private static readonly Color Transparent = new(0f, 0f, 0f, 0f);
+
     private static readonly Color UiTextColor = new(0.88f, 0.82f, 0.71f, 1f);
-    private static readonly Color UiPanelColor = new(0.11f, 0.09f, 0.09f, 0.70f);
-    private static readonly Color UiButtonColor = new(0.24f, 0.19f, 0.12f, 0.80f);
-    private static readonly Color UiButtonHoverColor = Brighten(UiButtonColor, .1f);
-    private static readonly Color UiButtonPressedColor = Thinner(UiButtonColor, .6f);
-    private static readonly Color UiDisabledColor = new(0.20f, 0.16f, 0.13f, 0.50f);
+    private static readonly Color UiPanelLayerColor = new(0.10f, 0.09f, 0.08f);
+    private static readonly Color UiPanelColor = UiPanelLayerColor;
+    // private static readonly Color UiPanelColor = new(0.05f, 0.05f, 0.05f, 0.90f);
+    private static readonly Color UiButtonColor = new(0.33f, 0.25f, 0.16f, 1f);
+    private static readonly Color UiButtonHoverColor = Brighten(UiButtonColor, 0.05f);
+    private static readonly Color UiButtonPressedColor = Darken(UiButtonColor, 0.08f);
+    private static readonly Color UiDisabledColor = new(0.16f, 0.13f, 0.1f, 0.92f);
     private static readonly Color UiFieldColor = UiDisabledColor;
-    private static readonly Color UiSessionRowColor = Transparent;
-    private static readonly Color UiSessionRowSelectedColor = UiTextColor;
-    private static readonly Color UiSessionRowPrimarySelectedColor = Brighten(UiTextColor, .1f);
-    private static readonly Color UiSessionRowSecondaryColor = UiTextColor;
-    private static readonly Color UiSessionRowSecondarySelectedColor = Brighten(UiTextColor, .1f);
+    private static readonly Color UiSessionRowColor = UiPanelLayerColor;
+    private static readonly Color UiSessionRowSelectedColor = new(0.36f, 0.27f, 0.16f, 1.00f);
+    private static readonly Color UiSessionRowPrimarySelectedColor = Brighten(UiTextColor, 0.1f);
+    private static readonly Color UiSessionRowSecondaryColor = Darken(UiTextColor, 0.1f);
+    private static readonly Color UiSessionRowSecondarySelectedColor = UiTextColor;
     private static readonly Color UiSessionRowCountColor = UiTextColor;
-    private static readonly Color UiSessionRowCountSelectedColor = Brighten(UiTextColor, .1f);
-    private static readonly Color UiSessionRowBorderColor = UiFaintBorderColor;
-    private static readonly Color UiSessionRowSelectedBorderColor = UiBorderMainColor;
-    private static readonly Color UiBorderMainColor = new(0.55f, 0.44f, 0.34f, 0.80f);
-    private static readonly Color UiFaintBorderColor = new(0.37f, 0.33f, 0.27f, 0.80f);
-    private static readonly Vector2 UiThinBorderEffectDistance = new(2f, -2f);
+    private static readonly Color UiSessionRowCountSelectedColor = UiSessionRowPrimarySelectedColor;
+    private static readonly Color UiMainBorderColor = new(0.74f, 0.62f, 0.46f, 0.7f);
+    private static readonly Color UiFaintBorderColor = new(0.43f, 0.35f, 0.27f, 0.62f);
+    private static readonly Color UiButtonBorderColor = new(0.78f, 0.64f, 0.49f, 0.70f);
+    private static readonly Color UiButtonBorderDisabledColor = new(0.33f, 0.28f, 0.22f, 0.85f);
+    private static readonly Color UiButtonTextDisabledColor = new(0.55f, 0.5f, 0.42f, 0.9f);
+    private static readonly Color UiRowBorderColor = UiFaintBorderColor;
+    private static readonly Color UiRowBorderSelectedColor = new(0.95f, 0.81f, 0.61f, 1f);
+    private static readonly Color UiScrollbarTrackColor = new(0.12f, 0.10f, 0.06f, 0.9f);
+    private static readonly Color UiScrollbarHandleColor = new(0.30f, 0.25f, 0.20f, 0.9f);
+    private static readonly Vector2 UiThinBorderEffectDistance = new(1.5f, -1.5f);
     private static readonly Vector2 UiThickBorderEffectDistance = new(3f, -3f);
+    private static readonly Vector2 UiButtonBorderEffectDistance = new(2f, -2f);
+    private static readonly Vector2 UiRowBorderEffectDistance = new(2f, -2f);
     private const int MaxClientStateLogEntries = 160;
 
     private static Color Brighten(Color color, float amount)
     {
-        return color + new Color(amount, amount, amount, 0f);
+        return color + new Color(amount, amount, amount);
     }
-    private static Color Thinner(Color color, float amount)
+    private static Color Darken(Color color, float amount)
     {
-        return color + new Color(0f,0f,0f, -amount);
+        return color + new Color(-amount, -amount, -amount);
     }
 
     internal LanOverlayController(
@@ -373,6 +387,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             : "+";
 
         _collapseButtonText!.text = collapseToggleLabel;
+        ApplyButtonVisualState(_collapseButton, _collapseButtonText);
         SetLocalTopLeftRect(_collapseButton!.GetComponent<RectTransform>(), panelWidth - 34f, 6f, 28f, 22f);
 
         _serverListTitleText!.gameObject.SetActive(showServerRows);
@@ -388,6 +403,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             : 34f;
 
         _hostButton!.interactable = canHostFromInput;
+        ApplyButtonVisualState(_hostButton, _hostButtonText);
         SetLocalTopLeftRect(_hostButton.GetComponent<RectTransform>(), PanelPaddingX, actionButtonY, HostButtonWidth, ActionBandHeight);
 
         if (showServerRows)
@@ -417,6 +433,8 @@ internal sealed class LanOverlayController : ILanOverlayController
         _joinButton!.gameObject.SetActive(showServerRows);
         _refreshButton!.gameObject.SetActive(showServerRows);
         _joinButton.interactable = canJoinSelected;
+        ApplyButtonVisualState(_joinButton, _joinButtonText);
+        ApplyButtonVisualState(_refreshButton, _refreshButtonText);
 
         if (showServerRows)
         {
@@ -554,10 +572,13 @@ internal sealed class LanOverlayController : ILanOverlayController
             else
             {
                 _sessionScrollRect.gameObject.SetActive(true);
+                Image scrollImage = _sessionScrollRect.GetComponent<Image>();
+                scrollImage.color = UiPanelLayerColor;
+
                 float listViewportWidth = panelWidth - (PanelPaddingX * 2f);
                 SetLocalTopLeftRect(_sessionScrollRect.GetComponent<RectTransform>(), PanelPaddingX, rowY, listViewportWidth, listViewportHeight);
                 SetLocalTopLeftRect(_sessionViewportRect!, 0f, 0f, listViewportWidth, listViewportHeight);
-                AddFaintBorder(_sessionScrollRect.GetComponent<Image>());
+                AddFaintBorder(_sessionScrollRect.GetComponent<Image>(), useGraphicAlpha: false);
 
                 float rowStride = SessionRowHeight + SessionRowGap;
                 float contentHeight = Math.Max(listViewportHeight, CalculateSessionListContentHeight(sessions.Count));
@@ -610,27 +631,22 @@ internal sealed class LanOverlayController : ILanOverlayController
                     row.PlayerCountLabel.text = BuildSessionPlayerCountLine(session);
 
                     bool isSelected = index == selectedIndex;
-                    row.Background.color = isSelected
-                        ? UiSessionRowSelectedColor
-                        : UiSessionRowColor;
-                    row.PrimaryLabel.color = isSelected
-                        ? UiSessionRowPrimarySelectedColor
-                        : UiTextColor;
-                    row.SecondaryLabel.color = isSelected
-                        ? UiSessionRowSecondarySelectedColor
-                        : UiSessionRowSecondaryColor;
-                    row.PlayerCountLabel.color = isSelected
-                        ? UiSessionRowCountSelectedColor
-                        : UiSessionRowCountColor;
-                    AddFaintBorder(row.Background);
 
-                    Outline? rowBorder = row.Background.GetComponent<Outline>();
-
-                    if (rowBorder != null)
+                    if (isSelected)
                     {
-                        rowBorder.effectColor = isSelected
-                            ? UiSessionRowSelectedBorderColor
-                            : UiSessionRowBorderColor;
+                        row.Background.color = UiSessionRowSelectedColor;
+                        row.PrimaryLabel.color = UiSessionRowPrimarySelectedColor;
+                        row.SecondaryLabel.color = UiSessionRowSecondarySelectedColor;
+                        row.PlayerCountLabel.color = UiSessionRowCountSelectedColor;
+                        AddBorder(row.Background, UiRowBorderSelectedColor, UiRowBorderEffectDistance, false);
+                    }
+                    else
+                    {
+                        row.Background.color = UiSessionRowColor;
+                        row.PrimaryLabel.color = UiTextColor;
+                        row.SecondaryLabel.color = UiSessionRowSecondaryColor;
+                        row.PlayerCountLabel.color = UiSessionRowCountColor;
+                        AddBorder(row.Background, UiRowBorderColor, UiRowBorderEffectDistance, false);
                     }
                 }
 
@@ -961,10 +977,11 @@ internal sealed class LanOverlayController : ILanOverlayController
             Image rowImage = rowRoot.gameObject.AddComponent<Image>();
             rowImage.sprite = EnsureRoundedSprite(SessionRowCornerRadius);
             rowImage.type = Image.Type.Sliced;
-            AddFaintBorder(rowImage);
+            AddFaintBorder(rowImage, useGraphicAlpha: false);
 
             Button rowButton = rowRoot.gameObject.AddComponent<Button>();
             ApplyButtonColors(rowButton);
+            rowButton.transition = Selectable.Transition.None;
             rowButton.onClick.AddListener(() => OnSessionRowClicked(rowIndex));
 
             TMP_Text primaryLabel = CreateTmpText(
@@ -1035,11 +1052,12 @@ internal sealed class LanOverlayController : ILanOverlayController
         }
 
         _panelRect = CreateUiRect("LanPanel", canvas.transform);
-        _panelImage = _panelRect.gameObject.AddComponent<Image>();
-        _panelImage.sprite = EnsureRoundedSprite(MainPanelCornerRadius);
-        _panelImage.type = Image.Type.Sliced;
-        _panelImage.color = UiPanelColor;
-        AddBorder(_panelImage, UiBorderMainColor, UiThickBorderEffectDistance);
+        _panelImage = CreateFramedPanelBackground(
+            _panelRect,
+            MainPanelCornerRadius,
+            UiPanelColor,
+            UiMainBorderColor,
+            MainPanelFrameThickness);
 
         (_collapseButton, _collapseButtonText) = CreateButton(
             "CollapseButton",
@@ -1134,11 +1152,12 @@ internal sealed class LanOverlayController : ILanOverlayController
             FontStyles.Normal);
 
         _statePanelRect = CreateUiRect("ClientStatePanel", canvas.transform);
-        _statePanelImage = _statePanelRect.gameObject.AddComponent<Image>();
-        _statePanelImage.sprite = EnsureRoundedSprite(SecondaryPanelCornerRadius);
-        _statePanelImage.type = Image.Type.Sliced;
-        _statePanelImage.color = UiPanelColor;
-        AddBorder(_statePanelImage, UiBorderMainColor, UiThickBorderEffectDistance);
+        _statePanelImage = CreateFramedPanelBackground(
+            _statePanelRect,
+            SecondaryPanelCornerRadius,
+            UiPanelColor,
+            UiMainBorderColor,
+            SecondaryPanelFrameThickness);
 
         _stateTitleText = CreateTmpText(
             "StateTitle",
@@ -1166,14 +1185,14 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (stateLogRootImage != null)
         {
-            AddBorder(stateLogRootImage, UiFaintBorderColor, UiThinBorderEffectDistance);
+            AddBorder(stateLogRootImage, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha: false);
         }
 
         Image? stateLogViewportImage = _stateLogViewportRect.GetComponent<Image>();
 
         if (stateLogViewportImage != null)
         {
-            AddBorder(stateLogViewportImage, UiBorderMainColor, UiThinBorderEffectDistance);
+            AddBorder(stateLogViewportImage, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha: false);
         }
 
         _stateLogBodyText = CreateTmpText(
@@ -1189,11 +1208,12 @@ internal sealed class LanOverlayController : ILanOverlayController
         _stateLogBodyText.richText = false;
 
         _adminPanelRect = CreateUiRect("AdminPanel", canvas.transform);
-        _adminPanelImage = _adminPanelRect.gameObject.AddComponent<Image>();
-        _adminPanelImage.sprite = EnsureRoundedSprite(SecondaryPanelCornerRadius);
-        _adminPanelImage.type = Image.Type.Sliced;
-        _adminPanelImage.color = UiPanelColor;
-        AddBorder(_adminPanelImage, UiBorderMainColor, UiThickBorderEffectDistance);
+        _adminPanelImage = CreateFramedPanelBackground(
+            _adminPanelRect,
+            SecondaryPanelCornerRadius,
+            UiPanelColor,
+            UiMainBorderColor,
+            SecondaryPanelFrameThickness);
 
         _adminTitleText = CreateTmpText(
             "AdminTitle",
@@ -1393,13 +1413,13 @@ internal sealed class LanOverlayController : ILanOverlayController
         input.characterLimit = 64;
         input.customCaretColor = true;
         input.caretColor = UiTextColor;
-        input.selectionColor = Thinner(UiTextColor, .5f);
+        input.selectionColor = Darken(UiTextColor, .5f);
         input.caretWidth = 3;
         input.caretBlinkRate = 0.85f;
 
         RectTransform textViewport = CreateUiRect("TextViewport", root);
         Image viewportImage = textViewport.gameObject.AddComponent<Image>();
-        viewportImage.color = new Color(0f, 0f, 0f, 0.002f);
+        viewportImage.color = UiFieldColor;
         textViewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
         // Fill full input width while keeping a small inset for text legibility.
@@ -1432,7 +1452,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             18,
             FontStyle.Italic,
             TextAnchor.MiddleLeft);
-        placeholder.color = Thinner(UiTextColor, .2f);
+        placeholder.color = Darken(UiTextColor, .2f);
         placeholder.raycastTarget = false;
         placeholder.supportRichText = false;
 
@@ -1457,13 +1477,11 @@ internal sealed class LanOverlayController : ILanOverlayController
         Action? onClick)
     {
         RectTransform root = CreateUiRect(name, parent);
-        Image bg = root.gameObject.AddComponent<Image>();
-        bg.sprite = EnsureRoundedSprite(ButtonCornerRadius);
-        bg.type = Image.Type.Sliced;
-        bg.color = UiButtonColor;
-        AddFaintBorder(bg);
+        root.gameObject.AddComponent<Image>().color = Color.clear;
+        Image bg = CreateFramedButtonBackground(root);
 
         Button button = root.gameObject.AddComponent<Button>();
+        button.targetGraphic = bg;
         ApplyButtonColors(button);
 
         if (onClick != null)
@@ -1492,18 +1510,19 @@ internal sealed class LanOverlayController : ILanOverlayController
         Image bg = root.gameObject.AddComponent<Image>();
         bg.sprite = EnsureRoundedSprite(ScrollRegionCornerRadius);
         bg.type = Image.Type.Sliced;
-        bg.color = Transparent;
-        AddFaintBorder(bg);
+        bg.color = UiPanelLayerColor;
+        AddFaintBorder(bg, useGraphicAlpha: false);
 
         ScrollRect scroll = root.gameObject.AddComponent<ScrollRect>();
         scroll.horizontal = false;
+        scroll.vertical = true;
 
         RectTransform viewport = CreateUiRect("Viewport", root);
         Image viewportImage = viewport.gameObject.AddComponent<Image>();
         viewportImage.sprite = EnsureRoundedSprite(ScrollViewportCornerRadius);
         viewportImage.type = Image.Type.Sliced;
-        viewportImage.color = Transparent;
-        AddFaintBorder(viewportImage);
+        viewportImage.color = UiPanelLayerColor;
+        AddFaintBorder(viewportImage, useGraphicAlpha: false);
         viewport.gameObject.AddComponent<RectMask2D>();
 
         RectTransform content = CreateUiRect("Content", viewport);
@@ -1516,6 +1535,12 @@ internal sealed class LanOverlayController : ILanOverlayController
         scroll.viewport = viewport;
         scroll.content = content;
         scroll.movementType = ScrollRect.MovementType.Clamped;
+
+        (Scrollbar scrollbar, RectTransform scrollbarRect) = CreateVerticalScrollbar(root);
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        scroll.verticalScrollbarSpacing = 2f;
+        scrollbarRect.SetAsLastSibling();
 
         SetLocalTopLeftRect(viewport, 0f, 0f, 100f, 100f);
 
@@ -1531,7 +1556,107 @@ internal sealed class LanOverlayController : ILanOverlayController
         colors.disabledColor = UiDisabledColor;
         colors.selectedColor = colors.highlightedColor;
         colors.fadeDuration = 0.1f;
+        colors.colorMultiplier = 1f;
         button.colors = colors;
+    }
+
+    private static void ApplyButtonVisualState(Button? button, TMP_Text? label)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        bool enabled = button.interactable;
+
+        if (label != null)
+        {
+            label.color = enabled
+                ? UiTextColor
+                : UiButtonTextDisabledColor;
+        }
+
+        Transform frameTransform = button.transform.Find("ButtonFrame");
+
+        if (frameTransform?.GetComponent<Image>() is Image frameImage)
+        {
+            frameImage.color = enabled
+                ? UiButtonBorderColor
+                : UiButtonBorderDisabledColor;
+        }
+    }
+
+    private Image CreateFramedButtonBackground(RectTransform buttonRoot)
+    {
+        RectTransform frameRect = CreateUiRect("ButtonFrame", buttonRoot);
+        Image frameImage = frameRect.gameObject.AddComponent<Image>();
+        frameImage.sprite = EnsureRoundedSprite(ButtonCornerRadius);
+        frameImage.type = Image.Type.Sliced;
+        frameImage.color = UiButtonBorderColor;
+        frameImage.raycastTarget = false;
+        SetFillRect(frameRect);
+        frameRect.SetAsFirstSibling();
+
+        RectTransform fillRect = CreateUiRect("ButtonFill", buttonRoot);
+        Image fillImage = fillRect.gameObject.AddComponent<Image>();
+        int fillRadius = Math.Max(0, ButtonCornerRadius - Mathf.CeilToInt(ButtonFrameThickness));
+        fillImage.sprite = EnsureRoundedSprite(fillRadius);
+        fillImage.type = Image.Type.Sliced;
+        fillImage.color = Color.white;
+
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.pivot = new Vector2(0.5f, 0.5f);
+        fillRect.offsetMin = new Vector2(ButtonFrameThickness, ButtonFrameThickness);
+        fillRect.offsetMax = new Vector2(-ButtonFrameThickness, -ButtonFrameThickness);
+        fillRect.anchoredPosition = Vector2.zero;
+        fillRect.SetSiblingIndex(1);
+
+        return fillImage;
+    }
+
+    private (Scrollbar scrollbar, RectTransform root) CreateVerticalScrollbar(RectTransform parent)
+    {
+        RectTransform root = CreateUiRect("VerticalScrollbar", parent);
+        root.anchorMin = new Vector2(1f, 0f);
+        root.anchorMax = new Vector2(1f, 1f);
+        root.pivot = new Vector2(1f, 1f);
+        root.offsetMin = new Vector2(-ScrollbarWidth - ScrollbarOuterPadding, ScrollbarOuterPadding);
+        root.offsetMax = new Vector2(-ScrollbarOuterPadding, -ScrollbarOuterPadding);
+
+        Image trackImage = root.gameObject.AddComponent<Image>();
+        trackImage.sprite = EnsureRoundedSprite(ScrollViewportCornerRadius);
+        trackImage.type = Image.Type.Sliced;
+        trackImage.color = UiScrollbarTrackColor;
+        // AddBorder(trackImage, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha: false);
+
+        Scrollbar scrollbar = root.gameObject.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+        RectTransform slidingArea = CreateUiRect("SlidingArea", root);
+        slidingArea.anchorMin = Vector2.zero;
+        slidingArea.anchorMax = Vector2.one;
+        slidingArea.pivot = new Vector2(0.5f, 0.5f);
+        slidingArea.offsetMin = new Vector2(ScrollbarPadding, ScrollbarPadding);
+        slidingArea.offsetMax = new Vector2(-ScrollbarPadding, -ScrollbarPadding);
+
+        RectTransform handle = CreateUiRect("Handle", slidingArea);
+        handle.anchorMin = Vector2.zero;
+        handle.anchorMax = Vector2.one;
+        handle.pivot = new Vector2(0.5f, 0.5f);
+        handle.offsetMin = Vector2.zero;
+        handle.offsetMax = Vector2.zero;
+
+        Image handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.sprite = EnsureRoundedSprite(ScrollViewportCornerRadius);
+        handleImage.type = Image.Type.Sliced;
+        handleImage.color = UiScrollbarHandleColor;
+
+        scrollbar.targetGraphic = handleImage;
+        scrollbar.handleRect = handle;
+        scrollbar.size = 0.25f;
+
+        return (scrollbar, root);
     }
 
     private static string BuildSessionPrimaryLine(LanSessionInfo session)
@@ -1649,19 +1774,62 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private static void AddFaintBorder(Graphic graphic)
     {
-        AddBorder(graphic, UiFaintBorderColor, UiThinBorderEffectDistance);
+        AddFaintBorder(graphic, useGraphicAlpha: true);
+    }
+
+    private static void AddFaintBorder(
+        Graphic graphic,
+        bool useGraphicAlpha)
+    {
+        AddBorder(graphic, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha);
     }
 
     private static void AddBorder(
         Graphic graphic,
         Color borderColor,
-        Vector2 effectDistance)
+        Vector2 effectDistance,
+        bool useGraphicAlpha = true)
     {
         Outline border = graphic.gameObject.GetComponent<Outline>()
             ?? graphic.gameObject.AddComponent<Outline>();
         border.effectColor = borderColor;
         border.effectDistance = effectDistance;
-        border.useGraphicAlpha = true;
+        border.useGraphicAlpha = useGraphicAlpha;
+    }
+
+    private Image CreateFramedPanelBackground(
+        RectTransform panelRoot,
+        int cornerRadius,
+        Color fillColor,
+        Color borderColor,
+        float borderThickness)
+    {
+        RectTransform frameRect = CreateUiRect("Frame", panelRoot);
+        Image frameImage = frameRect.gameObject.AddComponent<Image>();
+        frameImage.sprite = EnsureRoundedSprite(cornerRadius);
+        frameImage.type = Image.Type.Sliced;
+        frameImage.color = borderColor;
+        frameImage.raycastTarget = false;
+        SetFillRect(frameRect);
+        frameRect.SetAsFirstSibling();
+
+        RectTransform fillRect = CreateUiRect("Fill", panelRoot);
+        Image fillImage = fillRect.gameObject.AddComponent<Image>();
+        int fillRadius = Math.Max(0, cornerRadius - Mathf.CeilToInt(borderThickness));
+        fillImage.sprite = EnsureRoundedSprite(fillRadius);
+        fillImage.type = Image.Type.Sliced;
+        fillImage.color = fillColor;
+        fillImage.raycastTarget = false;
+
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.pivot = new Vector2(0.5f, 0.5f);
+        fillRect.offsetMin = new Vector2(borderThickness, borderThickness);
+        fillRect.offsetMax = new Vector2(-borderThickness, -borderThickness);
+        fillRect.anchoredPosition = Vector2.zero;
+        fillRect.SetSiblingIndex(1);
+
+        return fillImage;
     }
 
     private static void SetAbsoluteTopLeftRect(
