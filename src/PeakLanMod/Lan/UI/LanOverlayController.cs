@@ -42,6 +42,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private Image? _panelImage;
     private Button? _collapseButton;
     private TMP_Text? _collapseButtonText;
+    private TMP_Text? _serverListTitleText;
 
     private TMP_Text? _roomNameLabelText;
     private InputField? _roomNameInput;
@@ -258,6 +259,14 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         _collapseButtonText!.text = collapseToggleLabel;
         SetLocalTopLeftRect(_collapseButton!.GetComponent<RectTransform>(), panelWidth - 24f, 2f, 22f, 22f);
+
+        _serverListTitleText!.gameObject.SetActive(showServerRows);
+
+        if (showServerRows)
+        {
+            _serverListTitleText.text = "SERVER LIST";
+            SetLocalTopLeftRect(_serverListTitleText.GetComponent<RectTransform>(), 12f, 8f, 220f, 20f);
+        }
 
         float actionButtonY = showServerRows
             ? 80f
@@ -804,6 +813,14 @@ internal sealed class LanOverlayController : ILanOverlayController
             16f,
             FontStyles.Normal,
             OnCollapseClicked);
+
+        _serverListTitleText = CreateTmpText(
+            "ServerListTitle",
+            _panelRect,
+            "SERVER LIST",
+            TextAlignmentOptions.TopLeft,
+            18f,
+            FontStyles.Normal);
 
         _roomNameLabelText = CreateTmpText(
             "RoomNameLabel",
