@@ -37,7 +37,11 @@ internal sealed class LanStatusPresenterBridge
             ? "Compatible"
             : session.IncompatibilityReason;
 
-        return $"{displayIndex}. {session.RoomName} @ {session.NameServerAddress}:{session.NameServerPort} [{session.Transport}] {compatibility} Scene={session.Scene}";
+        string occupancy = BuildOccupancyDisplay(
+            session.CurrentPlayers,
+            session.MaxPlayers);
+
+        return $"{displayIndex}. {session.RoomName} ({occupancy}) @ {session.NameServerAddress}:{session.NameServerPort} [{session.Transport}] {compatibility} Scene={session.Scene}";
     }
 
     internal string BuildAdminTelemetryPanelData(
@@ -60,6 +64,8 @@ internal sealed class LanStatusPresenterBridge
             (nameof(session.GameVersion), session.GameVersion),
             (nameof(session.ModVersion), session.ModVersion),
             (nameof(session.SchemaVersion), session.SchemaVersion),
+            (nameof(session.CurrentPlayers), FormatOccupancyValue(session.CurrentPlayers)),
+            (nameof(session.MaxPlayers), FormatOccupancyValue(session.MaxPlayers)),
             (nameof(session.SentAtUtc), session.SentAtUtc),
             (nameof(session.FirstSeenUtc), session.FirstSeenUtc),
             (nameof(session.LastSeenUtc), session.LastSeenUtc),
@@ -102,5 +108,22 @@ internal sealed class LanStatusPresenterBridge
             null => string.Empty,
             _ => value.ToString() ?? string.Empty
         };
+    }
+
+    private static string BuildOccupancyDisplay(
+        int currentPlayers,
+        int maxPlayers)
+    {
+        string current = FormatOccupancyValue(currentPlayers);
+        string max = FormatOccupancyValue(maxPlayers);
+        return $"{current}/{max}";
+    }
+
+    private static string FormatOccupancyValue(
+        int value)
+    {
+        return value >= 0
+            ? value.ToString(CultureInfo.InvariantCulture)
+            : "?";
     }
 }

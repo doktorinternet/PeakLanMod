@@ -19,6 +19,8 @@ internal sealed class LanSessionInfo
         string gameVersion,
         string modVersion,
         int schemaVersion,
+        int currentPlayers,
+        int maxPlayers,
         DateTime sentAtUtc,
         DateTime firstSeenUtc,
         DateTime lastSeenUtc,
@@ -40,6 +42,8 @@ internal sealed class LanSessionInfo
         GameVersion = gameVersion;
         ModVersion = modVersion;
         SchemaVersion = schemaVersion;
+        CurrentPlayers = currentPlayers;
+        MaxPlayers = maxPlayers;
         SentAtUtc = sentAtUtc;
         FirstSeenUtc = firstSeenUtc;
         LastSeenUtc = lastSeenUtc;
@@ -62,6 +66,8 @@ internal sealed class LanSessionInfo
     internal string GameVersion { get; }
     internal string ModVersion { get; }
     internal int SchemaVersion { get; }
+    internal int CurrentPlayers { get; }
+    internal int MaxPlayers { get; }
     internal DateTime SentAtUtc { get; }
     internal DateTime FirstSeenUtc { get; }
     internal DateTime LastSeenUtc { get; }

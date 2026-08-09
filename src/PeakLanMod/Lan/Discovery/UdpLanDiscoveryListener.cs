@@ -222,6 +222,8 @@ internal sealed class UdpLanDiscoveryListener : IDisposable
                     gameVersion: announcement.GameVersion,
                     modVersion: announcement.ModVersion,
                     schemaVersion: announcement.SchemaVersion,
+                    currentPlayers: announcement.CurrentPlayers,
+                    maxPlayers: announcement.MaxPlayers,
                     sentAtUtc: announcement.SentAtUtc,
                     firstSeenUtc: nowUtc,
                     lastSeenUtc: nowUtc,

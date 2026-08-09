@@ -49,6 +49,7 @@ internal sealed class SimulatedLanDiscoverySnapshotProvider
             string hostName = HostNames[index % HostNames.Length];
             string scene = SceneNames[index % SceneNames.Length];
             DateTime sentAt = now.AddMilliseconds(-150 * (index % 5));
+            (int currentPlayers, int maxPlayers) = BuildSimulatedOccupancy(index);
 
             sessions[index] = new LanSessionInfo(
                 key: $"simulated-{serverInstanceId}",
@@ -65,6 +66,8 @@ internal sealed class SimulatedLanDiscoverySnapshotProvider
                 gameVersion: "simulated",
                 modVersion: Plugin.DisplayVersion,
                 schemaVersion: 1,
+                currentPlayers: currentPlayers,
+                maxPlayers: maxPlayers,
                 sentAtUtc: sentAt,
                 firstSeenUtc: sentAt,
                 lastSeenUtc: now,
@@ -74,5 +77,29 @@ internal sealed class SimulatedLanDiscoverySnapshotProvider
         }
 
         return sessions;
+    }
+
+    private static (int CurrentPlayers, int MaxPlayers) BuildSimulatedOccupancy(
+        int index)
+    {
+        if(index % 3 == 0)
+        {
+            return (-1, -1);
+        }
+
+        int maxPlayers = 4 + (index % 5);
+
+        if (index == 0)
+        {
+            return (maxPlayers - 1, maxPlayers);
+        }
+
+        if (index == 1)
+        {
+            return (maxPlayers, maxPlayers);
+        }
+
+        int currentPlayers = 1 + ((index * 2) % maxPlayers);
+        return (currentPlayers, maxPlayers);
     }
 }

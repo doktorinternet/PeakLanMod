@@ -227,11 +227,18 @@ Required fields:
 - `server_instance_id`: string
 - `sent_at_utc`: ISO-8601 string
 
+Optional rollout fields:
+
+- `current_players`: integer (`-1` when unknown)
+- `max_players`: integer (`-1` when unknown)
+
 Client-side behavior:
 
 - Deduplicate by `server_instance_id + room_name`.
 - Expire sessions not refreshed before TTL.
+- Accept missing occupancy fields for mixed-version sender compatibility during rollout.
 - Reject incompatible versions and surface explicit reason.
+- Disable join action in UI when occupancy is known and `current_players >= max_players`.
 
 ## Version compatibility rules
 
@@ -248,6 +255,11 @@ Structured incompatibility errors:
 - `IncompatibleProtocolVersion`
 - `IncompatibleGameVersion`
 - `IncompatibleModVersion`
+
+Capacity policy note:
+
+- No hard compatibility block is applied solely for `max_players > 4`.
+- Capacity above 4 is surfaced as information for user choice, not automatic incompatibility.
 
 ## Connection and error state models
 
