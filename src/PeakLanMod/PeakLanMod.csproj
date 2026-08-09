@@ -8,7 +8,7 @@
     <!-- This is the display name of your mod. -->
     <AssemblyTitle>PeakLanMod</AssemblyTitle>
     <!-- Full SemVer for package/release/display (may include prerelease suffixes). -->
-    <Version>0.6.0-preview</Version>
+    <Version>0.7.0</Version>
     <!-- Keep informational version equal to Version so UI/log display is deterministic. -->
     <InformationalVersion>$(Version)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
