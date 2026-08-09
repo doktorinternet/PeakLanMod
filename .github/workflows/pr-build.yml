@@ -40,6 +40,9 @@ jobs:
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ env.DOTNET_INSTALL_DIR }}
+          DOTNET_ROOT: ${{ env.DOTNET_ROOT }}
         with:
           global-json-file: global.json
 
