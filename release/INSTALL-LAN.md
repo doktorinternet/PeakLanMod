@@ -1,12 +1,59 @@
-# PEAK LAN Mod Offline Installation
+# PEAK LAN Mod Manual Windows Installation
 
-This guide installs a full LAN package without Thunderstore.
+This guide assists in installing a mod which modifies PEAK to not use the default Steam and Photon stack which is used in vanilla online PEAK. This allows for playing PEAK multiplayer on LAN.
+
+## Client setup
+
+This section is required if you intend to play the game using the mod. If you only intend to run a server, go straight to the `Server Setup` section.
+
+0. BepInEx for PEAK is required for the mod to work. If you do not currently use any other mods for PEAK, you likely do not have BepInEx and need to install that first. Find the instructions for that in the `dependencies/BepInEx` folder. Go install that now.
+
+1. Copy the content of `mod/BepInEx/plugins` into your PEAK `BepInEx/plugins` folder.
+2. Launch PEAK once to let BepInEx generate `BepInEx/config/BadHorse.PeakLanMod.cfg`, then close PEAK.
+3. The generated config should be near plug-and-play for default layout. If you use any other paths than recommended in this guide, update the generated config accordingly. You might also want to set `LanServerAddress` to the IP of your primary network adapter to avoid warnings.
+4. Install any packaged dependency mods from `dependencies/`. 
+5. Start PEAK and verify that the mod is correctly loaded by seeing that there is now a new main menu server list visible.
+
+## Host setup
+
+This section is optional, but without it you can only join open lobbies. To host your own lobbies, you need to either run or have access to a server instance.
+The included server is a Luxon server downloaded from the Luxon github page. You can find checksums for each executable in the file `server/luxon-sha254.txt`. This server software is the only one I have tested and verified to work for PEAK, but there may be other options available. If you want to tinker with it, I'm not going to stop you.
+
+To run the ***Luxon*** server locally on your machine, follow these instructions:
+
+1. Copy the folder `server/` into your PEAK root installation folder, where `PEAK.exe` lives.
+2. The default mod configuration setting `WorkflowMode = AutoSetup` will attempt to automatically find your IP and apply it wherever required the first time you host a lobby.
+3. Add in- & outgoing firewall exceptions for the Luxon executable when requested, or manually in case there's no request or you fail to accept it.
+
+You should be able to run this in PowerShell (might require elevated permissions, i.e. "Run as Administrator"):
+
+```
+New-NetFirewallRule
+     -DisplayName "Luxon Photon UDP" `
+     -Direction Inbound `
+     -Action Allow `
+     -Protocol UDP `
+     -LocalPort 5055,5056,5058 `
+     -Profile Private
+```
+
+## Server setup
+
+As with the host setup, this is optional and aimed towards users who want to run a server independently of the PEAK instance, either locally on your machine or some other machine on the local network.
+
+1. Copy the folder `server/` into wherever you intend to run the server from.
+2. Adjust each entry of `external_address` in `config.yml` to the host machine IP. 
+3. Run the Luxon executable with the config file as the only argument.
+4. PEAK instances that want to host on your server should turn off automatic host IP detection and set `Hosting.LanServerAddress` to your server IP.
+
+## Supported mods
+
+For an augmented PEAK experience, I've included some other optional mods in this Internyet-tailored package. They can be found in `supported_mods/`. They're not very thoroughly tested, but I've at least once installed them and successfully hosted and joined lobbies. 
 
 ## Required versions
 
 - PEAK: see package changelog for tested version.
 - BepInEx Pack for PEAK: `5.4.75301`.
-- Windows host/client machines on the same LAN.
 
 ## Package layout
 
@@ -15,44 +62,6 @@ This guide installs a full LAN package without Thunderstore.
 - `server/config.yml`
 - `dependencies/README.md`
 - `dependencies/BepInEx/`
-
-## Dependencies
-
-- Place any additional required dependency mods under `dependencies/` before distribution.
-- Install dependency mods according to their own instructions.
-- Typical mod destination is PEAK `BepInEx/plugins/` and `BepInEx/config/`.
-
-## Client setup
-
-This section is required if you intend to play the game using the mod. If you only intend to run a server, go straight to the `Server Setup` section
-
-1. Install BepInEx for PEAK found in the `dependencies/` folder. (TODO ADD bepinex install instructions in dependencies folder).
-2. Copy the content of `mod/BepInEx/` into your PEAK `BepInEx/` folder. Make sure the mod dll is present in `BepInEx/plugins/`.
-3. Launch PEAK once to let BepInEx generate `BepInEx/config/BadHorse.PeakLanMod.cfg`, then close PEAK.
-4. The generated config should be near plug-and-play for default layout. If you use custom paths, update the generated config accordingly. You might also want to set `LanServerAddress` to the IP of your primary network adapter to avoid warnings.
-5. If upgrading from an older build that used `LocalServer*` keys, keep them as-is for first launch. The plugin migrates values into canonical `LanServer*` keys automatically.
-6. Install any packaged dependency mods from `dependencies/`. 
-7. Start PEAK and verify that the mod is loaded by the new main menu server list.
-
-## Host setup 
-
-This section is optional, but without it you can only join open lobbies. To host your own lobbies, you need to run or have access to a server instance.
-The server is a Luxon server downloaded from the Luxon github page. You can find checksums for each executable in the file `server/luxon-sha254.txt`.
-
-To run the server locally on your machine, follow these instructions:
-
-1. Copy the folder `server/` into your PEAK root installation folder, where `PEAK.exe` lives.
-2. The default mod configuration setting `WorkflowMode = AutoSetup` will attempt to automatically find your IP and apply it wherever required the first time you host a lobby.
-3. Add in- & outgoing firewall exceptions for the luxon executable.
-
-## Server setup
-
-As with the host setup, this is optional but aimed towards users who want to run a server independently of the PEAK instance, either locally on your machine or some other machine.
-
-1. Copy the folder `server/` into wherever you intend to run the server from.
-2. Adjust each entry of `external_address` in `config.yml` to the host machine IP. 
-3. Run the luxon executable with the config file as the only argument.
-4. PEAK instances that want to host on your server should turn off automatic host IP detection and set `LanServerAddress` to your server IP.
 
 ## Troubleshooting
 

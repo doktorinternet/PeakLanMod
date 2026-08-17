@@ -239,3 +239,4 @@ captures/
 
 server/*.exe
 server/config.yml
+/release/dependencies

@@ -120,6 +120,8 @@
       <_LanReleaseBuildInfoPath>$(_LanReleaseStageDir)metadata\BUILD_INFO.txt</_LanReleaseBuildInfoPath>
       <_LanReleaseInstallGuide>$(SolutionRoot)release\INSTALL-LAN.md</_LanReleaseInstallGuide>
       <_LanReleaseDependenciesGuide>$(SolutionRoot)release\DEPENDENCIES-README.md</_LanReleaseDependenciesGuide>
+      <_LanReleaseDependencies>$(SolutionRoot)release\dependencies\</_LanReleaseDependencies>
+      <_LanReleaseSupportedMods>$(SolutionRoot)release\supported_mods\</_LanReleaseSupportedMods>
       <_LanReleaseServerDir>$(SolutionRoot)server\</_LanReleaseServerDir>
       <_LanReleasePdbPath>$(TargetDir)$(AssemblyName).pdb</_LanReleasePdbPath>
     </PropertyGroup>
@@ -128,6 +130,7 @@
       <_LanReleaseRequiredFile Include="$(TargetPath)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseInstallGuide)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseDependenciesGuide)" />
+      <_LanReleaseRequiredFile Include="$(_LanReleaseDependencies)" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)luxon_server.msvc.release.exe" />
       <_LanReleaseRequiredFile Include="$(_LanReleaseServerDir)config.example.yml" />
     </ItemGroup>
@@ -144,10 +147,9 @@
     <Delete Files="$(_LanReleaseExternalZipPath)" Condition="'$(_LanReleaseExternalZipPath)' != '' And Exists('$(_LanReleaseExternalZipPath)')" />
 
     <MakeDir Directories="$(_LanReleaseStageDir)mod\BepInEx\plugins" />
-    <MakeDir Directories="$(_LanReleaseStageDir)mod\BepInEx\config" />
     <MakeDir Directories="$(_LanReleaseStageDir)server" />
     <MakeDir Directories="$(_LanReleaseStageDir)dependencies" />
-    <MakeDir Directories="$(_LanReleaseStageDir)docs" />
+    <MakeDir Directories="$(_LanReleaseStageDir)supported_mods" />
     <MakeDir Directories="$(_LanReleaseStageDir)metadata" />
 
     <Copy
@@ -167,8 +169,13 @@
     />
 
     <Copy
-      SourceFiles="$(_LanReleaseInstallGuide)"
-      DestinationFiles="$(_LanReleaseStageDir)docs\INSTALL-LAN.md"
+      SourceFiles="$(_LanReleaseDependencies)"
+      DestinationFiles="$(_LanReleaseStageDir)dependencies\"
+    />
+
+    <Copy
+      SourceFiles="$(_LanReleaseSupportedMods)"
+      DestinationFiles="$(_LanReleaseStageDir)supported_mods\"
     />
 
     <Copy
