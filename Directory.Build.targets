@@ -161,14 +161,19 @@
       Condition="Exists('$(_LanReleasePdbPath)')"
     />
 
+    <ItemGroup>
+      <_LanReleaseDependencyFiles Include="$(_LanReleaseDependencies)**\*" />
+      <_LanReleaseSupportedModFiles Include="$(_LanReleaseSupportedMods)**\*" />
+    </ItemGroup>
+
     <Copy
-      SourceFiles="$(_LanReleaseDependencies)"
-      DestinationFiles="$(_LanReleaseStageDir)dependencies\"
+      SourceFiles="@(_LanReleaseDependencyFiles)"
+      DestinationFiles="@(_LanReleaseDependencyFiles->'$(_LanReleaseStageDir)dependencies\%(RecursiveDir)%(Filename)%(Extension)')"
     />
 
     <Copy
-      SourceFiles="$(_LanReleaseSupportedMods)"
-      DestinationFiles="$(_LanReleaseStageDir)supported_mods\"
+      SourceFiles="@(_LanReleaseSupportedModFiles)"
+      DestinationFiles="@(_LanReleaseSupportedModFiles->'$(_LanReleaseStageDir)supported_mods\%(RecursiveDir)%(Filename)%(Extension)')"
     />
 
     <Copy
@@ -182,22 +187,19 @@
       Condition="Exists('$(SolutionRoot)CHANGELOG.md')"
     />
 
+    <ItemGroup>
+      <_LanReleaseServerFiles Include="$(_LanReleaseServerDir)luxon-server*.*;$(_LanReleaseServerDir)luxon_server*.*" />
+      <_LanReleaseServerMetadata Include="$(_LanReleaseServerDir)LICENSE.txt;$(_LanReleaseServerDir)luxon.sha256" />
+    </ItemGroup>
+
     <Copy
-      SourceFiles="$(_LanReleaseServerDir)luxon_server.msvc.release.exe"
-      DestinationFiles="$(_LanReleaseStageDir)server\luxon_server.msvc.release.exe"
+      SourceFiles="@(_LanReleaseServerFiles);@(_LanReleaseServerMetadata)"
+      DestinationFolder="$(_LanReleaseStageDir)server"
     />
 
     <Copy
       SourceFiles="$(_LanReleaseServerDir)config.example.yml"
       DestinationFiles="$(_LanReleaseStageDir)server\config.yml"
-    />
-    <Copy
-      SourceFiles="$(_LanReleaseServerDir)luxon.sha256"
-      DestinationFiles="$(_LanReleaseStageDir)server\luxon.sha256"
-    />
-    <Copy
-      SourceFiles="$(_LanReleaseServerDir)LICENSE.txt"
-      DestinationFiles="$(_LanReleaseStageDir)server\LICENSE.txt"
     />
 
     <WriteLinesToFile
