@@ -18,28 +18,23 @@ internal sealed class LanIdentityAndValidation : ILanIdentityAndValidation
             "9D24C19A08",
         };
 
-    private static readonly HashSet<string> BlockedHostRoomNameTerms =
+    private static readonly HashSet<string> BlockedHostRoomNameTermFingerprints =
         new(StringComparer.Ordinal)
         {
-            // English profanity and abusive language.
-            "bitch",
-            "fag",
-            "faggot",
-            "retard",
-            "slut",
-            "whore",
-            "nigger",
-            "negro",
-
-            // Swedish profanity and abusive language.
-            "fitta",
-            "hora",
-            "kuk",
-            "mongo",
-            "neger",
-            "bög",
-            "svartskalle",
-            "svart skalle"
+            // Fingerprints of blocked terms (SHA-256 hex prefix, length 10).
+            "D75A838DC7",
+            "9915BA2D82",
+            "8F5083E3E5",
+            "158869A973",
+            "C2C3B68B48",
+            "9AE315A94E",
+            "120F6E5B4E",
+            "F59E28F8BB",
+            "DDB5EB1D15",
+            "8410599268",
+            "A41719ED78",
+            "9F1DD83D03",
+            "B3BE783F4C"
         };
 
     public string NormalizeRoomName(string roomName)
@@ -104,7 +99,7 @@ internal sealed class LanIdentityAndValidation : ILanIdentityAndValidation
 
         string[] tokens = Regex.Split(
             normalizedRoomName,
-            @"[^a-z0-9]+");
+            @"[^\p{L}\p{N}]+");
 
         for (int index = 0; index < tokens.Length; index++)
         {
@@ -115,14 +110,28 @@ internal sealed class LanIdentityAndValidation : ILanIdentityAndValidation
                 continue;
             }
 
-            foreach (string candidate in BlockedHostRoomNameTerms)
+            string tokenFingerprint = Fingerprint(token);
+
+            if (BlockedHostRoomNameTermFingerprints.Contains(tokenFingerprint))
             {
-                if (token.IndexOf(
-                        candidate,
-                        StringComparison.Ordinal) >= 0)
+                blockedTerm = tokenFingerprint;
+                return true;
+            }
+
+            if (index + 1 < tokens.Length)
+            {
+                string nextToken = tokens[index + 1];
+
+                if (!string.IsNullOrWhiteSpace(nextToken))
                 {
-                    blockedTerm = candidate;
-                    return true;
+                    string twoTokenFingerprint = Fingerprint(
+                        token + " " + nextToken);
+
+                    if (BlockedHostRoomNameTermFingerprints.Contains(twoTokenFingerprint))
+                    {
+                        blockedTerm = twoTokenFingerprint;
+                        return true;
+                    }
                 }
             }
         }
@@ -147,7 +156,7 @@ internal sealed class LanIdentityAndValidation : ILanIdentityAndValidation
                 normalizedRoomName,
                 out _))
         {
-            failureReason = "room name contains a blocked term. Don't be a jerk.";
+            failureReason = "Room name contains a blocked term. Don't be a jerk.";
             return false;
         }
 
