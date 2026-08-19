@@ -16,8 +16,7 @@ This section is required if you intend to play the game using the mod. If you on
 
 ## Host setup
 
-This section is optional, but without it you can only join open lobbies. To host your own lobbies, you need to either run or have access to a server instance.
-The included server is a Luxon server downloaded from the Luxon github page. You can find checksums for each executable in the file `server/luxon-sha254.txt`. This server software is the only one I have tested and verified to work for PEAK, but there may be other options available. If you want to tinker with it, I'm not going to stop you.
+This section is optional, but without it you can only join open lobbies. To host your own lobbies, you need to either run or have access to a server instance. The included server is a Luxon server downloaded from the Luxon github page. You can find checksums for each executable in the file `server/luxon-sha254.txt`. This server software is the only one I have tested and verified to work for PEAK, but there may be other options available. If you want to tinker with it, I'm not going to stop you.
 
 To run the ***Luxon*** server locally on your machine, follow these instructions:
 
@@ -54,14 +53,6 @@ For an augmented PEAK experience, I've included some other optional mods in this
 
 - PEAK: see package changelog for tested version.
 - BepInEx Pack for PEAK: `5.4.75301`.
-
-## Package layout
-
-- `mod/BepInEx/plugins/BadHorse.PeakLanMod.dll`
-- `server/luxon_server.msvc.release.exe`
-- `server/config.yml`
-- `dependencies/README.md`
-- `dependencies/BepInEx/`
 
 ## Troubleshooting
 
