@@ -1,6 +1,6 @@
 # PEAK LAN Mod Manual Windows Installation
 
-This guide assists in installing a mod which modifies PEAK to not use the default Steam and Photon stack which is used in vanilla online PEAK. This allows for playing PEAK multiplayer on LAN.
+This guide assists in installing a mod which modifies PEAK to use a custom server instead of the default Steam & Photon stack. This allows for playing PEAK multiplayer on LAN.
 
 ## Client setup
 
@@ -16,15 +16,17 @@ This section is required if you intend to play the game using the mod. If you on
 
 ## Host setup
 
-This section is optional, but without it you can only join open lobbies. To host your own lobbies, you need to either run or have access to a server instance. The included server is a Luxon server downloaded from the Luxon github page. You can find checksums for each executable in the file `server/luxon-sha254.txt`. This server software is the only one I have tested and verified to work for PEAK, but there may be other options available. If you want to tinker with it, I'm not going to stop you.
+This section is optional, but without it you can only join open lobbies. To host your own lobbies, you need to either run or have access to a server instance. The included server is a Luxon server downloaded from the Luxon github page. I've included a few different executables for different platforms and architectures, but I have only tested the Windows x64 version. You can find checksums for each executable in the file `server/luxon-sha254.txt`. 
 
-To run the ***Luxon*** server locally on your machine, follow these instructions:
+This server software is the only one I have tested and verified to work for PEAK, but there may be other options available. If you want to use a different executable, you are on your own. Just make sure the executable you use is entered into the mod configuration as `LanServerExecutablePath`. The mod will by default attempt to start the server automatically when you host a lobby, but you can also run the server manually if you prefer.
 
-1. Copy the folder `server/` into your PEAK root installation folder, where `PEAK.exe` lives.
+To run the server locally on your machine, follow these instructions:
+
+1. Copy the folder `server/` into your PEAK root installation folder, where `PEAK.exe` lives. Remove/don't copy any server executables that do not match your operating system and architecture. For example, if you are on Windows x64 as most users, only copy `luxon_server.msvc.release.exe`. If you are unsure, ask someone on the LAN.
 2. The default mod configuration setting `WorkflowMode = AutoSetup` will attempt to automatically find your IP and apply it wherever required the first time you host a lobby.
 3. Add in- & outgoing firewall exceptions for the Luxon executable when requested, or manually in case there's no request or you fail to accept it.
 
-You should be able to run this in PowerShell (might require elevated permissions, i.e. "Run as Administrator"):
+Windows users should be able to run this in PowerShell (might require elevated permissions, i.e. "Run as Administrator"):
 
 ```
 New-NetFirewallRule
@@ -38,9 +40,9 @@ New-NetFirewallRule
 
 ## Server setup
 
-As with the host setup, this is optional and aimed towards users who want to run a server independently of the PEAK instance, either locally on your machine or some other machine on the local network.
+As with the host setup, this is optional and aimed towards users who want to run a server independently of the PEAK instance, either locally on your machine or some other machine on the local network. I've included a few different executables for different platforms and architectures, but I have only tested the Windows x64 version. If you want to use a different executable, you are on your own.
 
-1. Copy the folder `server/` into wherever you intend to run the server from.
+1. Copy `config.yml` and the proper server executable from `server/` into wherever you intend to run the server from.
 2. Adjust each entry of `external_address` in `config.yml` to the host machine IP. 
 3. Run the Luxon executable with the config file as the only argument.
 4. PEAK instances that want to host on your server should turn off automatic host IP detection and set `Hosting.LanServerAddress` to your server IP.

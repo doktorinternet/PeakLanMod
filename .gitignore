@@ -237,6 +237,7 @@ BepInEx/
 captures/
 *.pcapng
 
-server/*.exe
+server/luxon_server*
+server/luxon-server*
 server/config.yml
 /release/dependencies
