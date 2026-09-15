@@ -49,7 +49,7 @@ Use fingerprints or placeholders for identifiers in logs and documentation.
 - Preserve the working direct Photon Cloud path as a diagnostic baseline.
 - Prefer small Harmony prefixes/postfixes over transpilers.
 - Do not patch Photon internals when PEAK-level state or configuration can be changed instead.
-- Guard experimental behavior with explicit configuration flags.
+- Ask whether new experimental behavior should be guarded with explicit configuration flags.
 - Patch exact method overloads and exact parameter types.
 - PEAK defines its own `Player` type. Alias Photon players explicitly:
   `using PhotonPlayer = Photon.Realtime.Player;`

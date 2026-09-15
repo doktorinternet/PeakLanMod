@@ -55,7 +55,8 @@ internal sealed class LanConnectionStateStore
                     lastSeenUtc: session.LastSeenUtc,
                     expiresAtUtc: session.ExpiresAtUtc,
                     isCompatible: session.IsCompatible,
-                    incompatibilityReason: session.IncompatibilityReason);
+                    incompatibilityReason: session.IncompatibilityReason,
+                    requiresPassword: session.RequiresPassword);
 
                 return LanSessionUpdateKind.Ignored;
             }
@@ -82,7 +83,8 @@ internal sealed class LanConnectionStateStore
                 lastSeenUtc: session.LastSeenUtc,
                 expiresAtUtc: session.ExpiresAtUtc,
                 isCompatible: session.IsCompatible,
-                incompatibilityReason: session.IncompatibilityReason);
+                incompatibilityReason: session.IncompatibilityReason,
+                requiresPassword: session.RequiresPassword);
 
             return LanSessionUpdateKind.Updated;
         }
@@ -192,6 +194,7 @@ internal sealed class LanConnectionStateStore
             && current.CurrentPlayers == incoming.CurrentPlayers
             && current.MaxPlayers == incoming.MaxPlayers
             && current.IsCompatible == incoming.IsCompatible
-            && string.Equals(current.IncompatibilityReason, incoming.IncompatibilityReason, StringComparison.Ordinal);
+            && string.Equals(current.IncompatibilityReason, incoming.IncompatibilityReason, StringComparison.Ordinal)
+            && current.RequiresPassword == incoming.RequiresPassword;
     }
 }

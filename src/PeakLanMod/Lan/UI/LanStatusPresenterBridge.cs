@@ -34,6 +34,7 @@ internal sealed class LanStatusPresenterBridge
             (nameof(session.ExpiresAtUtc), session.ExpiresAtUtc),
             (nameof(session.IsCompatible), session.IsCompatible),
             (nameof(session.IncompatibilityReason), session.IncompatibilityReason),
+            (nameof(session.RequiresPassword), session.RequiresPassword),
             ("HostIdentityFingerprint", hostIdentityFingerprint)
         ];
 

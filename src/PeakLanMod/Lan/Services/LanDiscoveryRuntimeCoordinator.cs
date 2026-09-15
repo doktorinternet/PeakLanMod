@@ -248,6 +248,8 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
             serverInstanceId: _serverInstanceId,
             sentAtUtc: DateTime.UtcNow,
             currentPlayers: currentPlayers,
-            maxPlayers: maxPlayers);
+            maxPlayers: maxPlayers,
+            // Host password toggle lands in a later milestone; always unprotected for now.
+            requiresPassword: false);
     }
 }

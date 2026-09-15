@@ -73,7 +73,8 @@ internal sealed class SimulatedLanDiscoverySnapshotProvider
                 lastSeenUtc: now,
                 expiresAtUtc: now.AddSeconds(4),
                 isCompatible: false,
-                incompatibilityReason: "PreviewOnlyNotJoinable");
+                incompatibilityReason: "PreviewOnlyNotJoinable",
+                requiresPassword: index % 4 == 0);
         }
 
         return sessions;
