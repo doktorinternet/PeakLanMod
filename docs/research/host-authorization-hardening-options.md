@@ -216,6 +216,65 @@ Phase 3: Server authoritative gate
 - Implement and validate CreateRoom authorization plugin path.
 - Roll out with feature flag and fallback to open mode.
 
+## Luxon plugin and FFI implementation notes
+
+Validation status for this section:
+
+- Method: static analysis of the Luxon Server README and source at the time of writing.
+- Date: 2026-09-15.
+- PEAK build/version: not captured.
+- Mod commit: not captured.
+- Runtime tested: no.
+- Two-machine tested: no.
+- Physically offline LAN tested: no.
+
+Embedding Luxon is not required for authoritative authorization. Luxon supports a
+standalone custom server build with its optional plugin system enabled. The current
+upstream build model is compile-time/static integration rather than a documented
+runtime plugin directory:
+
+- Enable `LUXON_SERVER_ENABLE_PLUGINS`.
+- Set `LUXON_PLUGINS` to a semicolon-separated list of plugin project directories.
+- Have each plugin project call the CMake `luxon_register_plugin()` helper.
+- Link the registered plugin into a custom `luxon_server` executable.
+
+The server plugin API includes callbacks corresponding to room lifecycle operations,
+including `OnCreateGame`, `BeforeJoin`, `OnJoinGame`, and `OnLeave`. A C++ plugin can
+therefore reject a room creation request in the standalone server process without
+embedding Luxon into PEAK. This is the most direct path for a first authorization
+prototype.
+
+Luxon also exposes a C FFI. A full FFI build enables the plugin and hookpoint
+features, and exposes callbacks for game-plugin operations, authentication plugins,
+and master-server operation hookpoints. This makes a C#, Rust, or other-language
+authorization layer possible, but it still requires a native FFI build and a binding
+or host process. It is not currently documented as a drop-in plugin DLL mechanism.
+The FFI ABI should be pinned to a specific Luxon commit or release when used.
+
+Important uncertainty: the ordinary game-plugin path appears to instantiate plugins
+from plugin names supplied during room creation. We have not yet verified that PEAK
+requests a named plugin. If it does not, a globally enforced authorization rule may
+need the full-FFI master-server CreateGame hook instead of an ordinary per-game
+plugin. Confirm the first callback that observes PEAK's CreateRoom/CreateGame request
+before designing the token protocol.
+
+Recommended investigation sequence:
+
+1. Build a pinned Luxon revision with plugins enabled and a minimal C++ plugin that
+	logs `OnCreateGame` without changing the request result.
+2. Run the existing PEAK host flow and determine whether the plugin is instantiated.
+3. If it is not, build the full FFI/hookpoint configuration and inspect the master
+	server CreateGame hook.
+4. Add signed host-token validation only after the interception point is confirmed.
+5. Package the resulting custom executable as an alternative to the current stock
+	Luxon executable, preserving the existing process-based launch and rollback path.
+
+This work does not require changing the PEAK client transport. PEAK should continue
+to connect through the existing Photon/Luxon ports; the authorization decision must
+be made inside Luxon before an unauthorized room is created. The current baseline
+uses unauthenticated Photon connections, so client-only checks cannot provide the
+same prevention quality.
+
 ## Validation plan for future implementation
 
 For each phase, capture:
