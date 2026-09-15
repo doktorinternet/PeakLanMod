@@ -1,9 +1,7 @@
 using System;
-using ExitGames.Client.Photon.StructWrapping;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 namespace PeakLanMod;
 
