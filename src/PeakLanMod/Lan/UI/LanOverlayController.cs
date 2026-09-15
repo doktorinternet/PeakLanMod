@@ -1661,7 +1661,9 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private static string BuildSessionPrimaryLine(LanSessionInfo session)
     {
-        return $"{session.RoomName} by {session.HostDisplayName}";
+        return SessionRowLockBadge.ApplyTo(
+            $"{session.RoomName} by {session.HostDisplayName}",
+            session.RequiresPassword);
     }
 
     private static float CalculateSessionListHeight(int rowCount)

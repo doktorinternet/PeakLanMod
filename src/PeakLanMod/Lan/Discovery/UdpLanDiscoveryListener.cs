@@ -229,7 +229,8 @@ internal sealed class UdpLanDiscoveryListener : IDisposable
                     lastSeenUtc: nowUtc,
                     expiresAtUtc: nowUtc.AddMilliseconds(ttlMs),
                     isCompatible: compatibility.IsCompatible,
-                    incompatibilityReason: compatibility.Reason);
+                    incompatibilityReason: compatibility.Reason,
+                    requiresPassword: announcement.RequiresPassword);
 
                 LanSessionUpdateKind updateKind =
                     _stateStore.UpsertDiscoveredSession(session);
