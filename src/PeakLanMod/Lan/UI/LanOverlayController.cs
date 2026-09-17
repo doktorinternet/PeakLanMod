@@ -691,7 +691,11 @@ internal sealed class LanOverlayController : ILanOverlayController
         _hostButton.onClick.AddListener(() =>
         {
             _options.RoomName.Value = validatedHostRoomName;
-            Plugin.Log.LogInfo("LAN UI host button clicked.");
+            LanRuntimeContext.SetPendingHostRoomPassword(_hostPasswordField.Password);
+            Plugin.Log.LogInfo(
+                "LAN UI host button clicked. " +
+                $"RequirePassword={_hostPasswordField.RequirePassword}; " +
+                $"PasswordSupplied={!string.IsNullOrWhiteSpace(_hostPasswordField.Password)}");
             _directConnect.RequestDirectHostStart("LanUiHostButton");
         });
 
