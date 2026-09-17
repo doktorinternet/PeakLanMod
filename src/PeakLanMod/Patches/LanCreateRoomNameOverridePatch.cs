@@ -1,5 +1,7 @@
 using System.Reflection;
+using ExitGames.Client.Photon;
 using HarmonyLib;
+using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.Services;
 using Photon.Pun;
 using Photon.Realtime;
@@ -24,7 +26,7 @@ internal static class LanCreateRoomNameOverridePatch
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.First)]
-    private static void Prefix(ref string __0)
+    private static void Prefix(ref string __0, ref RoomOptions __1)
     {
         if (!LanRuntimeContext.IsLanServerMode)
         {
@@ -33,5 +35,28 @@ internal static class LanCreateRoomNameOverridePatch
 
         NetworkConnectorHandleConnectionStatePatch
             .ApplyLanHostRoomNameOverride(ref __0);
+
+        if (!LanRuntimeContext.Options.RequirePasswordForHostedRoom.Value)
+        {
+            LanRuntimeContext.ConsumePendingHostRoomPassword();
+            return;
+        }
+
+        string password = LanRuntimeContext.ConsumePendingHostRoomPassword();
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            Plugin.Log.LogWarning(
+                "Password protection was selected, but no room password was supplied; creating an unprotected room.");
+            return;
+        }
+
+        (string salt, string hash) = LanRoomPasswordPolicy.Create(password);
+        Hashtable properties = __1.CustomRoomProperties ?? new Hashtable();
+        properties[LanRoomPasswordPolicy.SaltPropertyKey] = salt;
+        properties[LanRoomPasswordPolicy.HashPropertyKey] = hash;
+        __1.CustomRoomProperties = properties;
+
+        Plugin.Log.LogInfo("Created password-protected LAN room properties.");
     }
 }

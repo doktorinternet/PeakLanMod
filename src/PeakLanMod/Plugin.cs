@@ -49,6 +49,7 @@ public sealed class Plugin : BaseUnityPlugin
         LanRuntimeContext.Services.DiscoveryRuntime.SyncLanDiscoveryRuntime("Awake");
 
         gameObject.AddComponent<PhotonCallbackProbe>();
+        gameObject.AddComponent<LanRoomPasswordAuthService>();
         gameObject.AddComponent<MainMenuBouncingTaglineOverlay>();
 
         _harmony = new Harmony(PluginGuid);
