@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarmonyLib;
+using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.Services;
 using Photon.Pun;
 using Photon.Realtime;
@@ -24,7 +25,7 @@ internal static class LanCreateRoomNameOverridePatch
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.First)]
-    private static void Prefix(ref string __0)
+    private static void Prefix(ref string __0, ref RoomOptions __1)
     {
         if (!LanRuntimeContext.IsLanServerMode)
         {
@@ -33,5 +34,31 @@ internal static class LanCreateRoomNameOverridePatch
 
         NetworkConnectorHandleConnectionStatePatch
             .ApplyLanHostRoomNameOverride(ref __0);
+
+        if (!LanRuntimeContext.Options.RequirePasswordForHostedRoom.Value)
+        {
+            return;
+        }
+
+        string password = LanRuntimeContext.ConsumePendingHostRoomPassword();
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            Plugin.Log.LogWarning(
+                "Host room password required but no password was supplied for this room creation attempt.");
+            return;
+        }
+
+        if (__1 is null)
+        {
+            __1 = new RoomOptions();
+        }
+
+        if (LanRoomPasswordPolicy.TryApplyToRoomOptions(__1, password, out string salt, out string hash))
+        {
+            Plugin.Log.LogInfo(
+                "Password-protected room policy injected into host room creation. " +
+                $"SaltFingerprint={LanRuntimeContext.Fingerprint(salt)}; " +
+                $"HashFingerprint={LanRuntimeContext.Fingerprint(hash)}");
+        }
     }
 }
