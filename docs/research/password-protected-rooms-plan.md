@@ -135,12 +135,33 @@ If the UI refactor plan has not landed yet when this feature is implemented, sti
 
 ## Suggested implementation milestones
 
-1. Data model + discovery schema: `requires_password` field, schema bump, `LanSessionInfo` propagation, server-list lock badge as its own small helper (see UI section above). No host/join enforcement yet.
-2. Config flags + host UI (checkbox + password field) as its own small helper/collaborator, not inlined into `LanOverlayController`. Captures input only, no enforcement.
+1. Data model + discovery schema: `requires_password` field, schema bump, `LanSessionInfo` propagation, server-list lock badge as its own small helper (see UI section above). No host/join enforcement yet. **Implemented 2026-09-15** (static/compile validation only; see status log below).
+2. Host UI (checkbox + password field) as its own small helper/collaborator, not inlined into `LanOverlayController`. Captures input only, no enforcement. **Implemented 2026-09-15** (static/compile validation only; see status log below).
 3. Room-creation patch: inject salt/hash into `CustomRoomProperties` when enabled. Verify via logs that properties exist; no client-side check yet.
 4. Client-side join prompt UI (`JoinPasswordModalController`, submit/cancel) and pending-password plumbing in `DirectConnectCoordinator`. Wiring only, no verification yet.
 5. Verification service: custom Photon events, post-join hash check, kick-on-fail, new `LanErrorCode`, "verifying" UI state.
 6. Two-machine manual test pass and documentation update (`current-network-findings.md` and/or this document) recording validation status honestly.
+
+## Milestone status log
+
+### Milestone 1 (2026-09-15)
+
+- Added `requires_password` (bool, default `false`) to `LanDiscoveryAnnouncement`/codec, with backward-compatible parsing for older senders.
+- Added `LanSessionInfo.RequiresPassword`, threaded through `UdpLanDiscoveryListener` and `LanConnectionStateStore` (both reconstruction sites and the equivalence check).
+- `LanDiscoveryRuntimeCoordinator.BuildLanDiscoveryAnnouncement` currently always sends `requiresPassword: false`; wiring the real per-room value into the announcement is part of milestone 3/4 once room creation/host state actually reads the checkbox.
+- Added `Lan/UI/SessionRowLockBadge.cs` (small helper) and wired it into `LanOverlayController.BuildSessionPrimaryLine`.
+- Added `RequiresPassword` to the admin telemetry panel row list in `LanStatusPresenterBridge`.
+- Validation: local `dotnet build` succeeded (0 errors/warnings; proprietary PEAK references were available in that environment). No runtime/two-machine testing performed.
+
+### Milestone 2 (2026-09-15)
+
+- No feature flag was added gating this capability, per explicit instruction. The only new config entry is `RequirePasswordForHostedRoom` (bool, default `false`), which is the persisted state of the host's "Require Password" checkbox itself, not a rollout/dev flag.
+- Added `ILanPluginOptions.RequirePasswordForHostedRoom` (interface, `LanPluginOptions` binding under the `Direct Connect` section, and the `PlaceholderLanPluginOptions` implementation).
+- Added `Lan/UI/HostPasswordFieldController.cs`: a small collaborator owning the "Require Password" toggle and password `InputField` widgets and state. The password value itself (`Password`) is held in memory only on this object and is never written to config or logged.
+- Extended `LanOverlayController`'s widget factory methods (`CreateTmpText`, `CreateInputField`) to `internal` visibility so `HostPasswordFieldController` can reuse them, and added a new `CreateToggle` factory method (also `internal`) since no toggle/checkbox widget existed before. `CreateInputField` was decoupled from its previously hardcoded room-name-specific end-edit handler via optional parameters (`placeholderText`, `onEndEdit`), with the room-name call site updated to pass its handler explicitly.
+- Wired the new row into `LanOverlayController`'s existing per-frame layout: a fixed-height band between the room name row and the action buttons row, always showing the toggle, with the password label/field shown only when the toggle is enabled. `MainPanelExpandedMinHeight` was increased to account for the added row.
+- Scope kept intentionally narrow per the milestone: the captured password is not yet consumed by `DirectConnectCoordinator` or any room-creation patch (that is milestone 3/4).
+- Validation: local `dotnet build` succeeded (0 errors/warnings). No runtime/two-machine testing performed; the new checkbox/password row layout has not been visually verified in-game.
 
 ## Open questions
 

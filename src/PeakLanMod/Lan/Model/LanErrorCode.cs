@@ -12,5 +12,6 @@ internal enum LanErrorCode
     IncompatibleModVersion,
     IncompatibleProtocolVersion,
     Timeout,
+    IncorrectPassword,
     UnknownPhotonFailure
 }

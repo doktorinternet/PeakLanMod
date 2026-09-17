@@ -25,7 +25,8 @@ internal readonly struct LanDiscoveryAnnouncement
         string serverInstanceId,
         DateTime sentAtUtc,
         int currentPlayers = -1,
-        int maxPlayers = -1)
+        int maxPlayers = -1,
+        bool requiresPassword = false)
     {
         Type = type;
         SchemaVersion = schemaVersion;
@@ -42,6 +43,7 @@ internal readonly struct LanDiscoveryAnnouncement
         SentAtUtc = sentAtUtc;
         CurrentPlayers = currentPlayers;
         MaxPlayers = maxPlayers;
+        RequiresPassword = requiresPassword;
     }
 
     internal string Type { get; }
@@ -59,6 +61,7 @@ internal readonly struct LanDiscoveryAnnouncement
     internal DateTime SentAtUtc { get; }
     internal int CurrentPlayers { get; }
     internal int MaxPlayers { get; }
+    internal bool RequiresPassword { get; }
 
     internal string SessionKey =>
         $"{ServerInstanceId}|{RoomName}";
@@ -74,6 +77,9 @@ internal static class LanDiscoveryMessageCodec
 
     private static readonly Regex IntPropertyRegex =
         new("\"(?<key>[a-zA-Z0-9_]+)\"\\s*:\\s*(?<value>-?[0-9]+)", RegexOptions.Compiled);
+
+    private static readonly Regex BoolPropertyRegex =
+        new("\"(?<key>[a-zA-Z0-9_]+)\"\\s*:\\s*(?<value>true|false)", RegexOptions.Compiled);
 
     internal static string SerializeAnnouncement(
         LanDiscoveryAnnouncement announcement)
@@ -107,6 +113,8 @@ internal static class LanDiscoveryMessageCodec
         AppendInt(builder, "current_players", announcement.CurrentPlayers);
         builder.Append(',');
         AppendInt(builder, "max_players", announcement.MaxPlayers);
+        builder.Append(',');
+        AppendBool(builder, "requires_password", announcement.RequiresPassword);
         builder.Append(',');
         AppendString(builder, "sent_at_utc", announcement.SentAtUtc.ToUniversalTime().ToString("O"));
         builder.Append('}');
@@ -197,6 +205,10 @@ internal static class LanDiscoveryMessageCodec
             return false;
         }
 
+        // Older senders omit requires_password; treat missing as unprotected for compatibility.
+        bool requiresPassword = TryReadBool(payload, "requires_password", out bool parsedRequiresPassword)
+            && parsedRequiresPassword;
+
         announcement = new LanDiscoveryAnnouncement(
             type,
             schemaVersion,
@@ -212,7 +224,8 @@ internal static class LanDiscoveryMessageCodec
             serverInstanceId,
             sentAtUtc.ToUniversalTime(),
             currentPlayers,
-            maxPlayers);
+            maxPlayers,
+            requiresPassword);
 
         return true;
     }
@@ -238,6 +251,17 @@ internal static class LanDiscoveryMessageCodec
         builder.Append(key);
         builder.Append("\":");
         builder.Append(value);
+    }
+
+    private static void AppendBool(
+        StringBuilder builder,
+        string key,
+        bool value)
+    {
+        builder.Append('"');
+        builder.Append(key);
+        builder.Append("\":");
+        builder.Append(value ? "true" : "false");
     }
 
     private static string EscapeJson(string value)
@@ -334,6 +358,28 @@ internal static class LanDiscoveryMessageCodec
             }
 
             break;
+        }
+
+        value = default;
+        return false;
+    }
+
+    private static bool TryReadBool(
+        string payload,
+        string key,
+        out bool value)
+    {
+        foreach (Match match in BoolPropertyRegex.Matches(payload))
+        {
+            string currentKey = match.Groups["key"].Value;
+
+            if (!string.Equals(currentKey, key, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            value = string.Equals(match.Groups["value"].Value, "true", StringComparison.Ordinal);
+            return true;
         }
 
         value = default;

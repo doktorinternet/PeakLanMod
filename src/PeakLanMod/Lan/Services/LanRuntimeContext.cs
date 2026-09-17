@@ -6,6 +6,7 @@ internal static class LanRuntimeContext
 {
     private static IPluginCompatibilityServices _services =
         PluginCompatibilityServices.CreateDefault();
+    private static string _pendingHostRoomPassword = string.Empty;
 
     internal static void Initialize(IPluginCompatibilityServices services)
     {
@@ -20,6 +21,18 @@ internal static class LanRuntimeContext
 
     internal static bool IsLanServerMode =>
         _services.ModePolicy.IsLanServerModeEnabled;
+
+    internal static void SetPendingHostRoomPassword(string password)
+    {
+        _pendingHostRoomPassword = password ?? string.Empty;
+    }
+
+    internal static string ConsumePendingHostRoomPassword()
+    {
+        string password = _pendingHostRoomPassword;
+        _pendingHostRoomPassword = string.Empty;
+        return password;
+    }
 
     internal static string Fingerprint(string value)
     {

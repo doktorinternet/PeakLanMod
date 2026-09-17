@@ -248,6 +248,8 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
             serverInstanceId: _serverInstanceId,
             sentAtUtc: DateTime.UtcNow,
             currentPlayers: currentPlayers,
-            maxPlayers: maxPlayers);
+            maxPlayers: maxPlayers,
+            requiresPassword: currentRoom?.CustomProperties.ContainsKey(
+                LanRoomPasswordPolicy.SaltPropertyKey) == true);
     }
 }

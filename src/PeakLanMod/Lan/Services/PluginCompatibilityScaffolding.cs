@@ -12,6 +12,7 @@ namespace PeakLanMod.Lan.Services;
 internal interface ILanPluginOptions
 {
     ConfigEntry<string> RoomName { get; }
+    ConfigEntry<bool> RequirePasswordForHostedRoom { get; }
     ConfigEntry<KeyboardShortcut> HostKey { get; }
     ConfigEntry<KeyboardShortcut> JoinKey { get; }
     ConfigEntry<LanWorkflowMode> WorkflowMode { get; }
@@ -62,6 +63,9 @@ internal interface IDirectConnectCoordinator
     void RequestDirectHostStart(string source);
     void TryProcessQueuedDirectHostStart(string source);
     void StartDirectJoin();
+    void SetPendingJoinPassword(string password);
+    void ClearPendingJoinPassword();
+    string ConsumeJoinPasswordForAuthentication();
     void RequestDirectJoinStart(string roomName, string source, LanServerEndpoint endpoint);
     void TryProcessQueuedDirectJoinStart(string source);
     void CompletePendingAttempt(string source);
@@ -239,6 +243,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         }
 
         public ConfigEntry<string> RoomName => NotReady<string>();
+        public ConfigEntry<bool> RequirePasswordForHostedRoom => NotReady<bool>();
         public ConfigEntry<KeyboardShortcut> HostKey => NotReady<KeyboardShortcut>();
         public ConfigEntry<KeyboardShortcut> JoinKey => NotReady<KeyboardShortcut>();
         public ConfigEntry<LanWorkflowMode> WorkflowMode => NotReady<LanWorkflowMode>();
@@ -319,6 +324,19 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
         public void StartDirectJoin()
         {
+        }
+
+        public void SetPendingJoinPassword(string password)
+        {
+        }
+
+        public void ClearPendingJoinPassword()
+        {
+        }
+
+        public string ConsumeJoinPasswordForAuthentication()
+        {
+            return string.Empty;
         }
 
         public void RequestDirectJoinStart(string roomName, string source, LanServerEndpoint endpoint)

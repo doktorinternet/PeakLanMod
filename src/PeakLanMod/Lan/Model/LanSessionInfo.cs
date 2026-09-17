@@ -26,7 +26,8 @@ internal sealed class LanSessionInfo
         DateTime lastSeenUtc,
         DateTime expiresAtUtc,
         bool isCompatible,
-        string incompatibilityReason)
+        string incompatibilityReason,
+        bool requiresPassword = false)
     {
         Key = key;
         RoomName = roomName;
@@ -50,6 +51,7 @@ internal sealed class LanSessionInfo
         ExpiresAtUtc = expiresAtUtc;
         IsCompatible = isCompatible;
         IncompatibilityReason = incompatibilityReason;
+        RequiresPassword = requiresPassword;
     }
 
     internal string Key { get; }
@@ -74,4 +76,5 @@ internal sealed class LanSessionInfo
     internal DateTime ExpiresAtUtc { get; }
     internal bool IsCompatible { get; }
     internal string IncompatibilityReason { get; }
+    internal bool RequiresPassword { get; }
 }

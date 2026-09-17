@@ -228,6 +228,14 @@ internal sealed class PhotonCallbackProbe :
                 $"disconnect cause {cause}");
         }
 
+        if (LanRuntimeContext.Services.ErrorState
+                .GetConnectionErrorSnapshot()?.Code == LanErrorCode.IncorrectPassword)
+        {
+            Plugin.Log.LogInfo(
+                "Preserving incorrect-password error across Photon disconnect.");
+            return;
+        }
+
         bool isPassiveStartupDisconnect =
             !isAttemptActive
             && !PhotonNetwork.InRoom
@@ -278,9 +286,15 @@ internal sealed class PhotonCallbackProbe :
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
             $"offlineMode={PhotonNetwork.OfflineMode}");
 
-        LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
-            source: "OnLeftRoom",
-            reason: "left room");
+        LanErrorDetail? connectionError = LanRuntimeContext.Services.ErrorState
+            .GetConnectionErrorSnapshot();
+
+        if (connectionError?.Code != LanErrorCode.IncorrectPassword)
+        {
+            LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
+                source: "OnLeftRoom",
+                reason: "left room");
+        }
 
         LanRuntimeContext.Services.ErrorState.HandleLeftRoom();
     }
