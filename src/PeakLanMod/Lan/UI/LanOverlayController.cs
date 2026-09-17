@@ -321,6 +321,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             _lanPreferredRoomNameInput,
             out string validatedHostRoomName,
             out string hostUnavailableReason);
+        bool isConnectionAttemptActive = _directConnect.IsDirectAttemptActive();
 
         EnsureClientStateLogUpdated(
             phase,
@@ -406,7 +407,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             ? PanelPaddingY + HeaderHeight + SectionGap + InputBandHeight + SectionGap + PasswordBandHeight + SectionGap
             : 34f;
 
-        _hostButton!.interactable = canHostFromInput;
+        _hostButton!.interactable = canHostFromInput && !isConnectionAttemptActive;
         ApplyButtonVisualState(_hostButton, _hostButtonText);
         SetLocalTopLeftRect(_hostButton.GetComponent<RectTransform>(), PanelPaddingX, actionButtonY, HostButtonWidth, ActionBandHeight);
 
@@ -466,7 +467,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         _joinButton!.gameObject.SetActive(showServerRows);
         _refreshButton!.gameObject.SetActive(showServerRows);
-        _joinButton.interactable = canJoinSelected;
+        _joinButton.interactable = canJoinSelected && !isConnectionAttemptActive;
         ApplyButtonVisualState(_joinButton, _joinButtonText);
         ApplyButtonVisualState(_refreshButton, _refreshButtonText);
 
