@@ -245,7 +245,7 @@ internal sealed class LanRoomPasswordAuthService : MonoBehaviourPunCallbacks, IO
         LanRuntimeContext.Services.ErrorState.ReportStructuredLanError(
             LanErrorCode.IncorrectPassword,
             source: "LanRoomPasswordAuthService",
-            message: "The room password was not accepted.",
+            message: "Password incorrect. Returned to the main menu.",
             context: reason);
 
         Plugin.Log.LogWarning($"Password-protected room join denied: {reason}.");

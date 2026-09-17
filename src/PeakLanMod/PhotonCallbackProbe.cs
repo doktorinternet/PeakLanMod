@@ -228,6 +228,14 @@ internal sealed class PhotonCallbackProbe :
                 $"disconnect cause {cause}");
         }
 
+        if (LanRuntimeContext.Services.ErrorState
+                .GetConnectionErrorSnapshot()?.Code == LanErrorCode.IncorrectPassword)
+        {
+            Plugin.Log.LogInfo(
+                "Preserving incorrect-password error across Photon disconnect.");
+            return;
+        }
+
         bool isPassiveStartupDisconnect =
             !isAttemptActive
             && !PhotonNetwork.InRoom
@@ -255,14 +263,6 @@ internal sealed class PhotonCallbackProbe :
             LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
                 source: "OnDisconnected",
                 reason: $"non-actionable disconnect cause {cause}");
-            return;
-        }
-
-        if (LanRuntimeContext.Services.ErrorState
-                .GetConnectionErrorSnapshot()?.Code == LanErrorCode.IncorrectPassword)
-        {
-            Plugin.Log.LogInfo(
-                "Preserving incorrect-password error across Photon disconnect.");
             return;
         }
 
