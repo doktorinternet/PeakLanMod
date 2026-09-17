@@ -1,4 +1,5 @@
 using System.Reflection;
+using ExitGames.Client.Photon;
 using HarmonyLib;
 using PeakLanMod.Lan.Model;
 using PeakLanMod.Lan.Services;
@@ -37,28 +38,25 @@ internal static class LanCreateRoomNameOverridePatch
 
         if (!LanRuntimeContext.Options.RequirePasswordForHostedRoom.Value)
         {
+            LanRuntimeContext.ConsumePendingHostRoomPassword();
             return;
         }
 
         string password = LanRuntimeContext.ConsumePendingHostRoomPassword();
+
         if (string.IsNullOrWhiteSpace(password))
         {
             Plugin.Log.LogWarning(
-                "Host room password required but no password was supplied for this room creation attempt.");
+                "Password protection was selected, but no room password was supplied; creating an unprotected room.");
             return;
         }
 
-        if (__1 is null)
-        {
-            __1 = new RoomOptions();
-        }
+        (string salt, string hash) = LanRoomPasswordPolicy.Create(password);
+        Hashtable properties = __1.CustomRoomProperties ?? new Hashtable();
+        properties[LanRoomPasswordPolicy.SaltPropertyKey] = salt;
+        properties[LanRoomPasswordPolicy.HashPropertyKey] = hash;
+        __1.CustomRoomProperties = properties;
 
-        if (LanRoomPasswordPolicy.TryApplyToRoomOptions(__1, password, out string salt, out string hash))
-        {
-            Plugin.Log.LogInfo(
-                "Password-protected room policy injected into host room creation. " +
-                $"SaltFingerprint={LanRuntimeContext.Fingerprint(salt)}; " +
-                $"HashFingerprint={LanRuntimeContext.Fingerprint(hash)}");
-        }
+        Plugin.Log.LogInfo("Created password-protected LAN room properties.");
     }
 }

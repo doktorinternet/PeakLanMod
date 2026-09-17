@@ -21,6 +21,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private readonly ILanServerRuntimeService _lanServerRuntime;
     private readonly ILanIdentityAndValidation _identityAndValidation;
     private readonly HostPasswordFieldController _hostPasswordField;
+    private readonly JoinPasswordModalController _joinPasswordModal = new();
     private readonly LanDiscoveredSessionsViewModel _discoveredSessionsViewModel = new();
     private readonly LanStatusPresenterBridge _statusPresenterBridge = new();
     private readonly List<LanSessionRowUi> _sessionRows = new();
@@ -691,11 +692,11 @@ internal sealed class LanOverlayController : ILanOverlayController
         _hostButton.onClick.AddListener(() =>
         {
             _options.RoomName.Value = validatedHostRoomName;
-            LanRuntimeContext.SetPendingHostRoomPassword(_hostPasswordField.Password);
-            Plugin.Log.LogInfo(
-                "LAN UI host button clicked. " +
-                $"RequirePassword={_hostPasswordField.RequirePassword}; " +
-                $"PasswordSupplied={!string.IsNullOrWhiteSpace(_hostPasswordField.Password)}");
+            LanRuntimeContext.SetPendingHostRoomPassword(
+                _hostPasswordField.RequirePassword
+                    ? _hostPasswordField.Password
+                    : string.Empty);
+            Plugin.Log.LogInfo("LAN UI host button clicked.");
             _directConnect.RequestDirectHostStart("LanUiHostButton");
         });
 
@@ -1131,6 +1132,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             onEndEdit: OnRoomNameInputEndEdit);
 
         _hostPasswordField.EnsureUi(_panelRect, this);
+        _joinPasswordModal.EnsureUi(_panelRect, this);
 
         (_hostButton, _hostButtonText) = CreateButton(
             "HostButton",
@@ -1332,7 +1334,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         UnityEngine.Object.DontDestroyOnLoad(go);
     }
 
-    private RectTransform CreateUiRect(
+    internal RectTransform CreateUiRect(
         string name,
         Transform parent)
     {
@@ -1554,7 +1556,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         return (toggle, label);
     }
 
-    private (Button button, TMP_Text label) CreateButton(
+    internal (Button button, TMP_Text label) CreateButton(
         string name,
         Transform parent,
         string text,
@@ -1791,7 +1793,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         return $"{session.CurrentPlayers}/{session.MaxPlayers}";
     }
 
-    private Sprite EnsureRoundedSprite(int radius)
+    internal Sprite EnsureRoundedSprite(int radius)
     {
         if (_roundedSprites.TryGetValue(radius, out Sprite? cachedSprite)
             && cachedSprite != null)
@@ -1872,7 +1874,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         AddBorder(graphic, UiFaintBorderColor, UiThinBorderEffectDistance, useGraphicAlpha);
     }
 
-    private static void AddBorder(
+    internal static void AddBorder(
         Graphic graphic,
         Color borderColor,
         Vector2 effectDistance,
@@ -1934,7 +1936,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         rect.sizeDelta = new Vector2(width, height);
     }
 
-    private static void SetLocalTopLeftRect(
+    internal static void SetLocalTopLeftRect(
         RectTransform rect,
         float x,
         float y,
@@ -2081,6 +2083,55 @@ internal sealed class LanOverlayController : ILanOverlayController
                 "LAN UI join-selected ignored unsupported transport. " +
                 $"Transport={selected.Transport}; " +
                 $"Room={selected.RoomName}");
+            return;
+        }
+
+        if (selected.RequiresPassword)
+        {
+            _joinPasswordModal.ShowForSession(
+                selected,
+                onSubmit: () =>
+                {
+                    string password = _joinPasswordModal.CurrentPassword;
+                    _directConnect.SetPendingJoinPassword(password);
+                    _joinPasswordModal.Hide();
+
+                    if (!_identityAndValidation.TryNormalizeRoomName(
+                            selected.RoomName,
+                            out string selectedRoomName,
+                            out string normalizeFailureReason))
+                    {
+                        Plugin.Log.LogWarning(
+                            "LAN UI password-protected join blocked due to invalid selected room name. " +
+                            $"RawRoom={selected.RoomName}; " +
+                            $"Reason={normalizeFailureReason}");
+                        _directConnect.ClearPendingJoinPassword();
+                        return;
+                    }
+
+                    Plugin.Log.LogInfo(
+                        "LAN UI password-protected join staged discovered session as runtime join target. " +
+                        $"Room={selectedRoomName}; " +
+                        $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(selected.NameServerAddress)}:{selected.NameServerPort}; " +
+                        $"Protocol={protocol}; " +
+                        $"PasswordSupplied={!string.IsNullOrWhiteSpace(password)}");
+
+                    _directConnect.RequestDirectJoinStart(
+                        selectedRoomName,
+                        "StartDirectJoinSelected",
+                        new LanServerEndpoint(
+                            selected.NameServerAddress,
+                            selected.NameServerPort,
+                            protocol));
+                },
+                onCancel: () =>
+                {
+                    _joinPasswordModal.Hide();
+                    _directConnect.ClearPendingJoinPassword();
+                    Plugin.Log.LogInfo(
+                        "LAN UI password-protected join canceled. " +
+                        $"Room={selected.RoomName}");
+                });
             return;
         }
 

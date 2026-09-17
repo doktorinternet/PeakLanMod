@@ -63,6 +63,9 @@ internal interface IDirectConnectCoordinator
     void RequestDirectHostStart(string source);
     void TryProcessQueuedDirectHostStart(string source);
     void StartDirectJoin();
+    void SetPendingJoinPassword(string password);
+    void ClearPendingJoinPassword();
+    string ConsumeJoinPasswordForAuthentication();
     void RequestDirectJoinStart(string roomName, string source, LanServerEndpoint endpoint);
     void TryProcessQueuedDirectJoinStart(string source);
     void CompletePendingAttempt(string source);
@@ -321,6 +324,19 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
 
         public void StartDirectJoin()
         {
+        }
+
+        public void SetPendingJoinPassword(string password)
+        {
+        }
+
+        public void ClearPendingJoinPassword()
+        {
+        }
+
+        public string ConsumeJoinPasswordForAuthentication()
+        {
+            return string.Empty;
         }
 
         public void RequestDirectJoinStart(string roomName, string source, LanServerEndpoint endpoint)

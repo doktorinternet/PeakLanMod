@@ -1,90 +1,65 @@
 using System;
-using System.Collections;
 using System.Security.Cryptography;
-using System.Text;
-using ExitGames.Client.Photon;
-using Photon.Realtime;
 
 namespace PeakLanMod.Lan.Model;
 
-internal sealed class LanRoomPasswordPolicy
+internal static class LanRoomPasswordPolicy
 {
-    internal const string SaltPropertyName = "pwd_salt";
-    internal const string HashPropertyName = "pwd_hash";
+    internal const string SaltPropertyKey = "pwd_salt";
+    internal const string HashPropertyKey = "pwd_hash";
 
-    private LanRoomPasswordPolicy(string salt, string hash)
+    internal static (string Salt, string Hash) Create(string password)
     {
-        Salt = salt;
-        Hash = hash;
+        byte[] salt = new byte[16];
+
+        using (RandomNumberGenerator random = RandomNumberGenerator.Create())
+        {
+            random.GetBytes(salt);
+        }
+
+        string encodedSalt = Convert.ToBase64String(salt);
+        return (encodedSalt, ComputePasswordHash(encodedSalt, password));
     }
 
-    internal string Salt { get; }
-    internal string Hash { get; }
-
-    internal static LanRoomPasswordPolicy Create(string password)
+    internal static string ComputePasswordHash(string encodedSalt, string password)
     {
-        if (string.IsNullOrWhiteSpace(password))
+        byte[] salt = Convert.FromBase64String(encodedSalt);
+        byte[] passwordBytes = System.Text.Encoding.UTF8.GetBytes(password ?? string.Empty);
+        byte[] material = new byte[salt.Length + passwordBytes.Length];
+
+        Buffer.BlockCopy(salt, 0, material, 0, salt.Length);
+        Buffer.BlockCopy(passwordBytes, 0, material, salt.Length, passwordBytes.Length);
+
+        using (SHA256 sha256 = SHA256.Create())
         {
-            throw new ArgumentException(
-                "Password cannot be empty.",
-                nameof(password));
+            return Convert.ToBase64String(sha256.ComputeHash(material));
         }
-
-        byte[] saltBytes = new byte[16];
-        RandomNumberGenerator.Fill(saltBytes);
-
-        string saltText = Convert.ToBase64String(saltBytes);
-        string hashText = ComputePasswordHash(saltText, password);
-
-        return new LanRoomPasswordPolicy(saltText, hashText);
     }
 
-    internal static bool TryApplyToRoomOptions(
-        RoomOptions roomOptions,
-        string password,
-        out string salt,
-        out string hash)
+    internal static bool HashesMatch(string expectedHash, string submittedHash)
     {
-        salt = string.Empty;
-        hash = string.Empty;
-
-        if (roomOptions is null)
+        try
         {
-            return false;
-        }
+            byte[] expected = Convert.FromBase64String(expectedHash);
+            byte[] submitted = Convert.FromBase64String(submittedHash);
 
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            return false;
-        }
-
-        LanRoomPasswordPolicy policy = Create(password);
-        salt = policy.Salt;
-        hash = policy.Hash;
-
-        ExitGames.Client.Photon.Hashtable customProperties = new ExitGames.Client.Photon.Hashtable();
-        if (roomOptions.CustomRoomProperties is not null)
-        {
-            foreach (DictionaryEntry entry in roomOptions.CustomRoomProperties)
+            if (expected.Length != submitted.Length)
             {
-                customProperties[entry.Key] = entry.Value;
+                return false;
             }
+
+            int difference = 0;
+
+            for (int index = 0; index < expected.Length; index++)
+            {
+                difference |= expected[index] ^ submitted[index];
+            }
+
+            return difference == 0;
         }
-
-        customProperties[SaltPropertyName] = salt;
-        customProperties[HashPropertyName] = hash;
-        roomOptions.CustomRoomProperties = customProperties;
-
-        return true;
-    }
-
-    private static string ComputePasswordHash(
-        string salt,
-        string password)
-    {
-        byte[] bytes = Encoding.UTF8.GetBytes(salt + password);
-        using SHA256 sha256 = SHA256.Create();
-        byte[] hashBytes = sha256.ComputeHash(bytes);
-        return BitConverter.ToString(hashBytes).Replace("-", string.Empty);
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }

@@ -278,9 +278,15 @@ internal sealed class PhotonCallbackProbe :
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
             $"offlineMode={PhotonNetwork.OfflineMode}");
 
-        LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
-            source: "OnLeftRoom",
-            reason: "left room");
+        LanErrorDetail? connectionError = LanRuntimeContext.Services.ErrorState
+            .GetConnectionErrorSnapshot();
+
+        if (connectionError?.Code != LanErrorCode.IncorrectPassword)
+        {
+            LanRuntimeContext.Services.ErrorState.ClearStructuredLanError(
+                source: "OnLeftRoom",
+                reason: "left room");
+        }
 
         LanRuntimeContext.Services.ErrorState.HandleLeftRoom();
     }

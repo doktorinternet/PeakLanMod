@@ -249,7 +249,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
             sentAtUtc: DateTime.UtcNow,
             currentPlayers: currentPlayers,
             maxPlayers: maxPlayers,
-            // Host password toggle lands in a later milestone; always unprotected for now.
-            requiresPassword: false);
+            requiresPassword: currentRoom?.CustomProperties.ContainsKey(
+                LanRoomPasswordPolicy.SaltPropertyKey) == true);
     }
 }

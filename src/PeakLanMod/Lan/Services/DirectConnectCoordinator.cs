@@ -27,6 +27,8 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
     private bool _pendingDirectJoinConnectRequested;
     private string _pendingDirectJoinRoomName = string.Empty;
     private string _pendingDirectJoinSource = string.Empty;
+    private string _pendingDirectJoinPassword = string.Empty;
+    private string _joinPasswordForAuthentication = string.Empty;
     private LanServerEndpoint? _pendingDirectJoinEndpoint;
     private float _lastNotReadyLogAt = -999f;
     private float _lastReconnectAttemptAt = -999f;
@@ -134,6 +136,24 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
             _LanServerRuntime.GetConfiguredLanServerEndpoint());
     }
 
+    public void SetPendingJoinPassword(string password)
+    {
+        _pendingDirectJoinPassword = password ?? string.Empty;
+    }
+
+    public void ClearPendingJoinPassword()
+    {
+        _pendingDirectJoinPassword = string.Empty;
+        _joinPasswordForAuthentication = string.Empty;
+    }
+
+    public string ConsumeJoinPasswordForAuthentication()
+    {
+        string password = _joinPasswordForAuthentication;
+        _joinPasswordForAuthentication = string.Empty;
+        return password;
+    }
+
     public void RequestDirectJoinStart(
         string roomName,
         string source,
@@ -153,6 +173,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         _pendingDirectJoinRoomName = roomName;
         _pendingDirectJoinSource = source;
         _pendingDirectJoinEndpoint = endpoint;
+        _joinPasswordForAuthentication = _pendingDirectJoinPassword;
 
         _LanServerRuntime.ApplyTransientJoinEndpointOverride(
             endpoint,
@@ -344,6 +365,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         _pendingDirectJoinSource = string.Empty;
         _pendingDirectJoinEndpoint = null;
         _lastQueuedJoinAttemptAtUtc = default;
+        _pendingDirectJoinPassword = string.Empty;
 
         if (clearEndpointOverride)
         {
