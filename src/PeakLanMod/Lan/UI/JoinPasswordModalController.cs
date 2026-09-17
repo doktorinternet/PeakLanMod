@@ -129,6 +129,13 @@ internal sealed class JoinPasswordModalController
         }
 
         _root.gameObject.SetActive(true);
+        _root.SetAsLastSibling();
+
+        if (_passwordInput != null)
+        {
+            _passwordInput.Select();
+            _passwordInput.ActivateInputField();
+        }
     }
 
     internal void Hide()
