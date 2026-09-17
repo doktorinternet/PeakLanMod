@@ -5,6 +5,8 @@ using PeakLanMod.Lan.Model;
 using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using Zorro.Core;
 using PhotonPlayer = Photon.Realtime.Player;
 
 namespace PeakLanMod.Lan.Services;
@@ -18,6 +20,7 @@ internal sealed class LanRoomPasswordAuthService : MonoBehaviourPunCallbacks, IO
 
     private readonly Dictionary<int, float> _hostVerificationDeadlines = new();
     private bool _awaitingLocalVerification;
+    private bool _returningToMainMenu;
     private float _localVerificationDeadline;
 
     public override void OnJoinedRoom()
@@ -78,6 +81,16 @@ internal sealed class LanRoomPasswordAuthService : MonoBehaviourPunCallbacks, IO
         _awaitingLocalVerification = false;
         _localVerificationDeadline = 0f;
         _hostVerificationDeadlines.Clear();
+    }
+
+    public override void OnDisconnected(DisconnectCause cause)
+    {
+        if (!_awaitingLocalVerification)
+        {
+            return;
+        }
+
+        DenyLocalJoin("disconnected while password verification was pending");
     }
 
     public void OnEvent(EventData photonEvent)
@@ -239,5 +252,20 @@ internal sealed class LanRoomPasswordAuthService : MonoBehaviourPunCallbacks, IO
         {
             PhotonNetwork.LeaveRoom();
         }
+
+        NetworkConnector.ChangeConnectionState<DefaultConnectionState>();
+        ReturnToMainMenu();
+    }
+
+    private void ReturnToMainMenu()
+    {
+        if (_returningToMainMenu)
+        {
+            return;
+        }
+
+        _returningToMainMenu = true;
+        LoadingScreenHandler.KillCurrentLoadingScreen();
+        SceneManager.LoadScene("Title", LoadSceneMode.Single);
     }
 }

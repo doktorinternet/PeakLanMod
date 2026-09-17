@@ -258,6 +258,14 @@ internal sealed class PhotonCallbackProbe :
             return;
         }
 
+        if (LanRuntimeContext.Services.ErrorState
+                .GetConnectionErrorSnapshot()?.Code == LanErrorCode.IncorrectPassword)
+        {
+            Plugin.Log.LogInfo(
+                "Preserving incorrect-password error across Photon disconnect.");
+            return;
+        }
+
         string detailMessage = BuildBestEffortDisconnectMessage(
             cause,
             clientState,
