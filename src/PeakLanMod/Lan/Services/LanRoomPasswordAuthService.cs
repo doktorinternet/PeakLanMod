@@ -25,6 +25,8 @@ internal sealed class LanRoomPasswordAuthService : MonoBehaviourPunCallbacks, IO
 
     public override void OnJoinedRoom()
     {
+        _returningToMainMenu = false;
+
         if (!LanRuntimeContext.IsLanServerMode || PhotonNetwork.IsMasterClient)
         {
             return;
@@ -266,6 +268,8 @@ internal sealed class LanRoomPasswordAuthService : MonoBehaviourPunCallbacks, IO
 
         _returningToMainMenu = true;
         LoadingScreenHandler.KillCurrentLoadingScreen();
+        LoadingScreenHandler.loading = false;
+        PhotonNetwork.IsMessageQueueRunning = true;
         SceneManager.LoadScene("Title", LoadSceneMode.Single);
     }
 }
