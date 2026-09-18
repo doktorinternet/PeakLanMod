@@ -2,6 +2,16 @@
 
 TODO: You can follow this format for your changelog: <https://keepachangelog.com/en/1.1.0/>
 
+## 2026-09-18
+
+- Enriched host/join/leave in-game log entries with room name (all three), password-protected status (host/join), and room owner nickname (join/leave). Room name for failed host/join attempts is sourced from `DirectConnectCoordinator.GetActiveAttemptRoomName()`; owner/room context for "Left game" is cached in `PhotonCallbackProbe` at host/join time since `PhotonNetwork.CurrentRoom`/`MasterClient` are already cleared by the time `OnLeftRoom` fires.
+- Centralized all in-game LOG panel strings into a new `Lan/Services/LanClientLogMessages.cs` catalog (hosting/joined/left/failed-to-host/failed-to-join/disconnected/connection-problem templates), replacing scattered inline string literals in `PhotonCallbackProbe` and `LanErrorStateService`.
+- Added `LanRoomPasswordPolicy.IsPasswordProtected(Room)` helper, reused for the new log fields.
+- Refactored the in-game LOG panel from a raw Photon connection-phase diff feed into a curated, player-facing event log (`Lan/Services/LanClientEventLog.cs`, wired via `ILanClientEventLog`). The panel now shows plain-language events (hosting started, joined room, left game, failed to host/join with reason, disconnected) instead of every internal `NetworkClientState` transition.
+- Structured LAN error reporting (`LanErrorStateService.ReportStructuredLanError`) now also forwards a friendly summary line to the new client event log, so the existing incorrect-password join failure and other classified errors are still surfaced in-game.
+- Removed now-dead raw connection-phase storage/plumbing (`LanConnectionStateStore.SetConnectionPhase`/`GetConnectionPhaseSnapshot` and its proxy on `LanDiscoveryRuntimeCoordinator`) that only existed to feed the old diffing panel. BepInEx log diagnostics (`Photon state: ... -> ...`) are unchanged.
+- Validation for this change: `dotnet build` succeeded locally (proprietary PEAK references available); no runtime (single- or two-machine) verification performed yet.
+
 ## 2026-08-07
 
 - Implemented terminology migration milestone: renamed code-facing `LocalServer` concepts to `LanServer` across services, patches, diagnostics, and docs while preserving behavior and direct-connect flow.

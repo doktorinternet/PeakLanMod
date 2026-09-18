@@ -256,6 +256,11 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         return _activeAttemptKind != DirectAttemptKind.None;
     }
 
+    public string GetActiveAttemptRoomName()
+    {
+        return _activeAttemptRoomName;
+    }
+
     public bool ShouldDeferDisconnectError(
         DisconnectCause cause,
         out int elapsedMs,

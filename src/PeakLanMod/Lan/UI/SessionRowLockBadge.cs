@@ -4,12 +4,12 @@ namespace PeakLanMod.Lan.UI;
 // inline conditional in LanOverlayController's row-rendering code.
 internal static class SessionRowLockBadge
 {
-    private const string LockedPrefix = "[Locked] ";
+    private const string PasswordProtectedPrefix = "[Requires password]";
 
     internal static string ApplyTo(string primaryLine, bool requiresPassword)
     {
         return requiresPassword
-            ? LockedPrefix + primaryLine
+            ? PasswordProtectedPrefix + " " + primaryLine
             : primaryLine;
     }
 }

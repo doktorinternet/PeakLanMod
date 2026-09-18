@@ -10,6 +10,7 @@ internal sealed class LanErrorStateService : ILanErrorStateService
 {
     private readonly ILanPluginOptions _options;
     private readonly LanConnectionStateStore _connectionStateStore;
+    private readonly ILanClientEventLog _clientEventLog;
     private ClientState? _previousState;
     private string _lastNotDetectedReason = string.Empty;
     private string _lastNotDetectedEndpoint = string.Empty;
@@ -17,10 +18,12 @@ internal sealed class LanErrorStateService : ILanErrorStateService
 
     internal LanErrorStateService(
         ILanPluginOptions options,
-        LanConnectionStateStore connectionStateStore)
+        LanConnectionStateStore connectionStateStore,
+        ILanClientEventLog clientEventLog)
     {
         _options = options;
         _connectionStateStore = connectionStateStore;
+        _clientEventLog = clientEventLog;
     }
 
     public void LogPhotonStateChanges()
@@ -44,8 +47,6 @@ internal sealed class LanErrorStateService : ILanErrorStateService
             $"inRoom={PhotonNetwork.InRoom}; " +
             $"room={PhotonNetwork.CurrentRoom?.Name ?? "<none>"}; " +
             $"players={PhotonNetwork.CurrentRoom?.PlayerCount ?? 0}");
-
-        _connectionStateStore.SetConnectionPhase(currentState.ToString());
 
         _previousState = currentState;
     }
@@ -136,6 +137,11 @@ internal sealed class LanErrorStateService : ILanErrorStateService
             $"Phase={detail.Phase}; " +
             $"Message={detail.Message}; " +
             $"Context={detail.Context}");
+
+        _clientEventLog.Log(
+            LanClientLogMessages.ForStructuredError(
+                detail,
+                LanRuntimeContext.Services.DirectConnect.GetActiveAttemptRoomName()));
     }
 
     public void ClearStructuredLanError(

@@ -12,6 +12,9 @@ namespace PeakLanMod;
 internal sealed class PhotonCallbackProbe :
     MonoBehaviourPunCallbacks
 {
+    private string _lastKnownRoomName = string.Empty;
+    private string _lastKnownRoomOwnerNickname = string.Empty;
+
     private static string Time =>
         DateTime.Now.ToString("HH:mm:ss.fff");
 
@@ -73,6 +76,14 @@ internal sealed class PhotonCallbackProbe :
                 "PhotonCallbackProbe.OnCreatedRoom");
 
             LanRuntimeContext.Services.DiscoveryRuntime.RefreshLanDiscoveryBroadcast("OnCreatedRoom");
+
+            string createdRoomName = PhotonNetwork.CurrentRoom?.Name ?? string.Empty;
+            bool createdRoomPasswordProtected = LanRoomPasswordPolicy.IsPasswordProtected(PhotonNetwork.CurrentRoom);
+            _lastKnownRoomName = createdRoomName;
+            _lastKnownRoomOwnerNickname = PhotonNetwork.LocalPlayer?.NickName ?? string.Empty;
+
+            LanRuntimeContext.Services.ClientEventLog.Log(
+                LanClientLogMessages.HostingStarted(createdRoomName, createdRoomPasswordProtected));
     }
 
     public override void OnJoinedRoom()
@@ -104,6 +115,19 @@ internal sealed class PhotonCallbackProbe :
                 "PhotonCallbackProbe.OnJoinedRoom");
 
             LanRuntimeContext.Services.DiscoveryRuntime.RefreshLanDiscoveryBroadcast("OnJoinedRoom");
+
+            string joinedRoomName = PhotonNetwork.CurrentRoom?.Name ?? string.Empty;
+            string joinedRoomOwnerNickname = PhotonNetwork.MasterClient?.NickName ?? string.Empty;
+            _lastKnownRoomName = joinedRoomName;
+            _lastKnownRoomOwnerNickname = joinedRoomOwnerNickname;
+
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                bool joinedRoomPasswordProtected = LanRoomPasswordPolicy.IsPasswordProtected(PhotonNetwork.CurrentRoom);
+
+                LanRuntimeContext.Services.ClientEventLog.Log(
+                    LanClientLogMessages.JoinedRoom(joinedRoomName, joinedRoomPasswordProtected, joinedRoomOwnerNickname));
+            }
     }
 
     public override void OnJoinRoomFailed(
@@ -285,6 +309,9 @@ internal sealed class PhotonCallbackProbe :
             $"[{Time}] CALLBACK OnLeftRoom: " +
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
             $"offlineMode={PhotonNetwork.OfflineMode}");
+
+        LanRuntimeContext.Services.ClientEventLog.Log(
+            LanClientLogMessages.LeftRoom(_lastKnownRoomName, _lastKnownRoomOwnerNickname));
 
         LanErrorDetail? connectionError = LanRuntimeContext.Services.ErrorState
             .GetConnectionErrorSnapshot();

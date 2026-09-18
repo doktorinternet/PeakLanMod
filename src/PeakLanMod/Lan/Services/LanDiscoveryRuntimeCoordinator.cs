@@ -10,7 +10,6 @@ namespace PeakLanMod.Lan.Services;
 internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoordinator
 {
     private readonly ILanPluginOptions _options;
-    private readonly LanConnectionStateStore _connectionStateStore;
     private readonly UdpLanDiscoveryListener _listener;
     private readonly UdpLanDiscoveryBroadcaster _broadcaster;
     private readonly SimulatedLanDiscoverySnapshotProvider _simulatedSnapshotProvider;
@@ -26,7 +25,6 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         string modDisplayVersion)
     {
         _options = options;
-        _connectionStateStore = connectionStateStore;
         _listener = new UdpLanDiscoveryListener(connectionStateStore);
         _broadcaster = new UdpLanDiscoveryBroadcaster();
         _simulatedSnapshotProvider = new SimulatedLanDiscoverySnapshotProvider();
@@ -163,11 +161,6 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         }
 
         return _listener.GetSnapshot();
-    }
-
-    public (string Phase, DateTime UpdatedAtUtc) GetConnectionPhaseSnapshot()
-    {
-        return _connectionStateStore.GetConnectionPhaseSnapshot();
     }
 
     private LanSessionCompatibility EvaluateLanSessionCompatibility(
