@@ -20,6 +20,7 @@ internal interface ILanPluginOptions
     ConfigEntry<string> LanServerAddress { get; }
     ConfigEntry<int> LanServerPort { get; }
     ConfigEntry<ConnectionProtocol> LanServerProtocol { get; }
+    ConfigEntry<int> LanServerHttpProbePort { get; }
     ConfigEntry<bool> AutoDetectHostLanIpv4 { get; }
     ConfigEntry<string> AllowedHostInterfaces { get; }
     ConfigEntry<bool> AutoUpdateLuxonConfigOnHost { get; }
@@ -98,6 +99,15 @@ internal interface ILanClientEventLog
     string? GetLatestEntry();
 }
 
+internal interface ILanServerSelfTestService
+{
+    LanServerSelfTestStatus Status { get; }
+    string ResultMessage { get; }
+    bool IsLocalTarget { get; }
+    void RunStartupSelfTest(string source);
+    void StopHeartbeat(string source);
+}
+
 internal interface ILanErrorStateService
 {
     void LogPhotonStateChanges();
@@ -117,6 +127,7 @@ internal interface ILanServerRuntimeService
     void ApplyHostLuxonConfigAutomation();
     bool EnsureLanServerReadinessBeforeConnect(string source, bool queuedHostFlow, LanServerEndpoint? endpointOverride = null);
     void ResetQueuedHostReadinessWindow();
+    void ResetQueuedJoinReadinessWindow();
     string GetConfiguredLocalEndpoint();
     string GetEffectiveLocalEndpoint();
     LanServerEndpoint GetConfiguredLanServerEndpoint();
@@ -166,6 +177,7 @@ internal interface IPluginCompatibilityServices
     ILanIdentityAndValidation IdentityAndValidation { get; }
     ILanCustomizationPersistenceService CustomizationPersistence { get; }
     ILanClientEventLog ClientEventLog { get; }
+    ILanServerSelfTestService ServerSelfTest { get; }
 }
 
 internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
@@ -180,6 +192,11 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         ModePolicy = new LanModePolicyService();
         WorkflowPolicy = workflowPolicy;
         ClientEventLog = new LanClientEventLog();
+        ServerSelfTest = options is PlaceholderLanPluginOptions
+            ? new PlaceholderLanServerSelfTestService()
+            : new LanServerSelfTestService(
+                options,
+                ClientEventLog);
         DiscoveryRuntime = new LanDiscoveryRuntimeCoordinator(
             options,
             connectionStateStore,
@@ -213,7 +230,8 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
                 ErrorState,
                 LanServerRuntime,
                 IdentityAndValidation,
-                ClientEventLog);
+                ClientEventLog,
+                ServerSelfTest);
     }
 
     internal static IPluginCompatibilityServices CreateDefault()
@@ -245,6 +263,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
     public ILanIdentityAndValidation IdentityAndValidation { get; }
     public ILanCustomizationPersistenceService CustomizationPersistence { get; }
     public ILanClientEventLog ClientEventLog { get; }
+    public ILanServerSelfTestService ServerSelfTest { get; }
 
     private sealed class PlaceholderLanPluginOptions : ILanPluginOptions
     {
@@ -262,6 +281,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public ConfigEntry<string> LanServerAddress => NotReady<string>();
         public ConfigEntry<int> LanServerPort => NotReady<int>();
         public ConfigEntry<ConnectionProtocol> LanServerProtocol => NotReady<ConnectionProtocol>();
+        public ConfigEntry<int> LanServerHttpProbePort => NotReady<int>();
         public ConfigEntry<bool> AutoDetectHostLanIpv4 => NotReady<bool>();
         public ConfigEntry<string> AllowedHostInterfaces => NotReady<string>();
         public ConfigEntry<bool> AutoUpdateLuxonConfigOnHost => NotReady<bool>();
@@ -305,6 +325,23 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public void TryRestoreLocalCustomization(
             CharacterCustomization customization,
             string source)
+        {
+        }
+    }
+
+    private sealed class PlaceholderLanServerSelfTestService : ILanServerSelfTestService
+    {
+        public LanServerSelfTestStatus Status => LanServerSelfTestStatus.NotRun;
+
+        public string ResultMessage => string.Empty;
+
+        public bool IsLocalTarget => true;
+
+        public void RunStartupSelfTest(string source)
+        {
+        }
+
+        public void StopHeartbeat(string source)
         {
         }
     }
@@ -434,6 +471,10 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         }
 
         public void ResetQueuedHostReadinessWindow()
+        {
+        }
+
+        public void ResetQueuedJoinReadinessWindow()
         {
         }
 

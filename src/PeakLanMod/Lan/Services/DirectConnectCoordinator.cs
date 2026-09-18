@@ -371,6 +371,7 @@ internal sealed class DirectConnectCoordinator : IDirectConnectCoordinator
         _pendingDirectJoinEndpoint = null;
         _lastQueuedJoinAttemptAtUtc = default;
         _pendingDirectJoinPassword = string.Empty;
+        _LanServerRuntime.ResetQueuedJoinReadinessWindow();
 
         if (clearEndpointOverride)
         {

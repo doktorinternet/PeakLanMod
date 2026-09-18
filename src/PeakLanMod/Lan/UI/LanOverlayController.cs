@@ -21,6 +21,7 @@ internal sealed class LanOverlayController : ILanOverlayController
     private readonly ILanServerRuntimeService _lanServerRuntime;
     private readonly ILanIdentityAndValidation _identityAndValidation;
     private readonly ILanClientEventLog _clientEventLog;
+    private readonly ILanServerSelfTestService _serverSelfTest;
     private readonly HostPasswordFieldController _hostPasswordField;
     private readonly JoinPasswordModalController _joinPasswordModal = new();
     private readonly LanDiscoveredSessionsViewModel _discoveredSessionsViewModel = new();
@@ -58,9 +59,9 @@ internal sealed class LanOverlayController : ILanOverlayController
     private Button? _refreshButton;
     private TMP_Text? _refreshButtonText;
 
-    private TMP_Text? _hostUnavailableText;
     private TMP_Text? _emptyText;
     private string _pendingJoinUnavailableLog = string.Empty;
+    private string _lastLoggedHostUnavailableReason = string.Empty;
 
     private ScrollRect? _sessionScrollRect;
     private RectTransform? _sessionViewportRect;
@@ -211,7 +212,8 @@ internal sealed class LanOverlayController : ILanOverlayController
         ILanErrorStateService errorState,
         ILanServerRuntimeService lanServerRuntime,
         ILanIdentityAndValidation identityAndValidation,
-        ILanClientEventLog clientEventLog)
+        ILanClientEventLog clientEventLog,
+        ILanServerSelfTestService serverSelfTest)
     {
         _options = options;
         _directConnect = directConnect;
@@ -220,6 +222,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         _lanServerRuntime = lanServerRuntime;
         _identityAndValidation = identityAndValidation;
         _clientEventLog = clientEventLog;
+        _serverSelfTest = serverSelfTest;
         _hostPasswordField = new HostPasswordFieldController();
         _lanPreferredRoomNameInput = _options.RoomName.Value;
     }
@@ -316,6 +319,43 @@ internal sealed class LanOverlayController : ILanOverlayController
             _lanPreferredRoomNameInput,
             out string validatedHostRoomName,
             out string hostUnavailableReason);
+        bool roomNameInvalid = !canHostFromInput;
+
+        LanServerSelfTestStatus selfTestStatus = _serverSelfTest.Status;
+        bool selfTestStillPending = selfTestStatus is LanServerSelfTestStatus.NotRun or LanServerSelfTestStatus.Running;
+
+        // Remote reachability can never be fully verified (the server may be up with its HTTP
+        // interface disabled), so a remote Failed result is informational only and must not block
+        // hosting - only a local Failed result (which is fully deterministic) gates the button.
+        bool selfTestBlocksHosting =
+            selfTestStillPending
+            || (selfTestStatus == LanServerSelfTestStatus.Failed && _serverSelfTest.IsLocalTarget);
+
+        if (canHostFromInput && selfTestBlocksHosting)
+        {
+            canHostFromInput = false;
+            hostUnavailableReason = selfTestStillPending
+                ? "server setup test in progress"
+                : $"server setup test failed ({_serverSelfTest.ResultMessage})";
+        }
+
+        // Only the room-name-validation case is logged here: self-test failures are already
+        // surfaced to the LOG panel by LanServerSelfTestService itself, so re-logging them from
+        // this per-frame render pass would duplicate them. Edge-triggered on the reason text so an
+        // unchanging invalid room name doesn't spam the panel every frame.
+        if (roomNameInvalid)
+        {
+            if (!string.Equals(_lastLoggedHostUnavailableReason, hostUnavailableReason, StringComparison.Ordinal))
+            {
+                _lastLoggedHostUnavailableReason = hostUnavailableReason;
+                _clientEventLog.Log(LanClientLogMessages.HostUnavailable(hostUnavailableReason));
+            }
+        }
+        else
+        {
+            _lastLoggedHostUnavailableReason = string.Empty;
+        }
+
         bool isConnectionAttemptActive = _directConnect.IsDirectAttemptActive();
 
         string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
@@ -465,16 +505,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             _modVersionText.text = modVersionLabel;
             SetLocalTopLeftRect(_lastRefreshText.GetComponent<RectTransform>(), PanelPaddingX, footerY, footerHalfWidth, FooterHeight);
             SetLocalTopLeftRect(_modVersionText.GetComponent<RectTransform>(), PanelPaddingX + footerHalfWidth, footerY, footerHalfWidth, FooterHeight);
-        }
-
-        _hostUnavailableText!.gameObject.SetActive(showServerRows && !canHostFromInput);
-
-        if (showServerRows && !canHostFromInput)
-        {
-            _hostUnavailableText.text = $"Cannot host: {hostUnavailableReason}";
-            float warningX = PanelPaddingX + HostButtonWidth + ControlGap;
-            float warningWidth = panelWidth - warningX - PanelPaddingX;
-            SetLocalTopLeftRect(_hostUnavailableText.GetComponent<RectTransform>(), warningX, actionButtonY - 20f, warningWidth, 18f);
         }
 
         // Keep for future dedicated in-game log surface; do not overlay on top of room input.
@@ -1045,14 +1075,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             ButtonFontSize,
             FontStyles.Normal,
             OnRefreshClicked);
-
-        _hostUnavailableText = CreateTmpText(
-            "HostUnavailableText",
-            _panelRect,
-            string.Empty,
-            TextAlignmentOptions.TopLeft,
-            14f,
-            FontStyles.Normal);
 
         _emptyText = CreateTmpText(
             "EmptyText",

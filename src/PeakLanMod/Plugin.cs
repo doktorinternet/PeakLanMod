@@ -57,6 +57,7 @@ public sealed class Plugin : BaseUnityPlugin
 
         Logger.LogInfo($"{PluginName} loaded. DisplayVersion={DisplayVersion}; PluginVersion={PluginVersion}");
         LanRuntimeContext.Services.LanServerRuntime.DumpPhotonSettings("Plugin.Awake");
+        LanRuntimeContext.Services.ServerSelfTest.RunStartupSelfTest("Plugin.Awake");
     }
 
     private void Update()
@@ -99,6 +100,7 @@ public sealed class Plugin : BaseUnityPlugin
 
         services.DiscoveryRuntime.ShutdownLanDiscoveryRuntime("Plugin.OnDestroy");
         services.LanServerRuntime.StopOwnedLanServerProcessOnExit("Plugin.OnDestroy");
+        services.ServerSelfTest.StopHeartbeat("Plugin.OnDestroy");
         _harmony?.UnpatchSelf();
     }
 

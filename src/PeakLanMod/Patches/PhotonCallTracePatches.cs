@@ -52,6 +52,17 @@ internal static class PhotonCallTracePatches
             $"before PhotonNetwork.{__originalMethod.Name}");
     }
 
+    [HarmonyPostfix]
+    private static void Postfix(
+        MethodBase __originalMethod)
+    {
+        if (__originalMethod.Name == nameof(PhotonNetwork.ConnectUsingSettings))
+        {
+            LanRuntimeContext.Services.LanServerRuntime.DumpPhotonSettings(
+                $"after PhotonNetwork.{__originalMethod.Name}");
+        }
+    }
+
     private static void LogJoinContext(string methodName)
     {
         AuthenticationValues? auth = PhotonNetwork.AuthValues;

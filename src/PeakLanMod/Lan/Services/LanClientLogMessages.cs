@@ -51,6 +51,63 @@ internal static class LanClientLogMessages
         return $"Disconnected: {message}";
     }
 
+    internal static string ConnectModeConfigured(
+        bool isLocalTarget)
+    {
+        return isLocalTarget
+            ? "Connect mode is configured for a local server."
+            : "Connect mode is configured for a remote server.";
+    }
+
+    internal static string ServerSelfTestStarted()
+    {
+        return "Checking server setup...";
+    }
+
+    internal static string LocalServerReady()
+    {
+        return "Local server is properly setup and ready for hosting.";
+    }
+
+    internal static string LocalServerNotReady(
+        string reason)
+    {
+        return $"Local server is not properly setup, hosting is disabled. Reason: {reason}";
+    }
+
+    internal static string RemoteServerReachableInitial()
+    {
+        return "Remote server connection looks good.";
+    }
+
+    internal static string RemoteServerUnreachableInitial(
+        string reason)
+    {
+        return $"Remote server connection is missing: no response when requested. Reason: {reason}. " +
+            "It may still be running with HTTP disabled - hosting stays enabled, but server status should be verified manually.";
+    }
+
+    internal static string RemoteServerConnectionLost()
+    {
+        return "Lost connection to remote server. It may still be running with HTTP disabled. Hosting stays enabled, but server status should be verified manually.";
+    }
+
+    internal static string RemoteServerConnectionRegained()
+    {
+        return "Regained connection to remote server.";
+    }
+
+    internal static string ServerSelfTestDisregardIfNotHosting()
+    {
+        return "If you don't plan to host, you can safely disregard this message.";
+    }
+
+    internal static string HostUnavailable(
+        string reason)
+    {
+        return $"Cannot host: {reason}";
+    }
+
     internal static string ConnectionProblem(
         string message)
     {
