@@ -86,8 +86,8 @@ internal sealed class LanOverlayController : ILanOverlayController
     private TMP_Text? _adminBodyText;
 
     private const float PanelMargin = 16f;
-    private const float MainPanelExpandedMinWidth = 760f;
-    private const float MainPanelExpandedMaxWidth = 1160f;
+    private const float MainPanelExpandedMinWidth = 570f; // 25% narrower than the previous 760f baseline.
+    private const float MainPanelExpandedMaxWidth = 870f; // 25% narrower than the previous 1160f baseline.
     private const float MainPanelCollapsedWidth = 380f;
     private const float MainPanelExpandedMinHeight = 278f;
     private const float MainPanelCollapsedHeight = 72f;
