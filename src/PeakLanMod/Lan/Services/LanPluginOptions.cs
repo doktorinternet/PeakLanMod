@@ -52,6 +52,14 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             ConnectionProtocol.Udp,
             "Local server transport protocol.");
 
+        LanServerHttpProbePort = config.Bind(
+            "Hosting",
+            "LanServerHttpProbePort",
+            5088,
+            "Luxon HTTP web interface port (see Luxon config.yml HTTP.port; requires HTTP.enabled: true) " +
+            "used to reliably check whether a remote LAN server is reachable. A real HTTP response is a " +
+            "much stronger reachability signal than guessing from a raw UDP probe.");
+
         WorkflowMode = config.Bind(
             "LanWorkflow",
             "WorkflowMode",
@@ -61,7 +69,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
         AutoLockWorkflowModeAfterSuccessfulHost = config.Bind(
             "LanWorkflow",
             "AutoLockWorkflowModeAfterSuccessfulHost",
-            true,
+            false,
             "Automatically switch WorkflowMode from AutoSetup to LockedRuntime after a successful host room creation. Sets itself to false afterwards.");
 
         AutoDetectHostLanIpv4 = config.Bind(
@@ -271,6 +279,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<string> LanServerAddress { get; }
     public ConfigEntry<int> LanServerPort { get; }
     public ConfigEntry<ConnectionProtocol> LanServerProtocol { get; }
+    public ConfigEntry<int> LanServerHttpProbePort { get; }
     public ConfigEntry<bool> AutoDetectHostLanIpv4 { get; }
     public ConfigEntry<string> AllowedHostInterfaces { get; }
     public ConfigEntry<bool> AutoUpdateLuxonConfigOnHost { get; }

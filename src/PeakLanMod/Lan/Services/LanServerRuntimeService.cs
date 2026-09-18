@@ -16,6 +16,8 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
     private LanServerEndpoint? _transientJoinEndpointOverride;
     private DateTime _queuedHostReadinessStartedAtUtc;
     private int _queuedHostReadinessAttempts;
+    private DateTime _queuedJoinReadinessStartedAtUtc;
+    private int _queuedJoinReadinessAttempts;
 
     internal LanServerRuntimeService(
         ILanPluginOptions options,
@@ -218,8 +220,20 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
             return true;
         }
 
+        if (PhotonNetwork.IsConnectedAndReady)
+        {
+            // Photon itself already proved the target is reachable; trust that over our own
+            // side-channel probe instead of blocking/failing a connection that is already live.
+            ResetQueuedJoinReadinessWindow();
+            _errorState.ClearStructuredLanError(
+                source,
+                "Photon is already connected and ready");
+            return true;
+        }
+
         int timeoutMs = Math.Max(0, _options.LanServerReadinessTimeoutMs.Value);
         int pollIntervalMs = Math.Max(50, _options.LanServerReadinessPollIntervalMs.Value);
+        int httpProbePort = _options.LanServerHttpProbePort.Value;
 
         LanServerEndpoint endpoint = endpointOverride
             ?? GetConfiguredLanServerEndpoint();
@@ -235,55 +249,34 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
                 host,
                 port,
                 protocol,
+                httpProbePort,
                 timeoutMs,
                 pollIntervalMs);
         }
 
-        if (!LuxonReadinessProbe.TryWaitForNameServerReady(
-                host,
-                port,
-                protocol,
-                timeoutMs,
-                pollIntervalMs,
-                out LanServerReadinessResult result))
-        {
-            _errorState.ReportStructuredLanError(
-                LanErrorClassifier.ClassifyReadinessTimeout(),
-                source,
-                "Local NameServer readiness timed out.",
-                result.LastFailureMessage);
-
-            Plugin.Log.LogError(
-                $"{source}: local NameServer readiness timed out. " +
-                $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(host)}:{port}; " +
-                $"Protocol={protocol}; " +
-                $"ElapsedMs={result.ElapsedMilliseconds}; " +
-                $"Attempts={result.AttemptCount}; " +
-                $"LastFailure={result.LastFailureMessage}");
-
-            _errorState.NotifyLanServerNotDetected("readiness timeout");
-            return false;
-        }
-
-        Plugin.Log.LogInfo(
-            $"{source}: local NameServer readiness confirmed. " +
-            $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(host)}:{port}; " +
-            $"Protocol={protocol}; " +
-            $"ElapsedMs={result.ElapsedMilliseconds}; " +
-            $"Attempts={result.AttemptCount}; " +
-            $"Message={result.SuccessMessage}");
-
-        _errorState.ClearStructuredLanError(
+        // A single quick, non-blocking probe per call (mirrors the host path) instead of a
+        // multi-second blocking wait: this method is invoked every Update() tick while a join
+        // is pending, and blocking here for the full readiness timeout each time froze the game.
+        return EnsureQueuedJoinReadinessBeforeConnect(
             source,
-            "name server readiness confirmed");
-
-        return true;
+            host,
+            port,
+            protocol,
+            httpProbePort,
+            timeoutMs,
+            pollIntervalMs);
     }
 
     public void ResetQueuedHostReadinessWindow()
     {
         _queuedHostReadinessStartedAtUtc = default;
         _queuedHostReadinessAttempts = 0;
+    }
+
+    public void ResetQueuedJoinReadinessWindow()
+    {
+        _queuedJoinReadinessStartedAtUtc = default;
+        _queuedJoinReadinessAttempts = 0;
     }
 
     public string GetConfiguredLocalEndpoint()
@@ -357,6 +350,10 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
     public void DumpPhotonSettings(string source)
     {
         var settings = PhotonNetwork.PhotonServerSettings.AppSettings;
+        var peer = PhotonNetwork.NetworkingClient?.LoadBalancingPeer;
+        string livePeerState = peer is null
+            ? "<no-peer>"
+            : $"LivePeerProtocol={peer.TransportProtocol}; LivePeerServerAddress={peer.ServerAddress ?? "<null>"}; LivePeerState={peer.PeerState}";
 
         Plugin.Log.LogInfo(
             $"Photon settings [{source}]: " +
@@ -364,8 +361,10 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
             $"Server={settings.Server ?? "<null>"}; " +
             $"Port={settings.Port}; " +
             $"Protocol={settings.Protocol}; " +
+            $"EnableProtocolFallback={settings.EnableProtocolFallback}; " +
             $"FixedRegion={settings.FixedRegion ?? "<null>"}; " +
-            $"AppVersion={settings.AppVersion ?? "<null>"}");
+            $"AppVersion={settings.AppVersion ?? "<null>"}; " +
+            livePeerState);
     }
 
     private bool EnsureQueuedHostReadinessBeforeConnect(
@@ -373,6 +372,7 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
         string host,
         int port,
         ConnectionProtocol protocol,
+        int httpProbePort,
         int timeoutMs,
         int pollIntervalMs)
     {
@@ -401,8 +401,10 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
                 host,
                 port,
                 protocol,
+                httpProbePort,
                 perAttemptTimeoutMs,
-                out string probeMessage))
+                out string probeMessage,
+                allowBlockingHttpProbe: false))
         {
             int elapsedMs = (int)Math.Max(
                 0,
@@ -457,6 +459,112 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
         return false;
     }
 
+    private bool EnsureQueuedJoinReadinessBeforeConnect(
+        string source,
+        string host,
+        int port,
+        ConnectionProtocol protocol,
+        int httpProbePort,
+        int timeoutMs,
+        int pollIntervalMs)
+    {
+        DateTime now = DateTime.UtcNow;
+
+        if (_queuedJoinReadinessStartedAtUtc == default)
+        {
+            _queuedJoinReadinessStartedAtUtc = now;
+            _queuedJoinReadinessAttempts = 0;
+
+            Plugin.Log.LogInfo(
+                $"{source}: queued join readiness wait started. " +
+                $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(host)}:{port}; " +
+                $"Protocol={protocol}; " +
+                $"TimeoutMs={timeoutMs}; " +
+                $"PollIntervalMs={pollIntervalMs}");
+        }
+
+        _queuedJoinReadinessAttempts++;
+
+        int perAttemptTimeoutMs = Math.Max(
+            100,
+            Math.Min(pollIntervalMs, 1000));
+
+        if (LuxonReadinessProbe.TryProbeNameServer(
+                host,
+                port,
+                protocol,
+                httpProbePort,
+                perAttemptTimeoutMs,
+                out string probeMessage,
+                allowBlockingHttpProbe: false))
+        {
+            int elapsedMs = (int)Math.Max(
+                0,
+                (now - _queuedJoinReadinessStartedAtUtc).TotalMilliseconds);
+
+            Plugin.Log.LogInfo(
+                $"{source}: queued join readiness confirmed. " +
+                $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(host)}:{port}; " +
+                $"Protocol={protocol}; " +
+                $"ElapsedMs={elapsedMs}; " +
+                $"Attempts={_queuedJoinReadinessAttempts}; " +
+                $"Message={probeMessage}");
+
+            _errorState.ClearStructuredLanError(
+                source,
+                "queued join readiness confirmed");
+
+            ResetQueuedJoinReadinessWindow();
+            return true;
+        }
+
+        int elapsedSinceStartMs = (int)Math.Max(
+            0,
+            (now - _queuedJoinReadinessStartedAtUtc).TotalMilliseconds);
+
+        if (elapsedSinceStartMs < timeoutMs)
+        {
+            if (_queuedJoinReadinessAttempts == 1
+                || _queuedJoinReadinessAttempts % 5 == 0)
+            {
+                Plugin.Log.LogInfo(
+                    $"{source}: queued join readiness pending. " +
+                    $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(host)}:{port}; " +
+                    $"Protocol={protocol}; " +
+                    $"ElapsedMs={elapsedSinceStartMs}; " +
+                    $"Attempts={_queuedJoinReadinessAttempts}; " +
+                    $"LastFailure={probeMessage}");
+            }
+
+            return false;
+        }
+
+        _errorState.ReportStructuredLanError(
+            LanErrorClassifier.ClassifyReadinessTimeout(),
+            source,
+            "Remote server readiness timed out.",
+            probeMessage);
+
+        Plugin.Log.LogWarning(
+            $"{source}: queued join readiness window elapsed. " +
+            $"Endpoint={_identityAndValidation.SanitizeEndpointForLog(host)}:{port}; " +
+            $"Protocol={protocol}; " +
+            $"ElapsedMs={elapsedSinceStartMs}; " +
+            $"Attempts={_queuedJoinReadinessAttempts}; " +
+            $"LastFailure={probeMessage}; " +
+            "Starting a new readiness window and retrying.");
+
+        _errorState.NotifyLanServerNotDetected("join readiness timeout");
+
+        // This resets (does not continue) the window: attempts/elapsed restart from zero and the
+        // caller keeps polling indefinitely, since there is no separate overall join timeout.
+        // Photon's own connected+ready state (checked earlier) is what ultimately ends this loop
+        // once the server actually becomes reachable, or the caller cancels the pending join.
+        ResetQueuedJoinReadinessWindow();
+
+        return false;
+    }
+
     private void ApplyLanServerSettings(
         AppSettings settings)
     {
@@ -491,12 +599,17 @@ internal sealed class LanServerRuntimeService : ILanServerRuntimeService
         settings.Protocol = endpoint.Protocol;
         settings.FixedRegion = string.Empty;
 
+        // Photon silently retries over an alternate transport (observed: WebSocketSecure on port 443)
+        // when the configured protocol fails to connect, masking real LAN/self-hosted server failures.
+        settings.EnableProtocolFallback = false;
+
         Plugin.Log.LogInfo(
             "Applied Photon mode LanServer: " +
             $"Server={serverAddress}; " +
             $"Port={settings.Port}; " +
             $"Protocol={settings.Protocol}; " +
             $"UseNameServer={settings.UseNameServer}; " +
+            $"EnableProtocolFallback={settings.EnableProtocolFallback}; " +
             $"EndpointSource={(IsJoinEndpointOverrideActive ? "join-runtime" : "config")}");
     }
 }

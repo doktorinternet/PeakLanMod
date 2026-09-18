@@ -1,12 +1,18 @@
 # Servers
 
+# If this Luxon instance only ever needs to be reached from the same machine (the common
+# single-PC-hosts-and-plays case), external_address can stay on 127.0.0.1.
+# If OTHER machines on the LAN need to reach this instance (a dedicated/remote host setup),
+# change external_address below to this machine's real LAN IP.
+#
+# Note: Luxon's per-server "proxies" entries are NOT used by this mod - in testing they never
+# actually bound/listened (verified with Get-NetTCPConnection) regardless of address, so they've
+# been removed here. The mod instead uses the HTTP web interface below (port 5088) to check
+# whether a remote server is reachable, since that's the port that's actually confirmed to listen.
 Servers:
   NameServer:
     - port: 5058
       external_address: 127.0.0.1:5058
-      proxies:
-        - protocol: TCP
-          address: 127.0.0.1:4533
     # Additional servers are supported by Luxon but not required for the mod according to tests. I've left them commented out here for reference, 
     # but you can uncomment them if you want to run a full Luxon server setup.
     # - port: 27000
@@ -15,9 +21,6 @@ Servers:
   MasterServer:
     - port: 5055
       external_address: 127.0.0.1:5055
-      proxies:
-        - protocol: TCP
-          address: 127.0.0.1:4530
 
     # - port: 27001
     #   external_address: 127.0.0.1:27001
@@ -25,9 +28,6 @@ Servers:
   GameServer:
     - port: 5056
       external_address: 127.0.0.1:5056
-      proxies:
-        - protocol: TCP
-          address: 127.0.0.1:4531
 
     # - port: 27002
     #   external_address: 127.0.0.1:27002
@@ -48,6 +48,9 @@ TickTimeBudget: 2000
 
 # Web interface and API
 # Requires LUXON_SERVER_ENABLE_WEBSERVER
+# Used by the mod as its remote-server reachability check (LanServerHttpProbePort, default 5088).
+# Keep enabled: true and reachable from other LAN machines (bind 0.0.0.0, not 127.0.0.1) for a
+# remote/dedicated host setup.
 
 HTTP:
   enabled: true
