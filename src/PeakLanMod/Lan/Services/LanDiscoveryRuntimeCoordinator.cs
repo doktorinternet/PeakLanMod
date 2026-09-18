@@ -193,7 +193,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         {
             return new LanSessionCompatibility(
                 isCompatible: false,
-                reason: "IncompatibleGameVersion");
+                reason: "Incompatible Game Version");
         }
 
         if (!string.Equals(
@@ -203,7 +203,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         {
             return new LanSessionCompatibility(
                 isCompatible: false,
-                reason: "IncompatibleModVersion");
+                reason: "Incompatible Mod Version");
         }
 
         return LanSessionCompatibility.Compatible;

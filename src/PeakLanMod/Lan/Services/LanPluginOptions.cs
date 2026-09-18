@@ -16,12 +16,6 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "badhorse-lan-mod-room_" + System.Guid.NewGuid().ToString("N")[..8],
             "Host room name.");
 
-        RequirePasswordForHostedRoom = config.Bind(
-            "Direct Connect",
-            "RequirePasswordForHostedRoom",
-            false,
-            "Require a join password for the hosted room. The password itself is entered per-session in the LAN UI and is never persisted to this config file.");
-
         HostKey = config.Bind(
             "Direct Connect",
             "HostKey",
@@ -270,7 +264,6 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     }
 
     public ConfigEntry<string> RoomName { get; }
-    public ConfigEntry<bool> RequirePasswordForHostedRoom { get; }
     public ConfigEntry<KeyboardShortcut> HostKey { get; }
     public ConfigEntry<KeyboardShortcut> JoinKey { get; }
     public ConfigEntry<LanWorkflowMode> WorkflowMode { get; }

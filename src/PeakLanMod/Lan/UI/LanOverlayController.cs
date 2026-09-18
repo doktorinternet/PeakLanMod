@@ -220,7 +220,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         _lanServerRuntime = lanServerRuntime;
         _identityAndValidation = identityAndValidation;
         _clientEventLog = clientEventLog;
-        _hostPasswordField = new HostPasswordFieldController(options);
+        _hostPasswordField = new HostPasswordFieldController();
         _lanPreferredRoomNameInput = _options.RoomName.Value;
     }
 
@@ -418,38 +418,20 @@ internal sealed class LanOverlayController : ILanOverlayController
                 _isSyncingRoomInput = false;
             }
 
-            bool requirePassword = _hostPasswordField.RequirePassword;
             float passwordRowY = inputBandY + InputBandHeight + SectionGap;
-            const float toggleBoxSize = 22f;
-            float toggleBoxY = passwordRowY + ((PasswordBandHeight - toggleBoxSize) * 0.5f);
-            float toggleLabelWidth = 150f;
-            float toggleLabelX = PanelPaddingX + toggleBoxSize + ControlGap;
-            float passwordLabelWidth = 90f;
-            float passwordLabelX = toggleLabelX + toggleLabelWidth + ControlGap;
-            float passwordFieldX = passwordLabelX + passwordLabelWidth + ControlGap;
+            float passwordFieldX = roomFieldX;
             float passwordFieldWidth = Math.Max(80f, panelWidth - passwordFieldX - PanelPaddingX);
 
-            _hostPasswordField.RequirePasswordToggle!.gameObject.SetActive(true);
-            _hostPasswordField.RequirePasswordToggleLabel!.gameObject.SetActive(true);
-            SetLocalTopLeftRect(_hostPasswordField.RequirePasswordToggle.GetComponent<RectTransform>(), PanelPaddingX, toggleBoxY, toggleBoxSize, toggleBoxSize);
-            SetLocalTopLeftRect(_hostPasswordField.RequirePasswordToggleLabel.GetComponent<RectTransform>(), toggleLabelX, passwordRowY + 6f, toggleLabelWidth, 20f);
-
-            _hostPasswordField.PasswordLabel!.gameObject.SetActive(requirePassword);
-            _hostPasswordField.PasswordInput!.gameObject.SetActive(requirePassword);
-            _hostPasswordField.PasswordInput.interactable = requirePassword;
-
-            if (requirePassword)
-            {
-                SetLocalTopLeftRect(_hostPasswordField.PasswordLabel.GetComponent<RectTransform>(), passwordLabelX, passwordRowY + 6f, passwordLabelWidth, 20f);
-                SetLocalTopLeftRect(_hostPasswordField.PasswordInput.GetComponent<RectTransform>(), passwordFieldX, passwordRowY, passwordFieldWidth, PasswordBandHeight);
-            }
+            _hostPasswordField.PasswordLabel!.gameObject.SetActive(true);
+            _hostPasswordField.PasswordInput!.gameObject.SetActive(true);
+            _hostPasswordField.PasswordInput.interactable = true;
+            SetLocalTopLeftRect(_hostPasswordField.PasswordLabel.GetComponent<RectTransform>(), PanelPaddingX, passwordRowY + 6f, roomLabelWidth, 20f);
+            SetLocalTopLeftRect(_hostPasswordField.PasswordInput.GetComponent<RectTransform>(), passwordFieldX, passwordRowY, passwordFieldWidth, PasswordBandHeight);
         }
         else
         {
             _roomNameLabelText!.gameObject.SetActive(false);
             _roomNameInput!.gameObject.SetActive(false);
-            _hostPasswordField.RequirePasswordToggle!.gameObject.SetActive(false);
-            _hostPasswordField.RequirePasswordToggleLabel!.gameObject.SetActive(false);
             _hostPasswordField.PasswordLabel!.gameObject.SetActive(false);
             _hostPasswordField.PasswordInput!.gameObject.SetActive(false);
         }
@@ -682,10 +664,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         _hostButton.onClick.AddListener(() =>
         {
             _options.RoomName.Value = validatedHostRoomName;
-            LanRuntimeContext.SetPendingHostRoomPassword(
-                _hostPasswordField.RequirePassword
-                    ? _hostPasswordField.Password
-                    : string.Empty);
+            LanRuntimeContext.SetPendingHostRoomPassword(_hostPasswordField.Password);
             Plugin.Log.LogInfo("LAN UI host button clicked.");
             _directConnect.RequestDirectHostStart("LanUiHostButton");
         });
@@ -1424,45 +1403,6 @@ internal sealed class LanOverlayController : ILanOverlayController
         }
 
         return input;
-    }
-
-    internal (Toggle toggle, TMP_Text label) CreateToggle(
-        string name,
-        Transform parent,
-        string labelText,
-        bool initialValue,
-        Action<bool> onValueChanged)
-    {
-        RectTransform root = CreateUiRect(name, parent);
-        Image bg = root.gameObject.AddComponent<Image>();
-        bg.sprite = EnsureRoundedSprite(InputCornerRadius);
-        bg.type = Image.Type.Sliced;
-        bg.color = UiFieldColor;
-        AddFaintBorder(bg);
-
-        Toggle toggle = root.gameObject.AddComponent<Toggle>();
-        toggle.targetGraphic = bg;
-
-        RectTransform checkRect = CreateUiRect("Checkmark", root);
-        Image checkImage = checkRect.gameObject.AddComponent<Image>();
-        checkImage.color = UiTextColor;
-        checkRect.anchorMin = new Vector2(0.22f, 0.22f);
-        checkRect.anchorMax = new Vector2(0.78f, 0.78f);
-        checkRect.offsetMin = Vector2.zero;
-        checkRect.offsetMax = Vector2.zero;
-        toggle.graphic = checkImage;
-        toggle.isOn = initialValue;
-        toggle.onValueChanged.AddListener(value => onValueChanged(value));
-
-        TMP_Text label = CreateTmpText(
-            name + "Label",
-            parent,
-            labelText,
-            TextAlignmentOptions.MidlineLeft,
-            LabelFontSize,
-            FontStyles.Normal);
-
-        return (toggle, label);
     }
 
     internal (Button button, TMP_Text label) CreateButton(

@@ -13,7 +13,6 @@ namespace PeakLanMod.Lan.Services;
 internal interface ILanPluginOptions
 {
     ConfigEntry<string> RoomName { get; }
-    ConfigEntry<bool> RequirePasswordForHostedRoom { get; }
     ConfigEntry<KeyboardShortcut> HostKey { get; }
     ConfigEntry<KeyboardShortcut> JoinKey { get; }
     ConfigEntry<LanWorkflowMode> WorkflowMode { get; }
@@ -256,7 +255,6 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         }
 
         public ConfigEntry<string> RoomName => NotReady<string>();
-        public ConfigEntry<bool> RequirePasswordForHostedRoom => NotReady<bool>();
         public ConfigEntry<KeyboardShortcut> HostKey => NotReady<KeyboardShortcut>();
         public ConfigEntry<KeyboardShortcut> JoinKey => NotReady<KeyboardShortcut>();
         public ConfigEntry<LanWorkflowMode> WorkflowMode => NotReady<LanWorkflowMode>();

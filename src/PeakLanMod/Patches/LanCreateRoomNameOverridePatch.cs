@@ -36,18 +36,10 @@ internal static class LanCreateRoomNameOverridePatch
         NetworkConnectorHandleConnectionStatePatch
             .ApplyLanHostRoomNameOverride(ref __0);
 
-        if (!LanRuntimeContext.Options.RequirePasswordForHostedRoom.Value)
-        {
-            LanRuntimeContext.ConsumePendingHostRoomPassword();
-            return;
-        }
-
         string password = LanRuntimeContext.ConsumePendingHostRoomPassword();
 
         if (string.IsNullOrWhiteSpace(password))
         {
-            Plugin.Log.LogWarning(
-                "Password protection was selected, but no room password was supplied; creating an unprotected room.");
             return;
         }
 
