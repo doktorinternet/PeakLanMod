@@ -571,7 +571,7 @@ internal sealed class LanOverlayController : ILanOverlayController
             if (sessions.Count == 0)
             {
                 _emptyText.gameObject.SetActive(true);
-                _emptyText.text = "No discovered sessions yet. Keep host in-room and click Refresh.";
+                _emptyText.text = "No discovered sessions yet. Have a buddy host a room, or host one yourself :)";
                 SetLocalTopLeftRect(_emptyText.GetComponent<RectTransform>(), PanelPaddingX, rowY + 8f, panelWidth - (PanelPaddingX * 2f), 22f);
                 HideUnusedRows(0);
             }

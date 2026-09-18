@@ -14,6 +14,14 @@ internal sealed class PhotonCallbackProbe :
 {
     private string _lastKnownRoomName = string.Empty;
     private string _lastKnownRoomOwnerNickname = string.Empty;
+    private bool _localPlayerIsRoomOwner;
+    private DateTime _lastLeftRoomAtUtc;
+    private bool _lastLeftRoomAsGuest;
+
+    // Guests see the underlying Photon disconnect as a generic timeout even when it is really
+    // just the host's LAN server disappearing right after the host left; this window lets the
+    // OnDisconnected handler recognize that sequence and phrase it accordingly.
+    private static readonly TimeSpan GuestRoomLeaveDisconnectCorrelationWindow = TimeSpan.FromSeconds(5);
 
     private static string Time =>
         DateTime.Now.ToString("HH:mm:ss.fff");
@@ -81,6 +89,7 @@ internal sealed class PhotonCallbackProbe :
             bool createdRoomPasswordProtected = LanRoomPasswordPolicy.IsPasswordProtected(PhotonNetwork.CurrentRoom);
             _lastKnownRoomName = createdRoomName;
             _lastKnownRoomOwnerNickname = PhotonNetwork.LocalPlayer?.NickName ?? string.Empty;
+            _localPlayerIsRoomOwner = true;
 
             LanRuntimeContext.Services.ClientEventLog.Log(
                 LanClientLogMessages.HostingStarted(createdRoomName, createdRoomPasswordProtected));
@@ -120,6 +129,7 @@ internal sealed class PhotonCallbackProbe :
             string joinedRoomOwnerNickname = PhotonNetwork.MasterClient?.NickName ?? string.Empty;
             _lastKnownRoomName = joinedRoomName;
             _lastKnownRoomOwnerNickname = joinedRoomOwnerNickname;
+            _localPlayerIsRoomOwner = PhotonNetwork.IsMasterClient;
 
             if (!PhotonNetwork.IsMasterClient)
             {
@@ -310,6 +320,9 @@ internal sealed class PhotonCallbackProbe :
             $"scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}; " +
             $"offlineMode={PhotonNetwork.OfflineMode}");
 
+        _lastLeftRoomAtUtc = DateTime.UtcNow;
+        _lastLeftRoomAsGuest = !_localPlayerIsRoomOwner;
+
         LanRuntimeContext.Services.ClientEventLog.Log(
             LanClientLogMessages.LeftRoom(_lastKnownRoomName, _lastKnownRoomOwnerNickname));
 
@@ -358,7 +371,7 @@ internal sealed class PhotonCallbackProbe :
             $"players={PhotonNetwork.CurrentRoom?.PlayerCount}");
     }
 
-    private static string BuildBestEffortDisconnectMessage(
+    private string BuildBestEffortDisconnectMessage(
         DisconnectCause cause,
         string clientState,
         string serverAddress,
@@ -373,10 +386,26 @@ internal sealed class PhotonCallbackProbe :
         if (cause == DisconnectCause.ServerTimeout
             || cause == DisconnectCause.ClientTimeout)
         {
-            return "Network timeout while establishing Photon connection. " +
+            bool followsRecentGuestRoomLeave =
+                _lastLeftRoomAsGuest
+                && (DateTime.UtcNow - _lastLeftRoomAtUtc) < GuestRoomLeaveDisconnectCorrelationWindow;
+
+            if (followsRecentGuestRoomLeave)
+            {
+                _lastLeftRoomAsGuest = false;
+
+                string ownerDisplay = string.IsNullOrWhiteSpace(_lastKnownRoomOwnerNickname)
+                    ? "the host"
+                    : _lastKnownRoomOwnerNickname;
+
+                return $"Lost connection to {ownerDisplay}'s LAN server; the host may have stopped hosting " +
+                    "or their server closed unexpectedly.";
+            }
+
+            return "Network timeout while establishing server connection. " +
                 $"Endpoint={serverAddress}; Protocol={protocol}; ClientState={clientState}";
         }
 
-        return $"Photon disconnect cause={cause}; Endpoint={serverAddress}; Protocol={protocol}; ClientState={clientState}";
+        return $"Server disconnect cause={cause}; Endpoint={serverAddress}; Protocol={protocol}; ClientState={clientState}";
     }
 }
