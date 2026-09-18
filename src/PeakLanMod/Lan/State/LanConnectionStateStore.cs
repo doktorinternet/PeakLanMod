@@ -17,8 +17,6 @@ internal sealed class LanConnectionStateStore
     private readonly object _sync = new();
     private readonly Dictionary<string, LanSessionInfo> _sessions =
         new(StringComparer.OrdinalIgnoreCase);
-    private string _connectionPhase = "Idle";
-    private DateTime _connectionPhaseUpdatedAtUtc = DateTime.UtcNow;
     private LanErrorDetail? _connectionError;
 
     internal LanSessionUpdateKind UpsertDiscoveredSession(LanSessionInfo session)
@@ -119,28 +117,6 @@ internal sealed class LanConnectionStateStore
                 .OrderByDescending(current => current.LastSeenUtc)
                 .ThenBy(current => current.RoomName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-        }
-    }
-
-    internal void SetConnectionPhase(
-        string phase)
-    {
-        string normalized = string.IsNullOrWhiteSpace(phase)
-            ? "Unknown"
-            : phase.Trim();
-
-        lock (_sync)
-        {
-            _connectionPhase = normalized;
-            _connectionPhaseUpdatedAtUtc = DateTime.UtcNow;
-        }
-    }
-
-    internal (string Phase, DateTime UpdatedAtUtc) GetConnectionPhaseSnapshot()
-    {
-        lock (_sync)
-        {
-            return (_connectionPhase, _connectionPhaseUpdatedAtUtc);
         }
     }
 

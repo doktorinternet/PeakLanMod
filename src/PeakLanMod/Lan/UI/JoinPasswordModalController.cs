@@ -48,7 +48,7 @@ internal sealed class JoinPasswordModalController
             "PASSWORD REQUIRED",
             TextAlignmentOptions.TopLeft,
             18f,
-            FontStyles.Bold);
+            FontStyles.Normal);
         _titleText.color = new Color(0.94f, 0.82f, 0.66f, 1f);
         LanOverlayController.SetLocalTopLeftRect(_titleText.GetComponent<RectTransform>(), 20f, 16f, 260f, 24f);
 
@@ -78,7 +78,7 @@ internal sealed class JoinPasswordModalController
             _root,
             "SUBMIT",
             16f,
-            FontStyles.Bold,
+            FontStyles.Normal,
             null);
         LanOverlayController.SetLocalTopLeftRect(_submitButton.GetComponent<RectTransform>(), 20f, 118f, 120f, 32f);
 

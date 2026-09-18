@@ -1,5 +1,6 @@
 using PeakLanMod.Lan.Model;
 using System;
+using System.Collections.Generic;
 using BepInEx.Configuration;
 using ExitGames.Client.Photon;
 using Photon.Realtime;
@@ -71,6 +72,7 @@ internal interface IDirectConnectCoordinator
     void CompletePendingAttempt(string source);
     void CancelPendingAttemptOnDisconnect(DisconnectCause cause, string clientState, string serverAddress);
     bool IsDirectAttemptActive();
+    string GetActiveAttemptRoomName();
     bool ShouldDeferDisconnectError(DisconnectCause cause, out int elapsedMs, out int timeoutMs);
 }
 
@@ -88,7 +90,13 @@ internal interface ILanDiscoveryRuntimeCoordinator
     void StopLanDiscoveryBroadcast(string source);
     void ShutdownLanDiscoveryRuntime(string source);
     LanSessionInfo[] GetDiscoverySnapshot();
-    (string Phase, DateTime UpdatedAtUtc) GetConnectionPhaseSnapshot();
+}
+
+internal interface ILanClientEventLog
+{
+    void Log(string message);
+    IReadOnlyList<string> GetEntriesSnapshot();
+    string? GetLatestEntry();
 }
 
 internal interface ILanErrorStateService
@@ -158,6 +166,7 @@ internal interface IPluginCompatibilityServices
     ILanServerRuntimeService LanServerRuntime { get; }
     ILanIdentityAndValidation IdentityAndValidation { get; }
     ILanCustomizationPersistenceService CustomizationPersistence { get; }
+    ILanClientEventLog ClientEventLog { get; }
 }
 
 internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
@@ -171,13 +180,15 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         Options = options;
         ModePolicy = new LanModePolicyService();
         WorkflowPolicy = workflowPolicy;
+        ClientEventLog = new LanClientEventLog();
         DiscoveryRuntime = new LanDiscoveryRuntimeCoordinator(
             options,
             connectionStateStore,
             Plugin.DisplayVersion);
         ErrorState = new LanErrorStateService(
             options,
-            connectionStateStore);
+            connectionStateStore,
+            ClientEventLog);
         IdentityAndValidation = new LanIdentityAndValidation();
         CustomizationPersistence = options is PlaceholderLanPluginOptions
             ? new PlaceholderLanCustomizationPersistenceService()
@@ -202,7 +213,8 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
                 DiscoveryRuntime,
                 ErrorState,
                 LanServerRuntime,
-                IdentityAndValidation);
+                IdentityAndValidation,
+                ClientEventLog);
     }
 
     internal static IPluginCompatibilityServices CreateDefault()
@@ -233,6 +245,7 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
     public ILanServerRuntimeService LanServerRuntime { get; }
     public ILanIdentityAndValidation IdentityAndValidation { get; }
     public ILanCustomizationPersistenceService CustomizationPersistence { get; }
+    public ILanClientEventLog ClientEventLog { get; }
 
     private sealed class PlaceholderLanPluginOptions : ILanPluginOptions
     {
@@ -361,6 +374,11 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public bool IsDirectAttemptActive()
         {
             return false;
+        }
+
+        public string GetActiveAttemptRoomName()
+        {
+            return string.Empty;
         }
 
         public bool ShouldDeferDisconnectError(

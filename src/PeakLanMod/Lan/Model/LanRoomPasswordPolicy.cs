@@ -1,5 +1,6 @@
 using System;
 using System.Security.Cryptography;
+using Photon.Realtime;
 
 namespace PeakLanMod.Lan.Model;
 
@@ -7,6 +8,11 @@ internal static class LanRoomPasswordPolicy
 {
     internal const string SaltPropertyKey = "pwd_salt";
     internal const string HashPropertyKey = "pwd_hash";
+
+    internal static bool IsPasswordProtected(Room? room)
+    {
+        return room?.CustomProperties?.ContainsKey(SaltPropertyKey) == true;
+    }
 
     internal static (string Salt, string Hash) Create(string password)
     {

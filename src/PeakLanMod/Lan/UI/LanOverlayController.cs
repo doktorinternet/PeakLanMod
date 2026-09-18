@@ -20,12 +20,12 @@ internal sealed class LanOverlayController : ILanOverlayController
     private readonly ILanErrorStateService _errorState;
     private readonly ILanServerRuntimeService _lanServerRuntime;
     private readonly ILanIdentityAndValidation _identityAndValidation;
+    private readonly ILanClientEventLog _clientEventLog;
     private readonly HostPasswordFieldController _hostPasswordField;
     private readonly JoinPasswordModalController _joinPasswordModal = new();
     private readonly LanDiscoveredSessionsViewModel _discoveredSessionsViewModel = new();
     private readonly LanStatusPresenterBridge _statusPresenterBridge = new();
     private readonly List<LanSessionRowUi> _sessionRows = new();
-    private readonly List<string> _clientStateLogEntries = new();
 
     private bool _isLanServerListCollapsed;
     private bool _lanPanelCollapsedBySettingsAutomation;
@@ -78,9 +78,6 @@ internal sealed class LanOverlayController : ILanOverlayController
     private RectTransform? _stateLogContentRect;
     private TMP_Text? _stateLogBodyText;
 
-    private string _lastLoggedConnectionPhase = string.Empty;
-    private string _lastLoggedEndpoint = string.Empty;
-    private string _lastLoggedErrorSignature = string.Empty;
     private string _lastRenderedStateLogText = string.Empty;
 
     private RectTransform? _adminPanelRect;
@@ -197,7 +194,6 @@ internal sealed class LanOverlayController : ILanOverlayController
     private static readonly Vector2 UiThickBorderEffectDistance = new(3f, -3f);
     private static readonly Vector2 UiButtonBorderEffectDistance = new(2f, -2f);
     private static readonly Vector2 UiRowBorderEffectDistance = new(2f, -2f);
-    private const int MaxClientStateLogEntries = 160;
 
     private static Color Brighten(Color color, float amount)
     {
@@ -214,7 +210,8 @@ internal sealed class LanOverlayController : ILanOverlayController
         ILanDiscoveryRuntimeCoordinator discoveryRuntime,
         ILanErrorStateService errorState,
         ILanServerRuntimeService lanServerRuntime,
-        ILanIdentityAndValidation identityAndValidation)
+        ILanIdentityAndValidation identityAndValidation,
+        ILanClientEventLog clientEventLog)
     {
         _options = options;
         _directConnect = directConnect;
@@ -222,6 +219,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         _errorState = errorState;
         _lanServerRuntime = lanServerRuntime;
         _identityAndValidation = identityAndValidation;
+        _clientEventLog = clientEventLog;
         _hostPasswordField = new HostPasswordFieldController(options);
         _lanPreferredRoomNameInput = _options.RoomName.Value;
     }
@@ -308,10 +306,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         IReadOnlyList<LanSessionInfo> sessions = _discoveredSessionsViewModel.Sessions;
         int selectedIndex = _discoveredSessionsViewModel.SelectedIndex;
-        (string phase, DateTime phaseUpdatedAtUtc) = _discoveryRuntime.GetConnectionPhaseSnapshot();
-        LanErrorDetail? connectionError = _errorState.GetConnectionErrorSnapshot();
         LanSessionInfo? selectedSession = _discoveredSessionsViewModel.GetSelectedSessionOrNull();
-        string configuredEndpoint = _lanServerRuntime.GetConfiguredLocalEndpoint();
 
         bool canJoinSelected = TryCanJoinSelectedSession(
             selectedSession,
@@ -322,12 +317,6 @@ internal sealed class LanOverlayController : ILanOverlayController
             out string validatedHostRoomName,
             out string hostUnavailableReason);
         bool isConnectionAttemptActive = _directConnect.IsDirectAttemptActive();
-
-        EnsureClientStateLogUpdated(
-            phase,
-            phaseUpdatedAtUtc,
-            configuredEndpoint,
-            connectionError);
 
         string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
             ? "Last refresh: never"
@@ -714,54 +703,6 @@ internal sealed class LanOverlayController : ILanOverlayController
         });
     }
 
-    private void EnsureClientStateLogUpdated(
-        string phase,
-        DateTime phaseUpdatedAtUtc,
-        string configuredEndpoint,
-        LanErrorDetail? connectionError)
-    {
-        if (_clientStateLogEntries.Count == 0)
-        {
-            AppendClientStateLogEntry("Client state timeline initialized.");
-        }
-
-        string sanitizedEndpoint = _identityAndValidation.SanitizeEndpointForLog(configuredEndpoint);
-
-        if (!string.Equals(_lastLoggedEndpoint, sanitizedEndpoint, StringComparison.Ordinal))
-        {
-            AppendClientStateLogEntry($"Configured endpoint: {sanitizedEndpoint}");
-            _lastLoggedEndpoint = sanitizedEndpoint;
-        }
-
-        string normalizedPhase = string.IsNullOrWhiteSpace(phase)
-            ? "Unknown"
-            : phase.Trim();
-
-        if (!string.Equals(_lastLoggedConnectionPhase, normalizedPhase, StringComparison.Ordinal))
-        {
-            AppendClientStateLogEntry(
-                $"Connection phase: {normalizedPhase} (updated {phaseUpdatedAtUtc.ToLocalTime():HH:mm:ss})");
-            _lastLoggedConnectionPhase = normalizedPhase;
-        }
-
-        string errorSignature = BuildErrorSignature(connectionError);
-
-        if (!string.Equals(_lastLoggedErrorSignature, errorSignature, StringComparison.Ordinal))
-        {
-            if (connectionError is null)
-            {
-                AppendClientStateLogEntry("Structured LAN error cleared.");
-            }
-            else
-            {
-                AppendClientStateLogEntry(
-                    $"Error: {connectionError.Code} - {connectionError.Message} (source {connectionError.Source})");
-            }
-
-            _lastLoggedErrorSignature = errorSignature;
-        }
-    }
-
     private void RenderClientStatePanel(
         bool showServerRows,
         float panelX,
@@ -812,9 +753,9 @@ internal sealed class LanOverlayController : ILanOverlayController
             statePanelWidth - (PanelPaddingX * 2f),
             HeaderHeight);
 
-        string latestEntry = _clientStateLogEntries.Count == 0
-            ? "Latest: waiting for status updates"
-            : $"Latest: {_clientStateLogEntries[_clientStateLogEntries.Count - 1]}";
+        string latestEntry = _clientEventLog.GetLatestEntry() is { } latest
+            ? $"Latest: {latest}"
+            : "Latest: waiting for status updates";
 
         _stateLatestText.text = latestEntry;
         float latestY = statePanelHeight - StatePanelBottomInset - StateLatestHeight;
@@ -868,59 +809,26 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private string BuildStateHistoryText()
     {
-        if (_clientStateLogEntries.Count == 0)
+        IReadOnlyList<string> entries = _clientEventLog.GetEntriesSnapshot();
+
+        if (entries.Count == 0)
         {
-            return "No client state updates yet.";
+            return "No events yet.";
         }
 
         var builder = new StringBuilder();
 
-        for (int index = 0; index < _clientStateLogEntries.Count; index++)
+        for (int index = 0; index < entries.Count; index++)
         {
             if (index > 0)
             {
                 builder.Append(Environment.NewLine);
             }
 
-            builder.Append(_clientStateLogEntries[index]);
+            builder.Append(entries[index]);
         }
 
         return builder.ToString();
-    }
-
-    private void AppendClientStateLogEntry(string message)
-    {
-        string timestamp = DateTime.Now.ToString("HH:mm:ss");
-        string normalizedMessage = string.IsNullOrWhiteSpace(message)
-            ? "(empty update)"
-            : message.Trim();
-
-        _clientStateLogEntries.Add($"[{timestamp}] {normalizedMessage}");
-
-        if (_clientStateLogEntries.Count > MaxClientStateLogEntries)
-        {
-            int removeCount = _clientStateLogEntries.Count - MaxClientStateLogEntries;
-            _clientStateLogEntries.RemoveRange(0, removeCount);
-        }
-    }
-
-    private static string BuildErrorSignature(LanErrorDetail? connectionError)
-    {
-        if (connectionError is null)
-        {
-            return "None";
-        }
-
-        return string.Concat(
-            connectionError.Code,
-            "|",
-            connectionError.Message,
-            "|",
-            connectionError.Source,
-            "|",
-            connectionError.Context,
-            "|",
-            connectionError.OccurredAtUtc.ToString("O"));
     }
 
     private void OnCollapseClicked()
@@ -1781,7 +1689,9 @@ internal sealed class LanOverlayController : ILanOverlayController
         string compatibility = session.IsCompatible
             ? "Compatible"
             : session.IncompatibilityReason;
-        return $"{session.NameServerAddress}:{session.NameServerPort} | {compatibility} | Scene: {session.Scene}";
+        // remove ip and port from server list for now to obfuscate a little bit more
+        //  $"{session.NameServerAddress}:{session.NameServerPort} | 
+        return $"{compatibility} | Scene: {session.Scene}";
     }
 
     private static string BuildSessionPlayerCountLine(LanSessionInfo session)
