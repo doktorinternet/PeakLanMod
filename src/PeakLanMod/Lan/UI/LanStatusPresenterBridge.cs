@@ -67,7 +67,7 @@ internal sealed class LanStatusPresenterBridge
     {
         return value switch
         {
-            DateTime dateTime => dateTime.ToString("yyyy-MM-dd HH:mm.ss", CultureInfo.InvariantCulture),
+            DateTime dateTime => dateTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm.ss", CultureInfo.InvariantCulture),
             null => string.Empty,
             _ => value.ToString() ?? string.Empty
         };

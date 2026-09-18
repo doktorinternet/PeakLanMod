@@ -331,7 +331,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         string lastRefreshLabel = _lastLanUiRefreshAtUtc == default
             ? "Last refresh: never"
-            : $"Last refresh: {_lastLanUiRefreshAtUtc:HH:mm:ss} UTC";
+            : $"Last refresh: {_lastLanUiRefreshAtUtc.ToLocalTime():HH:mm:ss}";
 
         string modVersionLabel = $"{Plugin.PluginName}: {Plugin.DisplayVersion}";
 
@@ -740,7 +740,7 @@ internal sealed class LanOverlayController : ILanOverlayController
         if (!string.Equals(_lastLoggedConnectionPhase, normalizedPhase, StringComparison.Ordinal))
         {
             AppendClientStateLogEntry(
-                $"Connection phase: {normalizedPhase} (updated {phaseUpdatedAtUtc:HH:mm:ss} UTC)");
+                $"Connection phase: {normalizedPhase} (updated {phaseUpdatedAtUtc.ToLocalTime():HH:mm:ss})");
             _lastLoggedConnectionPhase = normalizedPhase;
         }
 
@@ -890,7 +890,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
     private void AppendClientStateLogEntry(string message)
     {
-        string timestamp = DateTime.UtcNow.ToString("HH:mm:ss");
+        string timestamp = DateTime.Now.ToString("HH:mm:ss");
         string normalizedMessage = string.IsNullOrWhiteSpace(message)
             ? "(empty update)"
             : message.Trim();
