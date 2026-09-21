@@ -241,4 +241,4 @@ server/luxon_server*
 server/luxon-server*
 server/config.yml
 /release/dependencies
-/release/supported_mods
+/release/optional_mods

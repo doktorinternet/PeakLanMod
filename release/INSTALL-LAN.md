@@ -47,9 +47,9 @@ As with the host setup, this is optional and aimed towards users who want to run
 3. Run the Luxon executable with the config file as the only argument.
 4. PEAK instances that want to host on your server should turn off automatic host IP detection and set `Hosting.LanServerAddress` to your server IP.
 
-## Supported mods
+## Optional mods
 
-I've included some other optional mods in this Internyet-tailored package. They can be found in `supported_mods/`. They're not very thoroughly tested, but I've tried to spend time at least installing them and successfully hosted and joined lobbies. Short descriptions found below. 
+I've included some other optional mods in this Internyet-tailored package. They can be found in `optional_mods/`. They're not very thoroughly tested, but I've tried to spend time at least installing them and successfully hosted and joined lobbies. Short descriptions found below. 
 
 NOTE: A general rule for stability when using mods is that if everyone in the lobby has the same set of mods installed, the chances of encountering issues are significantly reduced.
 

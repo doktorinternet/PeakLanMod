@@ -120,7 +120,7 @@
       <_LanReleaseBuildInfoPath>$(_LanReleaseStageDir)metadata\BUILD_INFO.txt</_LanReleaseBuildInfoPath>
       <_LanReleaseInstallGuide>$(SolutionRoot)release\INSTALL-LAN.md</_LanReleaseInstallGuide>
       <_LanReleaseDependencies>$(SolutionRoot)release\dependencies\</_LanReleaseDependencies>
-      <_LanReleaseSupportedMods>$(SolutionRoot)release\supported_mods\</_LanReleaseSupportedMods>
+      <_LanReleaseSupportedMods>$(SolutionRoot)release\optional_mods\</_LanReleaseSupportedMods>
       <_LanReleaseServerDir>$(SolutionRoot)server\</_LanReleaseServerDir>
       <_LanReleasePdbPath>$(TargetDir)$(AssemblyName).pdb</_LanReleasePdbPath>
     </PropertyGroup>
@@ -147,7 +147,7 @@
     <MakeDir Directories="$(_LanReleaseStageDir)mod\BepInEx\plugins" />
     <MakeDir Directories="$(_LanReleaseStageDir)server" />
     <MakeDir Directories="$(_LanReleaseStageDir)dependencies" />
-    <MakeDir Directories="$(_LanReleaseStageDir)supported_mods" />
+    <MakeDir Directories="$(_LanReleaseStageDir)optional_mods" />
     <MakeDir Directories="$(_LanReleaseStageDir)metadata" />
 
     <Copy
@@ -173,7 +173,7 @@
 
     <Copy
       SourceFiles="@(_LanReleaseSupportedModFiles)"
-      DestinationFiles="@(_LanReleaseSupportedModFiles->'$(_LanReleaseStageDir)supported_mods\%(RecursiveDir)%(Filename)%(Extension)')"
+      DestinationFiles="@(_LanReleaseSupportedModFiles->'$(_LanReleaseStageDir)optional_mods\%(RecursiveDir)%(Filename)%(Extension)')"
     />
 
     <Copy
