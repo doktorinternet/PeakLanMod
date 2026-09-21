@@ -49,7 +49,30 @@ As with the host setup, this is optional and aimed towards users who want to run
 
 ## Supported mods
 
-For an augmented PEAK experience, I've included some other optional mods in this Internyet-tailored package. They can be found in `supported_mods/`. They're not very thoroughly tested, but I've at least once installed them and successfully hosted and joined lobbies. 
+I've included some other optional mods in this Internyet-tailored package. They can be found in `supported_mods/`. They're not very thoroughly tested, but I've tried to spend time at least installing them and successfully hosted and joined lobbies. Short descriptions found below. 
+
+NOTE: A general rule for stability when using mods is that if everyone in the lobby has the same set of mods installed, the chances of encountering issues are significantly reduced.
+
+Mods that I recommend:
+* PEAK Unlimited: More players. I've not tested many players with this mod, but I don't see why it wouldn't work.
+* PEAKFastStartup: Pretty self-explanatory; removes the startup splash and speeds up the time to enter the main menu.
+
+Mods that look fun:
+* Mimic: Adds a mimic which imitates players and tries to eat them.
+* FlagSurvival: Adds a capture-the-flag style game mode.
+* MorePeak: Pick map id for the game to deterministically pick biomes, essentially. I don't think there's an easy way to find out what biomes are in each map except for playing them and finding out. I think they go from Level_0 to Level_41 or so. The mod allows you to display the id of the current map.
+* PEAK_Daily_Expeditions: Seems like quite an extensive mod. Probably requires reading the documentation to fully understand its features. Least likely to work with the LAN mod.
+
+Kinda useful mods:
+* PeakLateJoin: Arguably should be a core part of the LAN mod, but since this mod exists, why not use it.
+* Piggyback: Carry your bois around while they're awake.
+* Catch players: Similar to pulling friends up from a ledge, lets you catch falling players. 
+* SmoreSkinColors: It's more skin colors.
+* PEAK Unbound: More options for key bindings.
+* PEAK Voice volume saver: I guess it saves the volume setting per player id.
+* PEAK Visuals: Adds more graphics settings. Requires UpscaleLib.
+* UpscaleLib: required for PEAK Visuals.
+* Leaderboard: Adds a leaderboard feature supposed to display player height records, successful climbs etc. Couldn't see the leaderboard in action during my tests, so I can't vouch for its functionality. Doesn't seem to impact the LAN mod negatively tho.
 
 ## Required versions
 

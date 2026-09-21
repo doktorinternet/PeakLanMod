@@ -13,8 +13,8 @@ internal sealed class LanPluginOptions : ILanPluginOptions
         RoomName = config.Bind(
             "Direct Connect",
             "RoomName",
-            "badhorse-lan-mod-room_" + System.Guid.NewGuid().ToString("N")[..8],
-            "Host room name.");
+            "badhorse-lan-mod-room_<8_character_long_random_id>",
+            "Host room name. Change this to a unique value, such as your personality.");
 
         HostKey = config.Bind(
             "Direct Connect",
@@ -34,7 +34,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "LanServerAddress",
             "LocalServerAddress",
             "127.0.0.1",
-            "Local Luxon server hostname or IP. Swap with LAN host address.");
+            "Server hostname or IP. Swap with address to server of which to host at. Default configuration will set this automatically when hosting.");
 
         LanServerPort = BindWithLegacyFallback(
             config,
@@ -50,21 +50,20 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "LanServerProtocol",
             "LocalServerProtocol",
             ConnectionProtocol.Udp,
-            "Local server transport protocol.");
+            "Local server transport protocol. Probably don't change this guys");
 
         LanServerHttpProbePort = config.Bind(
             "Hosting",
             "LanServerHttpProbePort",
             5088,
             "Luxon HTTP web interface port (see Luxon config.yml HTTP.port; requires HTTP.enabled: true) " +
-            "used to reliably check whether a remote LAN server is reachable. A real HTTP response is a " +
-            "much stronger reachability signal than guessing from a raw UDP probe.");
+            "used to reliably check whether a remote LAN server is reachable.");
 
         WorkflowMode = config.Bind(
             "LanWorkflow",
             "WorkflowMode",
             LanWorkflowMode.AutoSetup,
-            "High-level LAN workflow mode: AutoSetup (auto host endpoint/luxon updates), LockedRuntime (stable host endpoint, no host endpoint rewrites), or Advanced (manual control of all LAN workflow settings).");
+            "High-level LAN workflow mode: AutoSetup (auto host endpoint/luxon updates), LockedRuntime (stable host endpoint, no host endpoint rewrites), or Advanced (manual control of all LAN workflow settings). Normal usage is to keep on AutoSetup, but if you host on a remote server, you will want to switch to Advanced.");
 
         AutoLockWorkflowModeAfterSuccessfulHost = config.Bind(
             "LanWorkflow",
@@ -118,7 +117,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "LanServerWorkingDirectory",
             "LocalServerWorkingDirectory",
             "server",
-            "Working directory used when launching the local server executable. Leave empty to use executable directory.");
+            "Working directory used when launching the local server executable.");
 
         LanServerStartArguments = BindWithLegacyFallback(
             config,
@@ -134,15 +133,15 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "AutoStopOwnedLanServerOnExit",
             "AutoStopOwnedLocalServerOnExit",
             true,
-            "Stop only plugin-owned local server process on plugin unload/game exit.");
+            "Stop only plugin-owned local server process on plugin unload/game exit. If true, will kick all connected clients. If false, will keep the server running for your buddies to keep playing.");
 
         AutoStopOwnedLanServerOnLeaveRoom = BindWithLegacyFallback(
             config,
             "LanWorkflow",
             "AutoStopOwnedLanServerOnLeaveRoom",
             "AutoStopOwnedLocalServerOnLeaveRoom",
-            true,
-            "Stop plugin-owned local server process when leaving a room.");
+            false,
+            "Stop plugin-owned local server process when leaving a room. If true, will kick all connected clients. If false, will keep the server running for your buddies to keep playing.");
 
         ForceKillOwnedLanServerOnExit = BindWithLegacyFallback(
             config,
@@ -164,7 +163,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             "LanWorkflow",
             "AutoRetryDirectHostUntilReady",
             true,
-            "Queue host intent on HostKey and auto-complete when the server becomes connected and ready.");
+            "Queue host intent and auto-complete when the server becomes connected and ready.");
 
         HostCreateRoomTimeoutSeconds = config.Bind(
             "LanWorkflow",
