@@ -63,28 +63,41 @@ Requirements:
      * assembly informational version resolves to the same full release version.
    * If BepInEx metadata contains prerelease text or otherwise fails numeric parsing, stop before packaging.
 
-5. Build the release package:
+5. Update the running release notes:
+
+   * Read `CHANGELOG.md` and identify the entries added since the previous released version (the most recent `## <version> - <date>` chapter already present in `RELEASE_NOTES.md`).
+   * Read `RELEASE_NOTES.md`.
+   * Add a new chapter at the top of `RELEASE_NOTES.md`, titled `## <release version> - <YYYY-MM-DD>` (today's date), summarizing those changes for an end user:
+
+     * Describe what a player will notice (new features, fixed problems, changed behavior), not implementation detail.
+     * Do not mention internal class/method names, file paths, config key names, or PR/phase numbers.
+     * Keep it concise; a few bullet points is normal.
+     * If the changes since the previous release are entirely internal/technical with nothing player-visible, say so briefly (for example: "Internal stability and maintainability improvements; no player-visible changes.") rather than omitting the chapter or inventing user-facing claims.
+   * Do not edit or remove any existing chapters in `RELEASE_NOTES.md`.
+   * `RELEASE_NOTES.md` (not `CHANGELOG.md`) is the document bundled with the release package, so it must be updated before step 6 packages the release.
+
+6. Build the release package:
 
    * Run:
 
      * `dotnet build -c Release -t:LanRelease -p:RunThunderPipePackAfterBuild=false`
    * Report generated output paths from the build log.
 
-6. Commit the release version:
+7. Commit the release version:
 
-   * After the release package build succeeds, commit the release-version change.
-   * Commit only the intended version file changes required for this step.
+   * After the release package build succeeds, commit the release-version change together with the `RELEASE_NOTES.md` update.
+   * Commit only the intended version file and `RELEASE_NOTES.md` changes required for this step.
    * Use a non-interactive commit message in the form:
 
      * `Release X.Y.Z`
 
-7. Tag the release version:
+8. Tag the release version:
 
    * After the release-version commit succeeds, tag the release version.
    * Use a non-interactive tag message in the form:
    
      * `git tag vX.Y.Z`
-8. Bump to next development version:
+9. Bump to next development version:
 
    * Parse the release version as `major.minor.patch`.
    * Always apply a patch bump for post-release development:
@@ -95,7 +108,7 @@ Requirements:
      * `major.minor.(patch+1)-preview`
        to `src/PeakLanMod/PeakLanMod.csproj` `<Version>`.
 
-9. Validate post-release development metadata:
+10. Validate post-release development metadata:
 
    * Verify that:
 
@@ -103,9 +116,9 @@ Requirements:
      * BepInEx plugin metadata resolves to numeric core only,
      * user-facing assembly informational/display version retains `-preview`.
 
-10. Commit the new development version:
+11. Commit the new development version:
 
-   * Commit the post-release preview bump from step 8 using message:
+   * Commit the post-release preview bump from step 9 using message:
 
      * `Start of [major.minor.patch-preview]`
    * Example: `Start of 1.0.1-preview`.
@@ -118,6 +131,7 @@ Behavioral constraints:
 * Do not duplicate version strings manually if the project/build system can derive them.
 * Keep BepInEx numeric version and display/package SemVer clearly separated.
 * Use non-interactive git commands for commit operations.
+* `RELEASE_NOTES.md` is end-user-facing: no internal identifiers, file paths, or implementation detail. `CHANGELOG.md` remains the technical, developer-facing record and is not bundled with releases.
 
 Final report format:
 
@@ -127,8 +141,9 @@ Final report format:
 4. Release version used
 5. BepInEx plugin version verified
 6. Assembly/display version verified
-7. Release package build result and artifact locations
-8. Release-version commit result (commit hash and message)
-9. New development version written
-10. Post-release bump commit result (commit hash and message)
-11. Any manual follow-up needed
+7. `RELEASE_NOTES.md` chapter added for this release (summary of its content)
+8. Release package build result and artifact locations
+9. Release-version commit result (commit hash and message)
+10. New development version written
+11. Post-release bump commit result (commit hash and message)
+12. Any manual follow-up needed
