@@ -182,9 +182,9 @@
     />
 
     <Copy
-      SourceFiles="$(SolutionRoot)CHANGELOG.md"
-      DestinationFiles="$(_LanReleaseStageDir)/CHANGELOG.md"
-      Condition="Exists('$(SolutionRoot)CHANGELOG.md')"
+      SourceFiles="$(SolutionRoot)RELEASE_NOTES.md"
+      DestinationFiles="$(_LanReleaseStageDir)/RELEASE_NOTES.md"
+      Condition="Exists('$(SolutionRoot)RELEASE_NOTES.md')"
     />
 
     <ItemGroup>

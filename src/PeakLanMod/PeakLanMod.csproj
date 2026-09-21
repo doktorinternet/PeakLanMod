@@ -75,7 +75,7 @@
   <!-- Thunderstore package metadata -->
   <ItemGroup>
     <ThunderstorePackageFile Include="$(SolutionRoot)README.md" />
-    <ThunderstorePackageFile Include="$(SolutionRoot)CHANGELOG.md" />
+    <ThunderstorePackageFile Include="$(SolutionRoot)RELEASE_NOTES.md" />
     <ThunderstorePackageFile Include="$(SolutionRoot)icon.png" />
     <ThunderstorePackageFile Include="$(SolutionRoot)LICENSE" />
 
