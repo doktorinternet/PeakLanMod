@@ -13,7 +13,6 @@ internal readonly struct LanDiscoveryAnnouncement
     internal LanDiscoveryAnnouncement(
         string type,
         int schemaVersion,
-        string protocolVersion,
         string gameVersion,
         string modVersion,
         string roomName,
@@ -30,7 +29,6 @@ internal readonly struct LanDiscoveryAnnouncement
     {
         Type = type;
         SchemaVersion = schemaVersion;
-        ProtocolVersion = protocolVersion;
         GameVersion = gameVersion;
         ModVersion = modVersion;
         RoomName = roomName;
@@ -48,7 +46,6 @@ internal readonly struct LanDiscoveryAnnouncement
 
     internal string Type { get; }
     internal int SchemaVersion { get; }
-    internal string ProtocolVersion { get; }
     internal string GameVersion { get; }
     internal string ModVersion { get; }
     internal string RoomName { get; }
@@ -89,8 +86,6 @@ internal static class LanDiscoveryMessageCodec
         AppendString(builder, "type", announcement.Type);
         builder.Append(',');
         AppendInt(builder, "schema_version", announcement.SchemaVersion);
-        builder.Append(',');
-        AppendString(builder, "protocol_version", announcement.ProtocolVersion);
         builder.Append(',');
         AppendString(builder, "game_version", announcement.GameVersion);
         builder.Append(',');
@@ -148,8 +143,7 @@ internal static class LanDiscoveryMessageCodec
             return false;
         }
 
-        if (!TryReadString(payload, "protocol_version", out string protocolVersion)
-            || !TryReadString(payload, "game_version", out string gameVersion)
+        if (!TryReadString(payload, "game_version", out string gameVersion)
             || !TryReadString(payload, "mod_version", out string modVersion)
             || !TryReadString(payload, "room_name", out string roomName)
             || !TryReadString(payload, "host_display_name", out string hostDisplayName)
@@ -212,7 +206,6 @@ internal static class LanDiscoveryMessageCodec
         announcement = new LanDiscoveryAnnouncement(
             type,
             schemaVersion,
-            protocolVersion,
             gameVersion,
             modVersion,
             roomName,

@@ -44,7 +44,6 @@ internal interface ILanPluginOptions
     ConfigEntry<int> LanDiscoveryUdpPort { get; }
     ConfigEntry<int> LanDiscoveryBroadcastIntervalMs { get; }
     ConfigEntry<int> LanDiscoveryEntryTtlMs { get; }
-    ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
     ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
     ConfigEntry<bool> UseSimulatedServerListEntries { get; }
     ConfigEntry<int> SimulatedServerListCount { get; }
@@ -305,7 +304,6 @@ internal sealed class PluginCompatibilityServices : IPluginCompatibilityServices
         public ConfigEntry<int> LanDiscoveryUdpPort => NotReady<int>();
         public ConfigEntry<int> LanDiscoveryBroadcastIntervalMs => NotReady<int>();
         public ConfigEntry<int> LanDiscoveryEntryTtlMs => NotReady<int>();
-        public ConfigEntry<string> LanDiscoveryProtocolVersion => NotReady<string>();
         public ConfigEntry<bool> LanDiscoveryRequireVersionMatch => NotReady<bool>();
         public ConfigEntry<bool> UseSimulatedServerListEntries => NotReady<bool>();
         public ConfigEntry<int> SimulatedServerListCount => NotReady<int>();

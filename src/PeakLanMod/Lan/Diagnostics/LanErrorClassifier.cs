@@ -105,12 +105,6 @@ internal static class LanErrorClassifier
             return true;
         }
 
-        if (string.Equals(reason, "IncompatibleProtocolVersion", StringComparison.Ordinal))
-        {
-            code = LanErrorCode.IncompatibleProtocolVersion;
-            return true;
-        }
-
         code = LanErrorCode.None;
         return false;
     }

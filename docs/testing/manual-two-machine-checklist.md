@@ -31,7 +31,6 @@
 - [ ] Client session occupancy increments/decrements within one broadcast interval after peer join/leave.
 - [ ] Join Selected is disabled when discovered session reports known full occupancy (`current >= max`).
 - [ ] Mixed-version discovery remains visible when occupancy fields are absent from announcements.
-- [ ] Incompatible protocol version is classified as `IncompatibleProtocolVersion`.
 - [ ] Incompatible game version is classified as `IncompatibleGameVersion` when `LanWorkflow.RequireVersionMatch = true`.
 - [ ] Incompatible mod version is classified as `IncompatibleModVersion` when `LanWorkflow.RequireVersionMatch = true`.
 
@@ -41,7 +40,7 @@
 - [ ] Local server auto-start failure is surfaced as `LuxonNotRunning`.
 - [ ] Join attempt to a missing room is surfaced as `RoomDoesNotExist`.
 - [ ] Timeout-style disconnect/join failure is surfaced as `Timeout`.
-- [ ] Discovery incompatibility block surfaces one of `IncompatibleProtocolVersion`, `IncompatibleGameVersion`, or `IncompatibleModVersion`.
+- [ ] Discovery incompatibility block surfaces one of `IncompatibleGameVersion` or `IncompatibleModVersion`.
 - [ ] Successful connect/join clears the prior structured error state.
 
 ## Host

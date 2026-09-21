@@ -62,7 +62,6 @@ internal sealed class SimulatedLanDiscoverySnapshotProvider
                 transport: "Udp",
                 scene: scene,
                 serverInstanceId: serverInstanceId,
-                protocolVersion: "simulated",
                 gameVersion: "simulated",
                 modVersion: Plugin.DisplayVersion,
                 schemaVersion: 1,

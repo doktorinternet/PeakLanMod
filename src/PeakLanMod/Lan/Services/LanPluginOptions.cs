@@ -228,12 +228,6 @@ internal sealed class LanPluginOptions : ILanPluginOptions
             5000,
             "Milliseconds before an unrefreshed discovered session is evicted.");
 
-        LanDiscoveryProtocolVersion = config.Bind(
-            "LanWorkflow",
-            "ProtocolVersion",
-            "1",
-            "Discovery protocol version string advertised and required for session compatibility.");
-
         LanDiscoveryRequireVersionMatch = config.Bind(
             "LanWorkflow",
             "RequireVersionMatch",
@@ -303,7 +297,6 @@ internal sealed class LanPluginOptions : ILanPluginOptions
     public ConfigEntry<int> LanDiscoveryUdpPort { get; }
     public ConfigEntry<int> LanDiscoveryBroadcastIntervalMs { get; }
     public ConfigEntry<int> LanDiscoveryEntryTtlMs { get; }
-    public ConfigEntry<string> LanDiscoveryProtocolVersion { get; }
     public ConfigEntry<bool> LanDiscoveryRequireVersionMatch { get; }
     public ConfigEntry<bool> UseSimulatedServerListEntries { get; }
     public ConfigEntry<int> SimulatedServerListCount { get; }
