@@ -73,7 +73,7 @@ For an augmented PEAK experience, I've included some other optional mods in this
 - No LAN sessions discovered while host is in-room:
   verify `DiscoveryEnabled = true` on both machines, ensure both use the same `DiscoveryUdpPort`, allow inbound/outbound UDP on that port in host/client firewalls.
 - Sessions appear but are marked incompatible:
-  compare host/client `ProtocolVersion` and, when `RequireVersionMatch = true`, verify PEAK game version and mod version match exactly.
+  when `RequireVersionMatch = true`, verify PEAK game version and mod version match exactly on host/client.
 - Structured error label shows `NameServerUnreachable`, `MasterServerRedirectFailed`, or `GameServerRedirectFailed`:
   set `EnableStructuredErrorMapping = true` to expose deterministic classification, then validate endpoint/protocol config and local server/firewall reachability from the same machine where the error is shown.
 - Structured error label shows `LuxonNotRunning`:

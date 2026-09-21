@@ -218,7 +218,6 @@ internal sealed class UdpLanDiscoveryListener : IDisposable
                     transport: announcement.Transport,
                     scene: announcement.Scene,
                     serverInstanceId: announcement.ServerInstanceId,
-                    protocolVersion: announcement.ProtocolVersion,
                     gameVersion: announcement.GameVersion,
                     modVersion: announcement.ModVersion,
                     schemaVersion: announcement.SchemaVersion,

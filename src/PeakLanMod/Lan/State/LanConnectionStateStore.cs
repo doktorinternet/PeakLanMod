@@ -42,7 +42,6 @@ internal sealed class LanConnectionStateStore
                     transport: session.Transport,
                     scene: session.Scene,
                     serverInstanceId: session.ServerInstanceId,
-                    protocolVersion: session.ProtocolVersion,
                     gameVersion: session.GameVersion,
                     modVersion: session.ModVersion,
                     schemaVersion: session.SchemaVersion,
@@ -70,7 +69,6 @@ internal sealed class LanConnectionStateStore
                 transport: session.Transport,
                 scene: session.Scene,
                 serverInstanceId: session.ServerInstanceId,
-                protocolVersion: session.ProtocolVersion,
                 gameVersion: session.GameVersion,
                 modVersion: session.ModVersion,
                 schemaVersion: session.SchemaVersion,
@@ -163,7 +161,6 @@ internal sealed class LanConnectionStateStore
             && current.NameServerPort == incoming.NameServerPort
             && string.Equals(current.Transport, incoming.Transport, StringComparison.Ordinal)
             && string.Equals(current.Scene, incoming.Scene, StringComparison.Ordinal)
-            && string.Equals(current.ProtocolVersion, incoming.ProtocolVersion, StringComparison.Ordinal)
             && string.Equals(current.GameVersion, incoming.GameVersion, StringComparison.Ordinal)
             && string.Equals(current.ModVersion, incoming.ModVersion, StringComparison.Ordinal)
             && current.SchemaVersion == incoming.SchemaVersion

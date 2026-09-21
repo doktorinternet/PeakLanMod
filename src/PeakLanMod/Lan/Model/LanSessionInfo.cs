@@ -15,7 +15,6 @@ internal sealed class LanSessionInfo
         string transport,
         string scene,
         string serverInstanceId,
-        string protocolVersion,
         string gameVersion,
         string modVersion,
         int schemaVersion,
@@ -39,7 +38,6 @@ internal sealed class LanSessionInfo
         Transport = transport;
         Scene = scene;
         ServerInstanceId = serverInstanceId;
-        ProtocolVersion = protocolVersion;
         GameVersion = gameVersion;
         ModVersion = modVersion;
         SchemaVersion = schemaVersion;
@@ -64,7 +62,6 @@ internal sealed class LanSessionInfo
     internal string Transport { get; }
     internal string Scene { get; }
     internal string ServerInstanceId { get; }
-    internal string ProtocolVersion { get; }
     internal string GameVersion { get; }
     internal string ModVersion { get; }
     internal int SchemaVersion { get; }

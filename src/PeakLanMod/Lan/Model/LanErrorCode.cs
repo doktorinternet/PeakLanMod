@@ -10,7 +10,6 @@ internal enum LanErrorCode
     RoomDoesNotExist,
     IncompatibleGameVersion,
     IncompatibleModVersion,
-    IncompatibleProtocolVersion,
     Timeout,
     IncorrectPassword,
     UnknownPhotonFailure

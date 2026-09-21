@@ -180,7 +180,6 @@ Milestone 5 adds optional UDP LAN discovery for local-server mode.
 - `LanWorkflow.DiscoveryUdpPort` sets the UDP port used for discovery broadcast/listen.
 - `LanWorkflow.DiscoveryBroadcastIntervalMs` sets host announcement cadence.
 - `LanWorkflow.DiscoveryEntryTtlMs` sets stale-session eviction window.
-- `LanWorkflow.ProtocolVersion` sets the advertised/required discovery protocol version.
 - `LanWorkflow.RequireVersionMatch` controls whether discovered sessions require exact game/mod version match.
 
 Current M5 scope:
@@ -188,7 +187,6 @@ Current M5 scope:
 - Host announcements start when host enters a room as master and stop on disconnect.
 - Client-side listener deduplicates by `server_instance_id + room_name` and evicts stale sessions by TTL.
 - Incompatible sessions are retained in the state store with explicit reasons:
-  - `IncompatibleProtocolVersion`
   - `IncompatibleGameVersion`
   - `IncompatibleModVersion`
 
@@ -242,7 +240,7 @@ Milestone 7 adds optional deterministic error classification for local-server co
   - local server auto-start failure (`LuxonNotRunning`),
   - NameServer readiness timeout (`NameServerUnreachable`),
   - join/create/disconnect Photon callbacks (`RoomDoesNotExist`, `Timeout`, redirect categories, `UnknownPhotonFailure`),
-  - join-selected blocks for discovered session incompatibility (`IncompatibleGameVersion`, `IncompatibleModVersion`, `IncompatibleProtocolVersion`).
+  - join-selected blocks for discovered session incompatibility (`IncompatibleGameVersion`, `IncompatibleModVersion`).
 
 Rollback path:
 

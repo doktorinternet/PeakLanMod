@@ -166,19 +166,6 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
     private LanSessionCompatibility EvaluateLanSessionCompatibility(
         LanDiscoveryAnnouncement announcement)
     {
-        string expectedProtocol =
-            _options.LanDiscoveryProtocolVersion.Value.Trim();
-
-        if (!string.Equals(
-                announcement.ProtocolVersion,
-                expectedProtocol,
-                StringComparison.Ordinal))
-        {
-            return new LanSessionCompatibility(
-                isCompatible: false,
-                reason: "IncompatibleProtocolVersion");
-        }
-
         if (!_options.LanDiscoveryRequireVersionMatch.Value)
         {
             return LanSessionCompatibility.Compatible;
@@ -193,7 +180,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         {
             return new LanSessionCompatibility(
                 isCompatible: false,
-                reason: "Incompatible Game Version");
+                reason: "IncompatibleGameVersion");
         }
 
         if (!string.Equals(
@@ -203,7 +190,7 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         {
             return new LanSessionCompatibility(
                 isCompatible: false,
-                reason: "Incompatible Mod Version");
+                reason: "IncompatibleModVersion");
         }
 
         return LanSessionCompatibility.Compatible;
@@ -229,7 +216,6 @@ internal sealed class LanDiscoveryRuntimeCoordinator : ILanDiscoveryRuntimeCoord
         return new LanDiscoveryAnnouncement(
             type: LanDiscoveryMessageCodec.AnnouncementType,
             schemaVersion: LanDiscoveryMessageCodec.SchemaVersionV1,
-            protocolVersion: _options.LanDiscoveryProtocolVersion.Value.Trim(),
             gameVersion: Application.version ?? string.Empty,
             modVersion: _modDisplayVersion,
             roomName: roomName,

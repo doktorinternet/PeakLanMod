@@ -22,7 +22,6 @@ internal sealed class LanStatusPresenterBridge
             (nameof(session.NameServerPort), session.NameServerPort),
             (nameof(session.Transport), session.Transport),
             (nameof(session.Scene), session.Scene),
-            (nameof(session.ProtocolVersion), session.ProtocolVersion),
             (nameof(session.GameVersion), session.GameVersion),
             (nameof(session.ModVersion), session.ModVersion),
             (nameof(session.SchemaVersion), session.SchemaVersion),

@@ -1650,10 +1650,22 @@ internal sealed class LanOverlayController : ILanOverlayController
     {
         string compatibility = session.IsCompatible
             ? "Compatible"
-            : session.IncompatibilityReason;
+            : DescribeIncompatibilityReason(session.IncompatibilityReason);
         // remove ip and port from server list for now to obfuscate a little bit more
         //  $"{session.NameServerAddress}:{session.NameServerPort} | 
         return $"{compatibility} | Scene: {session.Scene}";
+    }
+
+    // Reason codes are machine-readable (matched by LanErrorClassifier); this maps them to display text.
+    private static string DescribeIncompatibilityReason(string reason)
+    {
+        return reason switch
+        {
+            "IncompatibleGameVersion" => "Incompatible game version",
+            "IncompatibleModVersion" => "Incompatible mod version",
+            "PreviewOnlyNotJoinable" => "Preview only - not joinable",
+            _ => reason
+        };
     }
 
     private static string BuildSessionPlayerCountLine(LanSessionInfo session)
@@ -1887,7 +1899,7 @@ internal sealed class LanOverlayController : ILanOverlayController
 
         if (!selectedSession.IsCompatible)
         {
-            reason = $"Selected session is incompatible: {selectedSession.IncompatibilityReason}";
+            reason = $"Selected session is incompatible: {DescribeIncompatibilityReason(selectedSession.IncompatibilityReason)}";
             return false;
         }
 
