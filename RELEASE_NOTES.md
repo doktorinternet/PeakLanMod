@@ -4,6 +4,13 @@ Summary of what changed in each released version of the PEAK LAN mod.
 
 For detailed, technical, per-change history (file/class-level notes for developers), see `CHANGELOG.md`. That file is not bundled with releases; this document is.
 
+## 1.2.0 - 2026-09-21
+
+- When a host leaves a room, the local LAN server now stays running by default so other players can keep playing; a config option is still available to restore the old auto-stop behavior.
+- Simplified how incompatible sessions are detected in the server list; game and mod version mismatches are still flagged.
+- Expanded the list of optional companion mods bundled with the release, with short descriptions of what each one does, and renamed their folder for clarity.
+- Clarified several in-mod configuration descriptions to make setup easier to follow.
+
 ## 1.1.0 - 2026-09-18
 
 - The in-game LOG panel now shows clear, plain-language events (hosting started, joined a room, left the game, failed to host/join with a reason, disconnected) instead of raw technical connection state changes.
