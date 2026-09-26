@@ -13,8 +13,8 @@ internal sealed class LanPluginOptions : ILanPluginOptions
         RoomName = config.Bind(
             "Direct Connect",
             "RoomName",
-            "badhorse-lan-mod-room_<8_character_long_random_id>",
-            "Host room name. Change this to a unique value, such as your personality.");
+            "badhorse-lan-mod-room_" + System.Guid.NewGuid().ToString("N")[..8],
+            "Host room name. Change this to a unique value, such as your personality. The 'default' will be different every time cuz I'm bad..");
 
         HostKey = config.Bind(
             "Direct Connect",
@@ -206,7 +206,7 @@ internal sealed class LanPluginOptions : ILanPluginOptions
         LanDiscoveryEnabled = config.Bind(
             "LanWorkflow",
             "DiscoveryEnabled",
-            false,
+            true,
             "Enable UDP LAN session discovery listener and host announcement broadcast in LanServer mode.");
 
         LanDiscoveryUdpPort = config.Bind(
